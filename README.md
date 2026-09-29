@@ -2,7 +2,7 @@
 
 Self-hosted, lead-and-sales CRM for OrlaDent Camp course sales. Next.js + PostgreSQL, runs with one `docker compose up`.
 
-Status: **Phase 4 (pipeline), Gate B**. See the phase plan in the project brief.
+Status: **Phase 7 (dashboard), Gate C**. See the phase plan in the project brief.
 
 ## Run it (about 5 minutes)
 
@@ -53,6 +53,12 @@ Leads > Import CSV: pick a file (ClickUp export, scraped list, or a previous exp
 
 ## Pipeline
 Drag cards between columns, or use the "Move to…" menu on a card (needed on phones). Moving to Lost asks for a reason; moving to Enrolled asks for cohort, tier and amount. The seed creates a placeholder "Demo cohort" (30 seats) so this works on day one.
+
+## Demo data
+With `SEED_DEMO=true` (the default in `.env.example`) the first start adds 20 demo leads with consults, enrolments, two cohorts and a few follow-ups, so every screen has something to show. It only ever runs into an **empty** database, never on top of real leads. Set `SEED_DEMO=false` for the real deployment. The dates are shifted so the data always ends around today.
+
+## Dashboard
+Filters (date range, source, campaign, segment, owner, cohort) choose a set of leads; every figure is computed over those leads and their own history. Definitions are in `DECISIONS.md` (Phase 7). The numbers are covered by tests that assert exact, hand-worked answers from the demo dataset in `src/db/demo-data.ts`.
 
 ## Still to come
 Backup and restore, VPS deployment notes and the user guide are written in Phase 8.

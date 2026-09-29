@@ -34,6 +34,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/cohorts" className="hover:text-gold">
               Cohorts
             </Link>
+            <Link href="/dashboard" className="hover:text-gold">
+              Dashboard
+            </Link>
           </nav>
           <div className="ml-auto flex items-center gap-3">
             {can(user.role, "lead:write") && <QuickAdd sources={src} />}

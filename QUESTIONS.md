@@ -20,3 +20,6 @@ Each has a safe default already applied. Answer any and it will be changed.
 16. **Who may export the lead list?** Any signed-in user who can read leads (including viewer and finance) can currently download the lead CSV (names, phones, emails). Revenue exports are owner/finance only. Should the lead export be restricted to owners?
 17. **Who may see revenue?** Currently everyone signed in. Restrict to owner and finance?
 18. **Consults move the stage automatically** (booked, held), forward only. Fine, or should the stage only change by hand?
+19. **"Within 5 minutes" denominator.** It counts all leads in the selection, so uncontacted leads pull the percentage down (8 of 20 = 40% on the demo data). The alternative is contacted leads only (8 of 18 = 44%). Which do you want on the dashboard?
+20. **Cohort filter meaning.** Choosing a cohort shows the journey of the leads that enrolled in it (so the funnel ends at 100%). Is that what you want, or should it filter by something else (for example leads created during that cohort's sales window)?
+21. **Show-up rate** ignores consults that are still to happen or awaiting a result. OK?
