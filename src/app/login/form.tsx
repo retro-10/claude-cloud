@@ -42,9 +42,9 @@ export function LoginForm() {
           className="rounded border border-line bg-surface px-3 py-2"
         />
       </label>
-      {state.error && (
+      {state?.error && (
         <p role="alert" className="text-sm text-red-500">
-          {state.error}
+          {state?.error}
         </p>
       )}
       <Submit />

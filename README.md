@@ -2,7 +2,7 @@
 
 Self-hosted, lead-and-sales CRM for OrlaDent Camp course sales. Next.js + PostgreSQL, runs with one `docker compose up`.
 
-Status: **Phase 1 (auth and data model)**. See the phase plan in the project brief.
+Status: **Phase 2 (leads)**. See the phase plan in the project brief.
 
 ## Run it (about 5 minutes)
 

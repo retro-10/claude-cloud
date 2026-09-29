@@ -25,3 +25,12 @@ Inter and Playfair Display load from Google Fonts in the browser. The app runs w
 
 ## Seed users
 The seed creates Retro (owner), Badr (owner) and Murail (viewer) with emails `@orladent.local` and one shared password from `SEED_PASSWORD`. Badr has "final say", so he is an owner. Replace emails and passwords before real use (see `QUESTIONS.md`).
+
+## Phase 2 (leads)
+- **Duplicate handling blocks, it does not merge.** Quick add and edit refuse a phone or email that another lead already has and link to the existing lead (including soft-deleted ones, which must be restored, not re-created). Phones are normalised to E.164 first, so `010…`, `+20 10…` and Arabic-Indic digits all match. Numbers without a country code are assumed Egyptian.
+- **Logging activity does not move the stage.** The first outbound message stamps `first_contact_at` and the first inbound stamps `first_reply_at`, but the stage only changes when someone moves it. Auto-advancing `new` to `contacted` is easy to add if wanted (see QUESTIONS.md).
+- **Only contact-type activities count** for those timestamps: whatsapp, call, instagram, linkedin, email. Internal notes and consult records do not.
+- **"Won" needs an enrolment.** Until Phase 4, the stage selector refuses `enrolled`; `lost` requires a lost reason, enforced in the service layer (`changeStage`), not only the UI.
+- **Speed badge is rendered at page load**, not a live ticking timer. Amber from 5 minutes, red from 30.
+- **Audit log stores field names and ids, never lead values**, to keep personal data out of it.
+- `next build` runs without `DATABASE_URL` (the DB client connects lazily); at runtime a missing URL is fatal.
