@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same branch replaces a run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20" # the version the Docker image uses
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  checks:
+    name: Types, lint, audit, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # integration tests empty and rebuild this scratch database
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/crm_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Known vulnerabilities in production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Create the scratch test database
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -c "create database crm_test"
+      - name: Unit and integration tests
+        run: npm test
+      - name: Production build (needs no database)
+        run: npm run build
+
+  e2e:
+    name: End-to-end and accessibility (real browser)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # e2e/prepare-db.ts drops and recreates this database on every run
+      E2E_DATABASE_URL: postgres://postgres:postgres@localhost:5432/crm_e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+      - name: Build
+        run: npm run build
+      - name: Run the browser tests
+        run: npm run test:e2e
+      - name: Keep traces and screenshots of failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: test-results/
+          retention-days: 7
+
+  docker:
+    name: Docker stack, backup and restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure from the example file
+        run: |
+          cp .env.example .env
+          echo "AUTH_SECRET=$(openssl rand -base64 48)" >> .env
+      - name: Both compose files are valid
+        run: |
+          docker compose config -q
+          DOMAIN=crm.example.com docker compose -f docker-compose.prod.yml config -q
+      - name: Build and start (database, migrations, seed, app)
+        run: docker compose up -d --build
+      - name: Wait until the app reports healthy
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/api/health; then echo; exit 0; fi
+            sleep 3
+          done
+          echo "app did not become healthy" >&2
+          docker compose logs --tail=200
+          exit 1
+      - name: The login page is served and demo data was seeded
+        run: |
+          curl -fsS http://localhost:3000/login | grep -q "OrlaDent Camp CRM"
+          docker compose logs app | grep -q "demo data added"
+          curl -sI http://localhost:3000/login | grep -i "content-security-policy"
+      - name: The container runs as an unprivileged user
+        run: test "$(docker compose exec -T app id -u)" != "0"
+      - name: A restart is safe (migrations and seed are idempotent)
+        run: |
+          docker compose restart app
+          for i in $(seq 1 40); do curl -fsS http://localhost:3000/api/health >/dev/null && exit 0; sleep 3; done
+          docker compose logs --tail=100 app
+          exit 1
+      - name: Backup, restore drill, and a full restore
+        run: |
+          scripts/backup.sh
+          f="$(ls -1t backups/crm-*.dump | head -1)"
+          scripts/verify-restore.sh "$f"
+          scripts/restore.sh "$f" --yes
+          for i in $(seq 1 40); do curl -fsS http://localhost:3000/api/health >/dev/null && exit 0; sleep 3; done
+          docker compose logs --tail=100 app
+          exit 1
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail=300
+      - name: Stop
+        if: always()
+        run: docker compose down -v
