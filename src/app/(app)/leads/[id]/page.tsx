@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { activities, consults, followUps, leads, lostReasons, sources, stageEvents, stages, users } from "@/db/schema";
+import { activities, cadenceTemplates, consults, followUps, leads, lostReasons, sources, stageEvents, stages, users } from "@/db/schema";
 import { LeadForm } from "@/components/LeadForm";
 import { SpeedBadge } from "@/components/SpeedBadge";
 import { whatsappUrl } from "@/lib/phone";
@@ -10,6 +10,13 @@ import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 import { addActivity, changeStageAction, deleteLeadAction, restoreLeadAction } from "../actions";
+import {
+  addFollowUpAction,
+  applyCadenceAction,
+  cancelFollowUpAction,
+  completeFollowUpAction,
+  rescheduleFollowUpAction,
+} from "../../followups/actions";
 
 const box = "rounded border border-line bg-bg px-2 py-1.5 text-sm";
 
@@ -26,7 +33,7 @@ export default async function LeadPage({
   const [lead] = await db.select().from(leads).where(eq(leads.id, id));
   if (!lead) notFound();
 
-  const [stageList, sourceList, ownerList, reasons, acts, events, cons, fus] = await Promise.all([
+  const [stageList, sourceList, ownerList, reasons, acts, events, cons, fus, tpls] = await Promise.all([
     db.select().from(stages).orderBy(asc(stages.position)),
     db.select().from(sources).orderBy(asc(sources.id)),
     db.select({ id: users.id, name: users.name }).from(users).where(eq(users.active, true)),
@@ -35,7 +42,9 @@ export default async function LeadPage({
     db.select({ e: stageEvents, by: users.name }).from(stageEvents).leftJoin(users, eq(users.id, stageEvents.byUserId)).where(eq(stageEvents.leadId, id)),
     db.select().from(consults).where(eq(consults.leadId, id)),
     db.select().from(followUps).where(eq(followUps.leadId, id)).orderBy(desc(followUps.dueAt)),
+    db.select().from(cadenceTemplates).orderBy(asc(cadenceTemplates.id)),
   ]);
+  const openFus = fus.filter((f) => !f.doneAt && !f.cancelledAt).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime());
 
   const stageLabel = (k: string | null) => stageList.find((s) => s.key === k)?.label ?? k ?? "";
   type Item = { at: Date; kind: string; text: string; body?: string | null; by?: string | null };
@@ -155,6 +164,78 @@ export default async function LeadPage({
       </section>
 
       <section>
+        <h2 className="mb-2 font-display text-lg">Follow-ups</h2>
+        <div className="mb-5 rounded border border-line bg-surface p-3">
+          {openFus.length === 0 && <p className="mb-2 text-sm text-muted">No open follow-ups.</p>}
+          <ul className="mb-3 flex flex-col gap-2">
+            {openFus.map((f) => (
+              <li key={f.id} className="flex flex-wrap items-center gap-2 text-sm">
+                <div className="min-w-0 flex-1">
+                  <span className={f.dueAt < new Date(Date.now() - 86_400_000) ? "text-red-400" : ""}>{formatCairo(f.dueAt, false)}</span>{" "}
+                  <span className="text-xs text-muted">
+                    {f.kind}
+                    {f.templateId ? " · cadence" : ""}
+                  </span>
+                  {f.note && (
+                    <div dir="auto" className="text-xs text-muted">
+                      {f.note}
+                    </div>
+                  )}
+                </div>
+                {canWrite && (
+                  <>
+                    <form action={completeFollowUpAction}>
+                      <input type="hidden" name="id" value={f.id} />
+                      <input type="hidden" name="leadId" value={lead.id} />
+                      <button className="rounded border border-line px-2 py-1 text-xs hover:border-gold">Done</button>
+                    </form>
+                    <form action={rescheduleFollowUpAction} className="flex items-center gap-1">
+                      <input type="hidden" name="id" value={f.id} />
+                      <input type="hidden" name="leadId" value={lead.id} />
+                      <input type="date" name="date" required aria-label="Reschedule to" className="rounded border border-line bg-bg px-1 py-0.5 text-xs" />
+                      <button className="rounded border border-line px-2 py-1 text-xs hover:border-gold">Move</button>
+                    </form>
+                    <form action={cancelFollowUpAction}>
+                      <input type="hidden" name="id" value={f.id} />
+                      <input type="hidden" name="leadId" value={lead.id} />
+                      <button className="px-1 text-xs text-muted hover:text-red-400" aria-label="Cancel follow-up">
+                        ×
+                      </button>
+                    </form>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+          {canWrite && (
+            <div className="flex flex-col gap-3 border-t border-line pt-3">
+              <form action={addFollowUpAction} className="flex flex-wrap items-end gap-2">
+                <input type="hidden" name="id" value={lead.id} />
+                <input type="date" name="date" required aria-label="Due date" className={box} />
+                <select name="kind" defaultValue="whatsapp" className={box} aria-label="Kind">
+                  {["whatsapp", "call", "instagram", "linkedin", "email", "other"].map((k) => (
+                    <option key={k}>{k}</option>
+                  ))}
+                </select>
+                <input name="note" placeholder="Note" dir="auto" className={`${box} min-w-0 flex-1`} />
+                <button className="rounded bg-gold px-3 py-1.5 text-sm font-medium text-ink">Add</button>
+              </form>
+              <form action={applyCadenceAction} className="flex flex-wrap items-center gap-2 text-sm">
+                <input type="hidden" name="leadId" value={lead.id} />
+                <select name="templateId" className={box} aria-label="Cadence">
+                  {tpls.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <button className="rounded border border-line px-3 py-1.5 text-sm hover:border-gold">Start cadence</button>
+                <span className="text-xs text-muted">Stops when they reply or the lead is won or lost.</span>
+              </form>
+            </div>
+          )}
+        </div>
+
         <h2 className="mb-2 font-display text-lg">Timeline</h2>
         {canWrite && (
           <form action={addActivity} className="mb-4 flex flex-col gap-2 rounded border border-line bg-surface p-3">

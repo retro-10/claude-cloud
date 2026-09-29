@@ -15,3 +15,5 @@ Each has a safe default already applied. Answer any and it will be changed.
 11. **Date format in imports.** `05/09/2026` is read as 5 September (day first). Is your ClickUp export month-first? (Default: day-first; ISO dates and ClickUp epoch timestamps are unambiguous.)
 12. **Over-cap override** is owner-only (Retro, Badr). OK, or should sales be allowed too?
 13. **Demo cohort.** The seed adds a placeholder "Demo cohort" (30 seats). Replace it with the real next intake (dates, seat cap) in Phase 6.
+14. **Reply stops the post-consult cadence too.** The brief's stop rule cancels any open cadence follow-ups on an inbound reply, which includes the post-consult sequence (a reply to your voice-note recap would cancel the day-2/5/7 messages). Done as written. Should the post-consult cadence be exempt?
+15. **Follow-up time of day.** Cadence and date-only follow-ups are due 09:00 Cairo. Change?

@@ -36,3 +36,32 @@ function cairoOffsetMs(at: Date): number {
   const p = Object.fromEntries(parts.map((x) => [x.type, +x.value]));
   return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - at.getTime();
 }
+
+// ---- Cairo calendar-day helpers ("today", "overdue" and cadence dates are Cairo days) ----
+
+/** "2026-09-29" for the Cairo calendar date of an instant. */
+export function cairoYmd(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+}
+
+/** Add whole days to a YYYY-MM-DD string (pure calendar arithmetic, no time zone involved). */
+export function addDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/** Instant at which the Cairo day containing `d` began. */
+export function startOfCairoDay(d: Date = new Date()): Date {
+  return cairoLocalToDate(`${cairoYmd(d)}T00:00`)!;
+}
+
+/** Instant at which the next Cairo day begins. */
+export function startOfNextCairoDay(d: Date = new Date()): Date {
+  return cairoLocalToDate(`${addDaysYmd(cairoYmd(d), 1)}T00:00`)!;
+}
+
+/** Default time of day (Cairo) for follow-ups created from a date alone. */
+export const FOLLOW_UP_HOUR = "09:00";
+export function followUpDue(ymd: string): Date | null {
+  return cairoLocalToDate(`${ymd}T${FOLLOW_UP_HOUR}`);
+}

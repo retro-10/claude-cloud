@@ -2,6 +2,7 @@ import { and, eq, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { activities, leads, lostReasons, stageEvents, stages } from "@/db/schema";
 import { audit } from "./audit";
+import { cancelCadenceFollowUps } from "./followups";
 import { normalizePhone } from "./phone";
 
 type Lead = typeof leads.$inferSelect;
@@ -122,6 +123,8 @@ export async function logActivity(db: Db, input: ActivityInput, userId: number |
           .update(leads)
           .set({ firstReplyAt: at, updatedAt: new Date() })
           .where(and(eq(leads.id, input.leadId), isNull(leads.firstReplyAt)));
+        // stop rule: they answered, so the scripted follow-ups no longer apply
+        await cancelCadenceFollowUps(tx, input.leadId);
       }
     }
     return act;
@@ -172,6 +175,7 @@ export async function moveStageTx(
     })
     .where(eq(leads.id, leadId));
   await tx.insert(stageEvents).values({ leadId, fromStage: lead.stage, toStage, at: now, byUserId: userId });
+  if (target.kind === "won" || target.kind === "lost") await cancelCadenceFollowUps(tx, leadId); // stop rule
   await audit(tx, { userId, entity: "lead", entityId: leadId, action: "stage", diff: { from: lead.stage, to: toStage } });
   return { ok: true };
 }

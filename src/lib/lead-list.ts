@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, ilike, isNotNull, isNull, lt, or, sql, type SQL } from "drizzle-orm";
 import type { Db } from "@/db";
 import { leads, sources, stages, users } from "@/db/schema";
-import { cairoLocalToDate } from "./time";
+import { cairoLocalToDate, startOfCairoDay } from "./time";
 
 export const PAGE_SIZE = 50;
 
@@ -69,7 +69,7 @@ export function buildWhere(f: LeadFilters, now = new Date()): SQL | undefined {
 
   if (f.overdue === "1") {
     c.push(sql`exists (select 1 from follow_ups fu where fu.lead_id = ${leads.id}
-      and fu.done_at is null and fu.cancelled_at is null and fu.due_at < ${now.toISOString()}::timestamptz)`);
+      and fu.done_at is null and fu.cancelled_at is null and fu.due_at < ${startOfCairoDay(now).toISOString()}::timestamptz)`);
   }
   return and(...c);
 }

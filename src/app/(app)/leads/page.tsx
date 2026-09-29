@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { asc, eq, or } from "drizzle-orm";
 import { db } from "@/db";
-import { savedViews, sources, stages, users } from "@/db/schema";
+import { cadenceTemplates, lostReasons, savedViews, sources, stages, users } from "@/db/schema";
 import { SpeedBadge } from "@/components/SpeedBadge";
 import { VIEW_KEYS, listLeads, type LeadFilters } from "@/lib/lead-list";
 import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
+import { SelectAll } from "@/components/SelectAll";
 import { deleteViewAction, saveViewAction } from "./actions";
+import { bulkAction } from "../followups/actions";
 
 const SEGMENTS = ["fresh_graduate", "technician", "dentist", "other"];
 const TIERS = ["foundation", "freelance_ready", "production_partner", "unsure"];
@@ -15,20 +17,22 @@ const pretty = (s: string | null) => (s ? s.replace(/_/g, " ") : "");
 
 const field = "rounded border border-line bg-surface px-2 py-1.5 text-sm";
 
-export default async function LeadsPage({ searchParams }: { searchParams: Record<string, string | undefined> }) {
+export default async function LeadsPage({ searchParams }: { searchParams: Record<string, string | undefined> & { notice?: string } }) {
   const user = await requireUser();
   const f = searchParams as LeadFilters;
-  const [{ rows, total, page, pages }, stageList, sourceList, userList, views] = await Promise.all([
+  const [{ rows, total, page, pages }, stageList, sourceList, userList, views, reasons, tpls] = await Promise.all([
     listLeads(db, f),
     db.select().from(stages).orderBy(asc(stages.position)),
     db.select().from(sources).orderBy(asc(sources.id)),
     db.select({ id: users.id, name: users.name }).from(users).where(eq(users.active, true)),
     db.select().from(savedViews).where(or(eq(savedViews.userId, user.id), eq(savedViews.shared, true))).orderBy(asc(savedViews.name)),
+    db.select().from(lostReasons).orderBy(asc(lostReasons.id)),
+    db.select().from(cadenceTemplates).orderBy(asc(cadenceTemplates.id)),
   ]);
 
   const qs = (over: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    for (const [k, v] of Object.entries({ ...searchParams, ...over })) if (v) p.set(k, v);
+    for (const [k, v] of Object.entries({ ...searchParams, ...over })) if (v && k !== "notice") p.set(k, v);
     return `?${p.toString()}`;
   };
   const viewQuery = new URLSearchParams(
@@ -150,10 +154,74 @@ export default async function LeadsPage({ searchParams }: { searchParams: Record
         </form>
       )}
 
+      {searchParams.notice && (
+        <p role="status" className="mb-3 rounded border border-line bg-surface px-3 py-2 text-sm">
+          {searchParams.notice}
+        </p>
+      )}
+
+      <form action={bulkAction}>
+      {canWrite && f.deleted !== "1" && (
+        <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2 rounded border border-line bg-surface p-2 text-xs">
+          <span className="text-muted">With selected:</span>
+          <span className="flex items-center gap-1">
+            <select name="stage" className={field} aria-label="Stage">
+              <option value="">Stage…</option>
+              {stageList.filter((s) => s.kind !== "won").map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <select name="lostReasonId" className={field} aria-label="Lost reason (if Lost)">
+              <option value="">Lost reason…</option>
+              {reasons.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+            <button name="op" value="stage" className="rounded border border-line px-2 py-1.5 hover:border-gold">
+              Move
+            </button>
+          </span>
+          <span className="flex items-center gap-1">
+            <select name="ownerId" className={field} aria-label="Owner">
+              <option value="">Unassigned</option>
+              {userList.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+            <button name="op" value="owner" className="rounded border border-line px-2 py-1.5 hover:border-gold">
+              Assign
+            </button>
+          </span>
+          <span className="flex items-center gap-1">
+            <select name="templateId" className={field} aria-label="Cadence">
+              <option value="">Cadence…</option>
+              {tpls.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <button name="op" value="cadence" className="rounded border border-line px-2 py-1.5 hover:border-gold">
+              Start cadence
+            </button>
+          </span>
+        </div>
+      )}
       <div className="overflow-x-auto rounded border border-line">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-surface text-xs uppercase text-muted">
             <tr>
+              {canWrite && (
+                <th className="w-8 px-3 py-2">
+                  <SelectAll />
+                </th>
+              )}
               <th className="px-3 py-2">
                 <Link href={sortHref("name")}>Name</Link>
               </th>
@@ -172,6 +240,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Record
           <tbody>
             {rows.map((l) => (
               <tr key={l.id} className="border-t border-line hover:bg-surface/60">
+                {canWrite && (
+                  <td className="px-3 py-2">
+                    <input type="checkbox" name="ids" value={l.id} aria-label={`Select ${l.fullName}`} />
+                  </td>
+                )}
                 <td className="px-3 py-2">
                   <Link href={`/leads/${l.id}`} className="font-medium hover:text-gold" dir="auto">
                     {l.fullName}
@@ -190,7 +263,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Record
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-muted">
+                <td colSpan={8} className="px-3 py-8 text-center text-muted">
                   No leads match.
                 </td>
               </tr>
@@ -198,6 +271,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Record
           </tbody>
         </table>
       </div>
+      </form>
 
       {pages > 1 && (
         <div className="mt-3 flex items-center justify-center gap-4 text-sm">

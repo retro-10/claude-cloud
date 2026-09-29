@@ -15,7 +15,11 @@ describe("session token", () => {
 
   it("rejects a tampered token", async () => {
     const token = await signSession(user);
-    expect(await verifySession(token.slice(0, -2) + "xx")).toBeNull();
+    // flip a character in the middle of the signature (the last chars of a base64url string can carry
+    // unused bits, so changing only those would not change the decoded signature)
+    const i = token.length - 12;
+    const flipped = token.slice(0, i) + (token[i] === "A" ? "B" : "A") + token.slice(i + 1);
+    expect(await verifySession(flipped)).toBeNull();
   });
 
   it("rejects a token signed with another secret", async () => {

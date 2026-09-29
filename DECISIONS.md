@@ -53,3 +53,13 @@ Murail was removed. `REMOVED_USERS` in `seed-data.ts` lists accounts the seed mu
 - **An enrolled lead cannot be moved back.** Otherwise revenue rows would point at a lead that is no longer enrolled. There is no "cancel enrolment" yet (see QUESTIONS.md).
 - **Board shows up to 100 cards per column** (newest activity first); the column badge always shows the true total. "Days in stage" comes from the latest `stage_events` row into that stage.
 - **Touch devices:** HTML5 drag and drop does not work on phones, so every card also has a "Move to…" menu that goes through the same prompts.
+
+## Phase 5 (Today, follow-ups, cadences)
+- **"Today" and "overdue" are Cairo calendar days, not rolling 24 hours.** Overdue = due before 00:00 Cairo today; due today = between 00:00 and 24:00 Cairo. A follow-up due at 09:00 that is still open at 15:00 is "due today", not overdue. The lead-list "overdue" filter and the pipeline's overdue marker use the same rule.
+- **Follow-ups created from a date get 09:00 Cairo.** A cadence's day 0 is the Cairo date it is applied; each step is day 0 + `offset_days` at 09:00 Cairo. Dates are calendar arithmetic, so a cadence that crosses Cairo's daylight-saving change or a month end does not shift a day (tested across 30 Oct 2026).
+- **Stop rule lives in the service layer** (`logActivity` for inbound contact-type activity, `moveStageTx` for won/lost), so no screen can bypass it. It cancels only follow-ups that came from a template; manual ones and already-done ones are untouched. Cancelled rows are kept (`cancelled_at`). `nurture` does not stop a cadence.
+- **A cadence cannot be started twice** while its follow-ups are still open on the same lead, nor on won or lost leads. A different cadence can run alongside.
+- **`message_hint` is stored in the follow-up's `note`** and only displayed. Nothing is sent.
+- **Today shows everyone's work by default** with a "Show only mine" toggle. "Uncontacted" = no `first_contact_at` and the stage is an open one, oldest first.
+- **"Sent" on Today** logs an outbound WhatsApp activity (which sets first contact and feeds speed-to-lead); it is a record of something the user did by hand, not a send.
+- **Bulk actions** (stage, owner, cadence; max 500) run per lead: one failure never blocks the rest, and the result says how many were done and why others were skipped. Bulk cannot mark leads Enrolled.

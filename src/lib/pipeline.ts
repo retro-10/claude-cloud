@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "@/db";
+import { startOfCairoDay } from "./time";
 
 export const BOARD_CARD_LIMIT = 100; // per column; the count badge always shows the true total
 
@@ -54,7 +55,8 @@ export async function getBoard(db: Db, now = new Date()): Promise<Board> {
         stage: r.stage,
         daysInStage: Math.max(0, Math.floor((at.getTime() - since.getTime()) / 86_400_000)),
         nextFollowUp: next,
-        overdue: next !== null && next.getTime() < at.getTime(),
+        // overdue = due before today (Cairo); a follow-up due earlier today is still "today"
+        overdue: next !== null && next.getTime() < startOfCairoDay(at).getTime(),
       };
     }),
     totals: Object.fromEntries(totalRows.map((t) => [t.stage, t.n])),

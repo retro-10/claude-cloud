@@ -126,7 +126,7 @@ d("pipeline and enrolment", () => {
     await changeStage(db, lead.id, "offer_sent", userId);
     // pretend it entered offer_sent 5 days ago
     await client`update stage_events set at = now() - interval '5 days' where lead_id = ${lead.id} and to_stage = 'offer_sent'`;
-    await db.insert(s.followUps).values({ leadId: lead.id, dueAt: new Date(Date.now() - 3600_000), createdBy: userId });
+    await db.insert(s.followUps).values({ leadId: lead.id, dueAt: new Date(Date.now() - 2 * 86_400_000), createdBy: userId });
     await db.insert(s.followUps).values({ leadId: lead.id, dueAt: new Date(Date.now() + 86_400_000), createdBy: userId });
 
     const board = await getBoard(db);
