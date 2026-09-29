@@ -150,7 +150,7 @@ export async function changePasswordAction(form: FormData) {
   const r = await changeOwnPassword(db, me.id, p.data!.current, p.data!.next);
   // the session cookie carries the old password fingerprint, so sign in again with the new one
   if (r.ok) {
-    cookies().delete(SESSION_COOKIE);
+    (await cookies()).delete(SESSION_COOKIE);
     redirect("/login");
   }
   done("/account", r);

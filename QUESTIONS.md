@@ -23,3 +23,7 @@ Each has a safe default already applied. Answer any and it will be changed.
 19. **"Within 5 minutes" denominator.** It counts all leads in the selection, so uncontacted leads pull the percentage down (8 of 20 = 40% on the demo data). The alternative is contacted leads only (8 of 18 = 44%). Which do you want on the dashboard?
 20. **Cohort filter meaning.** Choosing a cohort shows the journey of the leads that enrolled in it (so the funnel ends at 100%). Is that what you want, or should it filter by something else (for example leads created during that cohort's sales window)?
 21. **Show-up rate** ignores consults that are still to happen or awaiting a result. OK?
+22. **Self-host the fonts?** Inter and Playfair Display currently load from Google Fonts (non-blocking, with fallbacks). Self-hosting removes the only third-party request and works offline; it needs the font files added to the repo. Do you want that?
+23. **Session length.** Sessions last 7 days and end sooner if the password changes or the user is deactivated. Shorter (for example 12 hours)?
+24. **Two-factor sign-in** is not built. With customers' personal data on the public internet, do you want it added?
+25. **Data retention.** Nothing is ever purged. Do you need a rule (for example anonymise leads inactive for N months) for privacy?

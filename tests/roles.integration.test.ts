@@ -221,13 +221,13 @@ d("role rules on the server", () => {
 
     await signInAs(null);
     expect((await leadExport(req())).status).toBe(401);
-    expect((await cohortExport(req(), { params: { id: String(cohortId) } })).status).toBe(401);
+    expect((await cohortExport(req(), { params: Promise.resolve({ id: String(cohortId) }) })).status).toBe(401);
 
     const expected: Record<string, number> = { owner: 200, finance: 200, sales: 403, viewer: 403 };
     for (const role of ROLES) {
       await signInAs(email(role));
       expect((await leadExport(req())).status, `lead export as ${role}`).toBe(200);
-      const res = await cohortExport(req(), { params: { id: String(cohortId) } });
+      const res = await cohortExport(req(), { params: Promise.resolve({ id: String(cohortId) }) });
       expect(res.status, `cohort export as ${role}`).toBe(expected[role]);
       if (res.status === 200) {
         expect(res.headers.get("content-type")).toContain("text/csv");
@@ -235,7 +235,7 @@ d("role rules on the server", () => {
       }
     }
     await signInAs(email("owner"));
-    expect((await cohortExport(req(), { params: { id: "99999" } })).status).toBe(404);
+    expect((await cohortExport(req(), { params: Promise.resolve({ id: "99999" }) })).status).toBe(404);
     expect((await client`select count(*)::int as n from audit_log where action = 'export'`)[0].n).toBeGreaterThanOrEqual(4);
   });
 

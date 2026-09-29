@@ -9,7 +9,8 @@ import { getCurrentUser } from "@/lib/server-auth";
 export const dynamic = "force-dynamic";
 
 // Revenue data: owner and finance only. Read-only GET, audited.
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const params = await ctx.params;
   const user = await getCurrentUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
   if (!can(user.role, "revenue:export")) return new NextResponse("Forbidden", { status: 403 });

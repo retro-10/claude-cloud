@@ -56,7 +56,8 @@ function List({ rows, empty = "None" }: { rows: { label: string; value: string }
   );
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: SP }) {
+export default async function DashboardPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
   await requireUser();
   const today = cairoYmd(new Date());
   const explicit = searchParams.from || searchParams.to || searchParams.all;

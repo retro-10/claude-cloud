@@ -9,7 +9,8 @@ export const metadata = { title: "Pipeline stages · Settings" };
 const box = "rounded border border-line bg-bg px-2 py-1.5 text-sm";
 const KIND: Record<string, string> = { open: "open", won: "won (enrolment)", lost: "lost (needs a reason)", nurture: "nurture" };
 
-export default async function PipelineSettings({ searchParams }: { searchParams: { notice?: string; error?: string } }) {
+export default async function PipelineSettings(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
+  const searchParams = await props.searchParams;
   await requirePageCan("settings:write");
   const list = await db.select().from(stages).orderBy(asc(stages.position));
   return (

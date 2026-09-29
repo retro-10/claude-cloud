@@ -11,7 +11,8 @@ import { closeLabel, egp } from "@/lib/cohort-format";
 const box = "rounded border border-line bg-bg px-2 py-1.5 text-sm";
 const pretty = (s: string) => s.replace(/_/g, " ");
 
-export default async function CohortPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string } }) {
+export default async function CohortPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
+  const [params, searchParams] = await Promise.all([props.params, props.searchParams]);
   const user = await requireUser();
   const id = Number(params.id);
   if (!Number.isInteger(id)) notFound();

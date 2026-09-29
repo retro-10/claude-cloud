@@ -9,7 +9,8 @@ import { deleteTemplateAction, saveTemplateAction } from "../actions";
 export const metadata = { title: "Cadences · Settings" };
 const box = "rounded border border-line bg-bg px-2 py-1.5 text-sm";
 
-export default async function CadenceSettings({ searchParams }: { searchParams: { notice?: string; error?: string } }) {
+export default async function CadenceSettings(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
+  const searchParams = await props.searchParams;
   await requirePageCan("settings:write");
   const list = await db.select().from(cadenceTemplates).orderBy(asc(cadenceTemplates.id));
   return (

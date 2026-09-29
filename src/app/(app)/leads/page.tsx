@@ -17,7 +17,8 @@ const pretty = (s: string | null) => (s ? s.replace(/_/g, " ") : "");
 
 const field = "rounded border border-line bg-surface px-2 py-1.5 text-sm";
 
-export default async function LeadsPage({ searchParams }: { searchParams: Record<string, string | undefined> & { notice?: string } }) {
+export default async function LeadsPage(props: { searchParams: Promise<Record<string, string | undefined> & { notice?: string }> }) {
+  const searchParams = await props.searchParams;
   const user = await requireUser();
   const f = searchParams as LeadFilters;
   const [{ rows, total, page, pages }, stageList, sourceList, userList, views, reasons, tpls] = await Promise.all([

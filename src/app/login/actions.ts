@@ -21,7 +21,7 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   const parsed = schema.safeParse({ email: form.get("email"), password: form.get("password") });
   if (!parsed.success) return { error: "Enter a valid email and password." };
 
-  const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
   const email = parsed.data.email.toLowerCase();
   // Only FAILED attempts count: 5 per 15 min per email+IP, and 20 per 15 min per IP overall.
   // Signing in normally (or several times) never locks anyone out; guessing does.
@@ -42,12 +42,12 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   clearHits(acct);
 
   const { pv, ...sessionUser } = user;
-  cookies().set(SESSION_COOKIE, await signSession(sessionUser, pv), cookieOptions());
+  (await cookies()).set(SESSION_COOKIE, await signSession(sessionUser, pv), cookieOptions());
   await audit(db, { userId: user.id, entity: "auth", entityId: user.id, action: "login" });
   redirect("/");
 }
 
 export async function logout() {
-  cookies().delete(SESSION_COOKIE);
+  (await cookies()).delete(SESSION_COOKIE);
   redirect("/login");
 }

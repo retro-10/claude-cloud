@@ -1,7 +1,7 @@
 # Decisions
 
 ## Stack
-- **Next.js 14 (App Router) + TypeScript + Tailwind 3.** One deployable, server actions for writes, no separate API layer to maintain. Next 14 and Tailwind 3 chosen over the newest majors for stability.
+- **Next.js 15 (App Router) + React 19 + TypeScript + Tailwind 3.** One deployable, server actions for writes, no separate API layer to maintain. Started on Next 14; moved to 15.5.26 in Phase 8 because 14.x has known critical and high vulnerabilities with no patch on that line (see Phase 8). Tailwind stays on 3 for stability.
 - **PostgreSQL 16 + Drizzle ORM (postgres-js driver).** SQL-first, migrations are plain SQL files in `drizzle/` and are checked in. The dashboard needs window functions, medians and `percentile_cont`, which are easier to write with Drizzle's `sql` escape hatch than in Prisma.
 - **Custom session auth instead of Auth.js.** Credentials login with bcrypt plus a signed JWT (`jose`) in an httpOnly, SameSite=Lax cookie. Reason: Auth.js credentials flow adds an adapter and a beta-version surface for a three-user tool. `getCurrentUser()` re-reads the user row on every request, so deactivating a user or changing their role takes effect immediately.
 - **bcryptjs (cost 12)** rather than argon2: pure JS, no native build step in the Alpine image. Allowed by the brief (argon2 or bcrypt).
@@ -84,3 +84,75 @@ Every number is computed in SQL (`src/lib/metrics.ts`) from `stage_events`, cons
 - **Leaks:** top 5 lost reasons (from leads currently in a lost stage) and top 5 objection tags (from consults); ties are broken alphabetically.
 - **Small samples:** a rate whose denominator is under 5 shows "n of N" instead of a percentage; with 0 records it shows a dash. Medians are always shown, with the record count beside them where the screen has room.
 - **Demo dataset** (`src/db/demo-data.ts`): 20 leads created so every answer can be checked by hand. The tests assert those answers exactly (funnel 20/18/13/11/9/7/5, median first contact 7 min, 8 of 20 within 5 min, show-up 9 of 10, consult-to-enrolment 5 of 9, median cycle 10 days, revenue 60,000 EGP, and so on). The same dataset, shifted to end near today, is what `SEED_DEMO=true` loads.
+
+
+## Phase 8 (hardening, admin, operations)
+
+### Gap found and closed
+Section 4.7 (settings and admin) had not been built in earlier phases: only the tables and audit helper existed.
+Phase 8 adds: users and roles (create, change role, deactivate, reset password, always at least one active owner),
+stage rename/reorder, sources / lost reasons / objection tags / campaigns (a label in use can be renamed, not
+deleted), cadence-template editing, the owner-only audit log page, and My account (change own password).
+Stage *keys* and kinds stay fixed (new stages cannot be added or removed): they carry behaviour (won needs an
+enrolment, lost needs a reason), and the brief asks only for label and order to be editable.
+
+### Security
+- **Dependency upgrade.** `npm audit` on Next 14.2.35 (the last 14.x) reported 2 critical and several high advisories
+  fixed only from 15.5.24: remote code execution through the image optimizer, denial of service in Server
+  Components and Actions, request forgery. Upgraded to Next 15.5.26, React 19, Drizzle 0.45.3 (a SQL-injection
+  advisory in identifier escaping; our code only passes whitelisted identifiers, so it was not exploitable, but it is
+  patched) and pinned Next's bundled PostCSS to a patched version. `npm audit --omit=dev` now reports **0**. The 8
+  remaining findings are development-only tools (test runner and dev servers) that never run in production. The
+  image optimizer is also switched off (`images.unoptimized`): the app does not use it, and `/_next/image` now returns 404.
+- **Password change invalidates sessions.** The session token carries a fingerprint of the password hash; changing
+  or resetting a password (or deactivating the user) makes every older cookie useless on the next request.
+- **Login limit counts failures only** (5 per account+address, 20 per address, per 15 minutes; configurable). It used
+  to count successful sign-ins too, which would lock out a normal user. In-memory, correct for one app instance.
+- **No redirect loop for stale cookies.** The middleware only gates *unauthenticated* visitors; the login page decides
+  server-side whether a cookie is really valid. (A signed but stale cookie used to bounce between `/` and `/login`.)
+- **CSRF:** SameSite=Lax cookies, Next's own server-action Origin check, plus an Origin/host check on every write in
+  the middleware (understands `X-Forwarded-Host` behind the proxy).
+- **Headers** set in the middleware (so HSTS follows `COOKIE_SECURE` at runtime): strict Content-Security-Policy
+  (`default-src 'self'`, Google Fonts as the only third party, `frame-ancestors 'none'`), `X-Frame-Options`,
+  `nosniff`, `Referrer-Policy`, `Permissions-Policy`. Inline scripts remain allowed because Next needs them; a
+  nonce-based policy is a possible later tightening.
+- **No lead data in logs.** Database errors carry the query parameters and "Key (phone)=(+20…)" detail. Drizzle 0.45
+  wraps driver errors, which also broke duplicate detection until the SQLSTATE lookup followed `cause` (caught by
+  tests). Every `console.error` is now scrubbed (`instrumentation.ts`, `src/lib/redact.ts`), unique-violation races on
+  create/update are turned into the normal "duplicate" answer, and the audit log stores field names and ids only.
+  Verified on the running server: a failed insert with a real name and phone left neither in the log.
+- **Page vs action permission checks.** Actions throw `Forbidden` (only reachable by a crafted request); pages use
+  `requirePageCan`, which shows "Not found" (no error, no data) because Next can render a page in parallel with its layout.
+- **Static guards** (`tests/guards.test.ts`) fail the build if a server action or route handler lacks a permission check,
+  if a settings page lacks its own check, if source uses `console.*`, or if an audit diff names personal fields.
+
+### Operations
+- **Backups:** `scripts/backup.sh` (custom-format `pg_dump`, verified readable before it is kept, `0600` in `0700`,
+  retention), `scripts/restore.sh` (all-or-nothing, typed confirmation, stops and restarts the app in Docker mode),
+  `scripts/verify-restore.sh` (restore drill into a scratch database). Two modes share one code path: `docker compose exec`
+  (default) and `BACKUP_MODE=direct`.
+- **Production stack:** `docker-compose.prod.yml` + `Caddyfile`: automatic HTTPS, only Caddy published, `COOKIE_SECURE`
+  forced on, demo data off by default. The image runs as the unprivileged `node` user and has a healthcheck
+  (`/api/health`, which also checks the database).
+- **Fonts** load through a non-blocking `<link>` with `font-display: swap` instead of a render-blocking CSS `@import`.
+  Self-hosting them would remove the last third-party request; it needs the font files at build time, so it is left as a
+  follow-up (QUESTIONS.md).
+- **Performance caps:** Today shows the first 50 rows of each section (count badge shows the true total); the board shows
+  the 40 most recently active cards per column. Both were far slower with 10,000 leads before the caps.
+- **Accessibility:** colours are theme tokens (the light theme uses darker gold/amber/red/green so text keeps 4.5:1),
+  visible focus ring, skip link, labelled landmarks, per-page titles, reduced-motion support, error and not-found pages.
+
+### What was verified, and how
+| Claim | How it was checked | Result |
+| --- | --- | --- |
+| Migrations apply to an empty database; seed is idempotent | integration test + real runs | passes |
+| Role rules enforced on the server | every server action and route handler called with a real signed cookie for each role, allowed and refused sides, plus "refused changes nothing" and stale-cookie cases | 24 tests pass |
+| Add lead, book consult, enrol, see it on the dashboard | real-browser end-to-end test on the production build | passes |
+| Dashboard numbers | hand-worked answers from a fixed 20-lead dataset, asserted exactly | passes |
+| Lead list and dashboard under 1 s with 10,000 leads | database time (list 6 ms, dashboard 47 ms, board 97 ms, Today 27 ms, full export 84 ms) and browser time to visible content (list about 180 ms, dashboard about 140 to 175 ms, Today about 310 ms, pipeline about 345 ms) | passes |
+| Backup and restore | real backup of the 10,000-lead database; database wrecked; restored; checksum over all leads identical; corrupt files refused; failed backup exits non-zero and leaves no partial file; retention; restore drill | passes |
+| Accessibility | axe (WCAG 2.1 A/AA) on every screen and both open dialogs, dark and light, plus keyboard checks | 0 violations |
+| No lead data in logs | unit tests on the scrubber, plus a deliberately broken database and a real form submission on the running server | 0 occurrences |
+| **`docker compose up`, the Dockerfile and `docker-compose.prod.yml`** | **not run: the environment this was built in has no Docker daemon.** The same steps were run by hand (migrate, seed, build, start, login) and the compose files are standard, but please run `docker compose up --build` once and, for production, the prod file on the real server | **unverified** |
+| HTTPS, certificate issuance, HSTS end to end | headers verified on the running server; Caddy and real certificates not run | **unverified** |
+| Assistive-technology use (screen reader) | only automated checks and keyboard tests; automated tools find roughly a third of issues | **partly verified** |

@@ -82,7 +82,8 @@ function FollowUpItem({ f, canWrite, overdue }: { f: TodayFollowUp; canWrite: bo
   );
 }
 
-export default async function TodayPage({ searchParams }: { searchParams: { mine?: string } }) {
+export default async function TodayPage(props: { searchParams: Promise<{ mine?: string }> }) {
+  const searchParams = await props.searchParams;
   const user = await requireUser();
   const mine = searchParams.mine === "1";
   const t = await getToday(db, { ownerId: mine ? user.id : undefined });

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { quickAddLead, type QuickAddState } from "@/app/(app)/leads/actions";
 
 function Submit() {
@@ -17,7 +18,7 @@ function Submit() {
 
 export function QuickAdd({ sources }: { sources: { id: number; label: string }[] }) {
   const [open, setOpen] = useState(false);
-  const [state, action] = useFormState<QuickAddState, FormData>(quickAddLead, {});
+  const [state, action] = useActionState<QuickAddState, FormData>(quickAddLead, {});
   const nameRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname();
 

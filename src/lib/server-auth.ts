@@ -13,7 +13,7 @@ export type CurrentUser = SessionUser & { passwordChanged: boolean };
 // Re-reads the user row so deactivation, role changes and password changes apply immediately,
 // not at token expiry.
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const session = await verifySession(cookies().get(SESSION_COOKIE)?.value);
+  const session = await verifySession((await cookies()).get(SESSION_COOKIE)?.value);
   if (!session) return null;
   const [u] = await db.select().from(users).where(eq(users.id, session.id)).limit(1);
   if (!u || !u.active) return null;

@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { updateLeadAction, type FormResult } from "@/app/(app)/leads/actions";
 
 type Lead = {
@@ -41,7 +42,7 @@ export function LeadForm({
   owners: { id: number; name: string }[];
   readOnly: boolean;
 }) {
-  const [state, action] = useFormState<FormResult, FormData>(updateLeadAction, {});
+  const [state, action] = useActionState<FormResult, FormData>(updateLeadAction, {});
   return (
     <form action={action} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <input type="hidden" name="id" value={lead.id} />

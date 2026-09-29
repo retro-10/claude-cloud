@@ -9,7 +9,8 @@ import { formatCairo } from "@/lib/time";
 export const metadata = { title: "Audit log · Settings" };
 const field = "rounded border border-line bg-surface px-2 py-1.5 text-sm";
 
-export default async function AuditPage({ searchParams }: { searchParams: { entity?: string; user?: string; page?: string } }) {
+export default async function AuditPage(props: { searchParams: Promise<{ entity?: string; user?: string; page?: string }> }) {
+  const searchParams = await props.searchParams;
   await requirePageCan("audit:read");
   const userId = searchParams.user && /^\d+$/.test(searchParams.user) ? Number(searchParams.user) : undefined;
   const page = searchParams.page && /^\d+$/.test(searchParams.page) ? Number(searchParams.page) : 1;

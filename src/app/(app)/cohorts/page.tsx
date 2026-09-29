@@ -9,7 +9,8 @@ import { createCohortAction } from "./actions";
 
 const box = "rounded border border-line bg-bg px-2 py-1.5 text-sm";
 
-export default async function CohortsPage({ searchParams }: { searchParams: { error?: string } }) {
+export default async function CohortsPage(props: { searchParams: Promise<{ error?: string }> }) {
+  const searchParams = await props.searchParams;
   const user = await requireUser();
   const list = await listCohorts(db);
   return (

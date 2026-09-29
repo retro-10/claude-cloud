@@ -16,7 +16,8 @@ const ROLES = [
   ["finance", "finance (payments, revenue export)"],
 ] as const;
 
-export default async function UsersPage({ searchParams }: { searchParams: { notice?: string; error?: string } }) {
+export default async function UsersPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
+  const searchParams = await props.searchParams;
   const me = await requirePageCan("users:manage");
   const list = await db.select().from(users).orderBy(asc(users.id));
   return (

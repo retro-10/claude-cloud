@@ -6,7 +6,8 @@ import { changePasswordAction } from "../settings/actions";
 export const metadata = { title: "My account" };
 const box = "rounded border border-line bg-bg px-3 py-2 text-sm";
 
-export default async function AccountPage({ searchParams }: { searchParams: { notice?: string; error?: string } }) {
+export default async function AccountPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
+  const searchParams = await props.searchParams;
   const user = await requireUser();
   return (
     <>

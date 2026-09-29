@@ -45,7 +45,8 @@ function Add({ list, what }: { list: string; what: string }) {
   );
 }
 
-export default async function ListsSettings({ searchParams }: { searchParams: { notice?: string; error?: string } }) {
+export default async function ListsSettings(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
+  const searchParams = await props.searchParams;
   await requirePageCan("settings:write");
   const [src, reasons, objs, camps] = await Promise.all([
     db.select().from(sources).orderBy(asc(sources.id)),
