@@ -28,7 +28,7 @@ The seed creates Retro, Badr and Sayed (all `owner`) and Mo (`finance`) with ema
 
 Murail was removed. `REMOVED_USERS` in `seed-data.ts` lists accounts the seed must not leave behind: it deletes them, or, if they already have history pointing at them, deactivates them (login blocked, history kept). Removing a name from `DEMO_USERS` alone would not remove it from an existing database.
 
-`finance` is a fourth role added for Mo (migration `0001`). Its permissions are not defined yet, so it is read-only, identical to `viewer`, until QUESTIONS.md #1 is answered.
+`finance` is a fourth role added for Mo (migration `0001`). Agreed scope (not built yet, needs the revenue screens): see revenue and enrolments, record and edit payments, export revenue; no editing of leads or settings. Until Phase 6/7 it is read-only, identical to `viewer`.
 
 ## Phase 2 (leads)
 - **Duplicate handling blocks, it does not merge.** Quick add and edit refuse a phone or email that another lead already has and link to the existing lead (including soft-deleted ones, which must be restored, not re-created). Phones are normalised to E.164 first, so `010…`, `+20 10…` and Arabic-Indic digits all match. Numbers without a country code are assumed Egyptian.
