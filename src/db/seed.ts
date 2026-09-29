@@ -17,6 +17,10 @@ export async function seedReference(url = process.env.DATABASE_URL, password = p
     await db.insert(s.lostReasons).values(LOST_REASONS.map((label) => ({ label }))).onConflictDoNothing();
     await db.insert(s.cadenceTemplates).values(CADENCES).onConflictDoNothing();
 
+    // placeholder so the enrolment prompt works out of the box; rename or replace it in Cohorts
+    const existing = await db.select({ id: s.cohorts.id }).from(s.cohorts).limit(1);
+    if (!existing.length) await db.insert(s.cohorts).values({ name: "Demo cohort", seatCap: 30 });
+
     const passwordHash = await bcrypt.hash(password, 12);
     await db
       .insert(s.users)

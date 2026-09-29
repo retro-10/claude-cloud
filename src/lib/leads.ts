@@ -129,8 +129,53 @@ export async function logActivity(db: Db, input: ActivityInput, userId: number |
 }
 
 export type StageResult = { ok: true } | { ok: false; error: string };
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 // Every stage change goes through here so stage_events is always written.
+// `viaEnrolment` is set only by enrolLead: a lead cannot become "won" without an enrolment row.
+export async function moveStageTx(
+  tx: Tx,
+  leadId: number,
+  toStage: string,
+  userId: number | null,
+  opts: { lostReasonId?: number | null; viaEnrolment?: boolean } = {},
+): Promise<StageResult> {
+  const [lead] = await tx.select().from(leads).where(eq(leads.id, leadId)).for("update");
+  if (!lead || lead.deletedAt) return { ok: false, error: "Lead not found" };
+  const [target] = await tx.select().from(stages).where(eq(stages.key, toStage));
+  if (!target) return { ok: false, error: "Unknown stage" };
+  if (lead.stage === toStage) return { ok: true };
+
+  const [current] = await tx.select().from(stages).where(eq(stages.key, lead.stage));
+  if (current?.kind === "won") {
+    // moving out of won would leave revenue rows pointing at a lead that is no longer enrolled
+    return { ok: false, error: "Enrolled leads cannot be moved back" };
+  }
+  if (target.kind === "won" && !opts.viaEnrolment) return { ok: false, error: "Enrol the lead to mark it as won" };
+
+  let lostReasonId: number | null = null;
+  if (target.kind === "lost") {
+    if (!opts.lostReasonId) return { ok: false, error: "A lost reason is required" };
+    const [r] = await tx.select().from(lostReasons).where(eq(lostReasons.id, opts.lostReasonId));
+    if (!r) return { ok: false, error: "Unknown lost reason" };
+    lostReasonId = r.id;
+  }
+
+  const now = new Date();
+  await tx
+    .update(leads)
+    .set({
+      stage: toStage,
+      lostReasonId,
+      closedAt: target.kind === "lost" || target.kind === "won" ? now : null,
+      updatedAt: now,
+    })
+    .where(eq(leads.id, leadId));
+  await tx.insert(stageEvents).values({ leadId, fromStage: lead.stage, toStage, at: now, byUserId: userId });
+  await audit(tx, { userId, entity: "lead", entityId: leadId, action: "stage", diff: { from: lead.stage, to: toStage } });
+  return { ok: true };
+}
+
 export async function changeStage(
   db: Db,
   leadId: number,
@@ -138,39 +183,7 @@ export async function changeStage(
   userId: number | null,
   opts: { lostReasonId?: number | null } = {},
 ): Promise<StageResult> {
-  return db.transaction(async (tx) => {
-    const [lead] = await tx.select().from(leads).where(eq(leads.id, leadId)).for("update");
-    if (!lead || lead.deletedAt) return { ok: false as const, error: "Lead not found" };
-    const [target] = await tx.select().from(stages).where(eq(stages.key, toStage));
-    if (!target) return { ok: false as const, error: "Unknown stage" };
-    if (lead.stage === toStage) return { ok: true as const };
-
-    if (target.kind === "won") {
-      // Enrolment prompt arrives in Phase 4; until then a lead cannot be marked won without one.
-      return { ok: false as const, error: "Enrol the lead to mark it as won" };
-    }
-    let lostReasonId: number | null = null;
-    if (target.kind === "lost") {
-      if (!opts.lostReasonId) return { ok: false as const, error: "A lost reason is required" };
-      const [r] = await tx.select().from(lostReasons).where(eq(lostReasons.id, opts.lostReasonId));
-      if (!r) return { ok: false as const, error: "Unknown lost reason" };
-      lostReasonId = r.id;
-    }
-
-    const now = new Date();
-    await tx
-      .update(leads)
-      .set({
-        stage: toStage,
-        lostReasonId,
-        closedAt: target.kind === "lost" ? now : null,
-        updatedAt: now,
-      })
-      .where(eq(leads.id, leadId));
-    await tx.insert(stageEvents).values({ leadId, fromStage: lead.stage, toStage, at: now, byUserId: userId });
-    await audit(tx, { userId, entity: "lead", entityId: leadId, action: "stage", diff: { from: lead.stage, to: toStage } });
-    return { ok: true as const };
-  });
+  return db.transaction((tx) => moveStageTx(tx, leadId, toStage, userId, opts));
 }
 
 export async function updateLead(

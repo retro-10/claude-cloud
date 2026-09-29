@@ -125,7 +125,7 @@ export default async function LeadPage({
               {stageList.map((s) => (
                 <option key={s.key} value={s.key} disabled={s.kind === "won" && lead.stage !== s.key}>
                   {s.label}
-                  {s.kind === "won" ? " (via enrolment)" : ""}
+                  {s.kind === "won" ? " (enrol from Pipeline)" : ""}
                 </option>
               ))}
             </select>

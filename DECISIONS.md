@@ -34,3 +34,18 @@ The seed creates Retro (owner), Badr (owner) and Murail (viewer) with emails `@o
 - **Speed badge is rendered at page load**, not a live ticking timer. Amber from 5 minutes, red from 30.
 - **Audit log stores field names and ids, never lead values**, to keep personal data out of it.
 - `next build` runs without `DATABASE_URL` (the DB client connects lazily); at runtime a missing URL is fatal.
+
+## Phase 3 (import/export)
+- **Own CSV parser** (RFC 4180, BOM, quotes, `,` `;` tab sniffing) instead of a dependency; unit-tested including Arabic round trips.
+- **Preview is a real run rolled back.** The dry run executes the whole import inside a transaction and throws to roll back, so preview counts are exactly what the real import will do.
+- **Existing people are matched on phone or email** (including soft-deleted ones, which are reported, not recreated). A row matching two different leads is refused. Updates fill blanks only and never overwrite.
+- **Imported leads get real history:** `created_at` from the file (day-first dates, ISO, or epoch ms) and `stage_events` written at that date, so funnel numbers include them. Stages `enrolled` and `lost` cannot be imported (no enrolment / reason): they fall back to `new` and count as a warning. Unknown source labels are left blank (warning), not auto-created.
+- **A row with an invalid phone and no email is skipped**, because it could not be de-duplicated on re-import.
+- **Export escapes formula-like cells** (`=`, `@`, and `+`/`-` that aren't plain numbers or phones) with a leading apostrophe, which import strips again. Export is a GET, audited (count only), and needs `lead:read`.
+
+## Phase 4 (pipeline, enrolment)
+- **One stage-move code path** (`moveStageTx`) used by the detail page, the board and enrolment, so `stage_events` cannot be skipped.
+- **Enrolment and the move to `enrolled` are one transaction.** The cohort row is locked first, so two simultaneous enrolments cannot both take the last seat (tested). Over-cap enrolment is allowed only with an explicit override, only for owners, and is audited as `create_over_cap`.
+- **An enrolled lead cannot be moved back.** Otherwise revenue rows would point at a lead that is no longer enrolled. There is no "cancel enrolment" yet (see QUESTIONS.md).
+- **Board shows up to 100 cards per column** (newest activity first); the column badge always shows the true total. "Days in stage" comes from the latest `stage_events` row into that stage.
+- **Touch devices:** HTML5 drag and drop does not work on phones, so every card also has a "Move to…" menu that goes through the same prompts.

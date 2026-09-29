@@ -11,3 +11,7 @@ Each has a safe default already applied. Answer any and it will be changed.
 7. **Objection tag "Other" and lost reason "Other"** both exist. Fine, or merge?
 8. **Auto-advance stage on first contact?** Now: logging the first outbound WhatsApp does not move `new` to `contacted`; the stage is moved by hand. Should it move automatically? (Default: no.)
 9. **Bulk actions** (change stage, assign owner, add to cadence) from 4.1 are not in Phase 2's scope table; planned with the pipeline (Phase 4) and cadences (Phase 5). Say if you want them sooner.
+10. **Cancelling an enrolment / refunds.** Enrolled leads cannot currently be moved back or un-enrolled. Do you need a cancel/refund flow? (Default: no, until asked; it must also update revenue.)
+11. **Date format in imports.** `05/09/2026` is read as 5 September (day first). Is your ClickUp export month-first? (Default: day-first; ISO dates and ClickUp epoch timestamps are unambiguous.)
+12. **Over-cap override** is owner-only (Retro, Badr). OK, or should sales be allowed too?
+13. **Demo cohort.** The seed adds a placeholder "Demo cohort" (30 seats). Replace it with the real next intake (dates, seat cap) in Phase 6.

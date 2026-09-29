@@ -28,6 +28,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/leads" className="hover:text-gold">
               Leads
             </Link>
+            <Link href="/pipeline" className="hover:text-gold">
+              Pipeline
+            </Link>
           </nav>
           <div className="ml-auto flex items-center gap-3">
             {can(user.role, "lead:write") && <QuickAdd sources={src} />}
@@ -42,7 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
       <SearchShortcut />
-      <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-6 has-[.board-wide]:max-w-none">{children}</main>
     </>
   );
 }

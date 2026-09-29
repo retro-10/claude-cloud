@@ -2,7 +2,7 @@
 
 Self-hosted, lead-and-sales CRM for OrlaDent Camp course sales. Next.js + PostgreSQL, runs with one `docker compose up`.
 
-Status: **Phase 2 (leads)**. See the phase plan in the project brief.
+Status: **Phase 4 (pipeline), Gate B**. See the phase plan in the project brief.
 
 ## Run it (about 5 minutes)
 
@@ -46,6 +46,12 @@ npm run dev
 | `npm run db:migrate` / `db:seed` | Apply migrations / seed |
 
 Integration tests **drop and recreate the public schema** of `TEST_DATABASE_URL`. Use a scratch database.
+
+## Importing and exporting leads
+Leads > Import CSV: pick a file (ClickUp export, scraped list, or a previous export), check the auto-matched columns, press Preview (saves nothing) and then Import. People who already exist (same phone or email) are never duplicated; blank fields on them can be filled in, existing values are never overwritten. Dates are read day-first (`05/09/2026` is 5 September). Leads > Export CSV downloads everything matching the current filters. Exports contain personal data: do not share them casually.
+
+## Pipeline
+Drag cards between columns, or use the "Move to…" menu on a card (needed on phones). Moving to Lost asks for a reason; moving to Enrolled asks for cohort, tier and amount. The seed creates a placeholder "Demo cohort" (30 seats) so this works on day one.
 
 ## Still to come
 Backup and restore, VPS deployment notes and the user guide are written in Phase 8.
