@@ -1,0 +1,25 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark is the default; light overrides. Space-separated RGB so Tailwind alpha works. */
+:root,
+[data-theme="dark"] {
+  --bg: 15 15 15; /* near-black #0F0F0F */
+  --surface: 26 26 26; /* charcoal #1A1A1A */
+  --fg: 237 237 237; /* warm white #EDEDED */
+  --muted: 160 160 160;
+  --line: 52 52 52;
+}
+[data-theme="light"] {
+  --bg: 237 237 237;
+  --surface: 255 255 255;
+  --fg: 26 26 26;
+  --muted: 100 100 100;
+  --line: 208 208 208;
+}
+
+body {
+  @apply bg-bg font-sans text-fg antialiased;
+}
