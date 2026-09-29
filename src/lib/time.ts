@@ -65,3 +65,20 @@ export const FOLLOW_UP_HOUR = "09:00";
 export function followUpDue(ymd: string): Date | null {
   return cairoLocalToDate(`${ymd}T${FOLLOW_UP_HOUR}`);
 }
+
+/** "2026-09-29T14:30" (Cairo wall time) for pre-filling <input type="datetime-local">. */
+export function toCairoLocalInput(d: Date | null | undefined): string {
+  if (!d) return "";
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", { timeZone: TZ, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+      .formatToParts(d)
+      .map((x) => [x.type, x.value]),
+  );
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+
+/** Whole Cairo calendar days from `now` until `target` (0 = same day, negative = past). */
+export function daysUntilCairo(target: Date, now: Date = new Date()): number {
+  const [a, b] = [cairoYmd(now), cairoYmd(target)].map((y) => Date.parse(`${y}T00:00:00Z`));
+  return Math.round((b - a) / 86_400_000);
+}

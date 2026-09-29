@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { quickAddLead, type QuickAddState } from "@/app/(app)/leads/actions";
@@ -18,6 +19,10 @@ export function QuickAdd({ sources }: { sources: { id: number; label: string }[]
   const [open, setOpen] = useState(false);
   const [state, action] = useFormState<QuickAddState, FormData>(quickAddLead, {});
   const nameRef = useRef<HTMLInputElement>(null);
+  const pathname = usePathname();
+
+  // The dialog lives in the layout, so it survives the redirect to the new lead: close it on navigation.
+  useEffect(() => setOpen(false), [pathname]);
 
   // "n" opens quick add (ignored while typing in a field), Esc closes
   useEffect(() => {

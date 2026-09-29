@@ -23,9 +23,17 @@ describe("role rules", () => {
     expect(can("viewer", "settings:write")).toBe(false);
   });
 
-  it("finance is read-only until its permissions are defined", () => {
-    expect(can("finance", "lead:read")).toBe(true);
+  it("finance sees everything and handles payments, but edits no leads, settings or users", () => {
+    for (const a of ["lead:read", "payment:write", "revenue:export"] as const) expect(can("finance", a)).toBe(true);
     for (const a of ["lead:write", "lead:delete", "settings:write", "users:manage", "audit:read"] as const)
       expect(can("finance", a)).toBe(false);
+  });
+
+  it("only owner and finance can touch payments or export revenue", () => {
+    for (const r of ["sales", "viewer"] as const) {
+      expect(can(r, "payment:write")).toBe(false);
+      expect(can(r, "revenue:export")).toBe(false);
+    }
+    expect(can("owner", "payment:write") && can("owner", "revenue:export")).toBe(true);
   });
 });

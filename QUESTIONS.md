@@ -17,3 +17,6 @@ Each has a safe default already applied. Answer any and it will be changed.
 13. **Demo cohort.** The seed adds a placeholder "Demo cohort" (30 seats). Replace it with the real next intake (dates, seat cap) in Phase 6.
 14. **Reply stops the post-consult cadence too.** The brief's stop rule cancels any open cadence follow-ups on an inbound reply, which includes the post-consult sequence (a reply to your voice-note recap would cancel the day-2/5/7 messages). Done as written. Should the post-consult cadence be exempt?
 15. **Follow-up time of day.** Cadence and date-only follow-ups are due 09:00 Cairo. Change?
+16. **Who may export the lead list?** Any signed-in user who can read leads (including viewer and finance) can currently download the lead CSV (names, phones, emails). Revenue exports are owner/finance only. Should the lead export be restricted to owners?
+17. **Who may see revenue?** Currently everyone signed in. Restrict to owner and finance?
+18. **Consults move the stage automatically** (booked, held), forward only. Fine, or should the stage only change by hand?

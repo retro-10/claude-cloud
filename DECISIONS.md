@@ -63,3 +63,12 @@ Murail was removed. `REMOVED_USERS` in `seed-data.ts` lists accounts the seed mu
 - **Today shows everyone's work by default** with a "Show only mine" toggle. "Uncontacted" = no `first_contact_at` and the stage is an open one, oldest first.
 - **"Sent" on Today** logs an outbound WhatsApp activity (which sets first contact and feeds speed-to-lead); it is a record of something the user did by hand, not a send.
 - **Bulk actions** (stage, owner, cadence; max 500) run per lead: one failure never blocks the rest, and the result says how many were done and why others were skipped. Bulk cannot mark leads Enrolled.
+
+## Phase 6 (consults, cohorts, payments)
+- **Consults keep the pipeline in step, forward only.** Booking moves a lead to `consult_booked`, and marking it held moves it to `consult_held`, but only if the lead is in an *open* stage that comes earlier. A lead already at `offer_sent`, or in nurture/lost/won, is left alone. Marking held requires an outcome (`enrolled`, `thinking`, `not_fit`); "no-show" sets `held = false`, outcome `no_show`. Outcome `enrolled` does not enrol anyone: enrolment is still done from the Pipeline so amount and cohort are captured.
+- **Consult results are logged as internal `consult` activities**, which never count as first contact.
+- **Re-marking a consult replaces its objection tags**; a no-show clears them.
+- **Revenue is the sum of enrolment amounts ("booked"); "collected" is the part with a paid date.** Both are shown on the cohort page.
+- **The seat cap cannot be lowered below the seats already taken**, and over-cap enrolment stays owner-only and audited (Phase 4).
+- **Finance role (Mo):** can edit payment details (tier, amount, paid date, reference, gateway) on an existing enrolment and export a cohort's enrolments. Cannot create enrolments, edit leads, or change settings. Cohorts themselves are created and edited by owners (`settings:write`). Payment audit entries record field names, never values.
+- **Everyone who can read can see revenue.** The brief does not say to hide it from sales or viewers, so it is not hidden. Cohort and lead CSV exports: the cohort export needs owner/finance; the lead export needs only read access (see QUESTIONS.md).

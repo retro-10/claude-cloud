@@ -4,6 +4,7 @@ import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { activities, cadenceTemplates, consults, followUps, leads, lostReasons, sources, stageEvents, stages, users } from "@/db/schema";
 import { LeadForm } from "@/components/LeadForm";
+import { ConsultsPanel } from "@/components/ConsultsPanel";
 import { SpeedBadge } from "@/components/SpeedBadge";
 import { whatsappUrl } from "@/lib/phone";
 import { can } from "@/lib/rbac";
@@ -164,6 +165,7 @@ export default async function LeadPage({
       </section>
 
       <section>
+        <ConsultsPanel leadId={lead.id} canWrite={canWrite} />
         <h2 className="mb-2 font-display text-lg">Follow-ups</h2>
         <div className="mb-5 rounded border border-line bg-surface p-3">
           {openFus.length === 0 && <p className="mb-2 text-sm text-muted">No open follow-ups.</p>}

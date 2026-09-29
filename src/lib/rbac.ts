@@ -6,6 +6,8 @@ export type Action =
   | "lead:delete"
   | "settings:write"
   | "users:manage"
+  | "payment:write" // edit payment details on an existing enrolment
+  | "revenue:export"
   | "audit:read";
 
 const MATRIX: Record<Role, ReadonlySet<Action>> = {
@@ -15,12 +17,14 @@ const MATRIX: Record<Role, ReadonlySet<Action>> = {
     "lead:delete",
     "settings:write",
     "users:manage",
+    "payment:write",
+    "revenue:export",
     "audit:read",
   ]),
   sales: new Set<Action>(["lead:read", "lead:write"]),
   viewer: new Set<Action>(["lead:read"]),
-  // Placeholder until the finance permissions are defined (QUESTIONS.md #1): read-only, like viewer.
-  finance: new Set<Action>(["lead:read"]),
+  // Finance: sees everything, records/edits payments and exports revenue. No lead, settings or user edits.
+  finance: new Set<Action>(["lead:read", "payment:write", "revenue:export"]),
 };
 
 export function can(role: Role, action: Action): boolean {
