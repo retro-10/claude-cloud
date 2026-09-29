@@ -27,7 +27,7 @@ pg_dump_stdout > "$tmp"
 # The archive must list the users and leads tables, otherwise something went wrong silently.
 toc="$(pg_restore_list < "$tmp")"
 for t in users leads stage_events; do
-  echo "$toc" | grep -q "TABLE public $t " || { echo "error: backup is missing table '$t'; not keeping it" >&2; exit 1; }
+  grep -q "TABLE public $t " <<<"$toc" || { echo "error: backup is missing table '$t'; not keeping it" >&2; exit 1; }
 done
 
 mv "$tmp" "$out"

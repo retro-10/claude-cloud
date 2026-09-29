@@ -27,7 +27,10 @@ done
 target="${target:-$(db_name)}"
 
 # make sure the file is a readable archive before touching anything
-pg_restore_list < "$file" | grep -q "TABLE public users " || { echo "error: '$file' is not a valid CRM backup" >&2; exit 1; }
+# Read the whole table of contents first, then search it. Piping straight into `grep -q` makes grep quit at
+# the first match, the writer gets SIGPIPE, and `set -o pipefail` reports a valid backup as invalid.
+toc="$(pg_restore_list < "$file" 2>/dev/null)" || toc=""
+grep -q "TABLE public users " <<<"$toc" || { echo "error: '$file' is not a valid CRM backup" >&2; exit 1; }
 
 if [ "$yes" -ne 1 ]; then
   echo "This will REPLACE ALL DATA in database '$target' with the contents of $file."
