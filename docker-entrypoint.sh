@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
-# Apply migrations, then seed reference data + demo users (idempotent), then start.
-npx tsx src/db/migrate.ts
-npx tsx src/db/seed.ts
-exec npx next start -p 3000 -H 0.0.0.0
+# Apply migrations, seed reference data (+ demo leads only if SEED_DEMO=true and the database is empty),
+# then start. Every step is idempotent, so restarts are safe.
+./node_modules/.bin/tsx src/db/migrate.ts
+./node_modules/.bin/tsx src/db/seed.ts
+exec ./node_modules/.bin/next start -p 3000 -H 0.0.0.0

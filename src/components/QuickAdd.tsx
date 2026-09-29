@@ -77,7 +77,7 @@ export function QuickAdd({ sources }: { sources: { id: number; label: string }[]
               </select>
             </label>
             {state?.error && (
-              <div role="alert" className="text-sm text-red-500">
+              <div role="alert" className="text-sm text-danger">
                 {state?.error}
                 {state?.duplicates?.map((d) => (
                   <div key={d.id} className="mt-1">

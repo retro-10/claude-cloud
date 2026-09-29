@@ -27,7 +27,7 @@ export async function ConsultsPanel({ leadId, canWrite }: { leadId: number; canW
               <li key={c.id} className="text-sm">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span>{formatCairo(c.scheduledAt)}</span>
-                  <span className={`text-xs ${status === "Awaiting result" ? "text-amber-400" : "text-muted"}`}>{status}</span>
+                  <span className={`text-xs ${status === "Awaiting result" ? "text-warn" : "text-muted"}`}>{status}</span>
                 </div>
                 {(chosen.get(c.id) ?? []).length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">

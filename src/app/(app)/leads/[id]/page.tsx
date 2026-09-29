@@ -96,7 +96,7 @@ export default async function LeadPage({
         </div>
 
         {lead.deletedAt && (
-          <div className="mb-3 flex items-center gap-3 rounded border border-red-500/40 bg-red-500/10 p-3 text-sm">
+          <div className="mb-3 flex items-center gap-3 rounded border border-danger/40 bg-danger/10 p-3 text-sm">
             This lead is deleted.
             {can(user.role, "lead:delete") && (
               <form action={restoreLeadAction}>
@@ -107,7 +107,7 @@ export default async function LeadPage({
           </div>
         )}
         {searchParams.error && (
-          <p role="alert" className="mb-3 text-sm text-red-500">
+          <p role="alert" className="mb-3 text-sm text-danger">
             {searchParams.error}
           </p>
         )}
@@ -159,7 +159,7 @@ export default async function LeadPage({
         {can(user.role, "lead:delete") && !lead.deletedAt && (
           <form action={deleteLeadAction} className="mt-6">
             <input type="hidden" name="id" value={lead.id} />
-            <button className="text-xs text-red-400 underline">Delete lead (restorable)</button>
+            <button className="text-xs text-danger underline">Delete lead (restorable)</button>
           </form>
         )}
       </section>
@@ -173,7 +173,7 @@ export default async function LeadPage({
             {openFus.map((f) => (
               <li key={f.id} className="flex flex-wrap items-center gap-2 text-sm">
                 <div className="min-w-0 flex-1">
-                  <span className={f.dueAt < new Date(Date.now() - 86_400_000) ? "text-red-400" : ""}>{formatCairo(f.dueAt, false)}</span>{" "}
+                  <span className={f.dueAt < new Date(Date.now() - 86_400_000) ? "text-danger" : ""}>{formatCairo(f.dueAt, false)}</span>{" "}
                   <span className="text-xs text-muted">
                     {f.kind}
                     {f.templateId ? " · cadence" : ""}
@@ -200,7 +200,7 @@ export default async function LeadPage({
                     <form action={cancelFollowUpAction}>
                       <input type="hidden" name="id" value={f.id} />
                       <input type="hidden" name="leadId" value={lead.id} />
-                      <button className="px-1 text-xs text-muted hover:text-red-400" aria-label="Cancel follow-up">
+                      <button className="px-1 text-xs text-muted hover:text-danger" aria-label="Cancel follow-up">
                         ×
                       </button>
                     </form>

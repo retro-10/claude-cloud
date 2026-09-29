@@ -66,13 +66,13 @@ export default async function LeadsPage({ searchParams }: { searchParams: Record
           <span className="text-muted">Views:</span>
           {views.map((v) => (
             <span key={v.id} className="flex items-center rounded border border-line bg-surface">
-              <Link href={`/leads?${new URLSearchParams(v.filters).toString()}`} className="px-2 py-1 hover:text-gold" dir="auto">
+              <Link href={`/leads?${new URLSearchParams(v.filters).toString()}`} className="px-2 py-1 hover:text-accent" dir="auto">
                 {v.name}
               </Link>
               {canWrite && (v.userId === user.id || user.role === "owner") && (
                 <form action={deleteViewAction}>
                   <input type="hidden" name="id" value={v.id} />
-                  <button className="px-1.5 text-muted hover:text-red-400" aria-label={`Delete view ${v.name}`}>
+                  <button className="px-1.5 text-muted hover:text-danger" aria-label={`Delete view ${v.name}`}>
                     ×
                   </button>
                 </form>
@@ -246,7 +246,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Record
                   </td>
                 )}
                 <td className="px-3 py-2">
-                  <Link href={`/leads/${l.id}`} className="font-medium hover:text-gold" dir="auto">
+                  <Link href={`/leads/${l.id}`} className="font-medium hover:text-accent" dir="auto">
                     {l.fullName}
                   </Link>{" "}
                   <SpeedBadge createdAt={l.createdAt} firstContactAt={l.firstContactAt} />

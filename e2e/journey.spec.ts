@@ -1,0 +1,101 @@
+import { expect, test } from "@playwright/test";
+import { signIn, stat } from "./helpers";
+
+test("owner takes a lead from first message to enrolment and sees it on the dashboard", async ({ page }) => {
+  await signIn(page, "retro@orladent.local");
+
+  const leadsBefore = await stat(page, "Leads");
+  const revenueBefore = await stat(page, "Revenue");
+  expect(leadsBefore).toBe("Leads 20"); // the 20-lead demo dataset
+  expect(revenueBefore).toContain("60,000 EGP");
+
+  // 1. add a lead (keyboard shortcut) with an Arabic name
+  await page.goto("/leads");
+  await page.keyboard.press("n");
+  await page.fill("input[name=fullName]", "ياسمين فؤاد");
+  await page.fill("input[name=phone]", "0100 777 6655");
+  await page.click("[role=dialog] button:has-text('Add lead')");
+  await expect(page.locator("h1", { hasText: "ياسمين فؤاد" })).toBeVisible();
+  await expect(page.locator("text=waiting").first()).toBeVisible(); // speed-to-lead badge
+
+  // 2. a duplicate of the same number (different format) is refused with a link back
+  await page.goto("/leads");
+  await page.keyboard.press("n");
+  await page.fill("input[name=fullName]", "Someone else");
+  await page.fill("input[name=phone]", "+20 100 777 6655");
+  await page.click("[role=dialog] button:has-text('Add lead')");
+  await expect(page.locator("[role=dialog] [role=alert]")).toContainText("already exists");
+  await page.click("[role=dialog] a:has-text('Open')");
+  await expect(page.locator("h1", { hasText: "ياسمين فؤاد" })).toBeVisible();
+
+  // 3. log the first WhatsApp: the waiting badge goes away
+  await page.selectOption("select[name=type]", "whatsapp");
+  await page.selectOption("select[name=direction]", "out");
+  await page.fill("textarea[name=body]", "أهلاً ياسمين");
+  await page.click("button:has-text('Log activity')");
+  await expect(page.locator("li", { hasText: "أهلاً ياسمين" })).toBeVisible();
+  await expect(page.locator("text=waiting")).toHaveCount(0);
+
+  // 4. book a consult for tomorrow, then record it as held with two objections
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10) + "T16:30";
+  await page.fill("form:has(button:has-text('Book')) input[name=when]", tomorrow);
+  await page.click("button:has-text('Book')");
+  await expect(page.getByText("Scheduled", { exact: true })).toBeVisible();
+  await page.click("summary:has-text('Record result')");
+  await page.locator("form:has(button:has-text('Save result')) select[name=outcome]").selectOption("enrolled");
+  await page.check("input[name=objectionIds] >> nth=0");
+  await page.check("input[name=objectionIds] >> nth=2");
+  await page.click("button:has-text('Save result')");
+  await expect(page.getByText("Held · enrolled", { exact: true })).toBeVisible();
+
+  // 5. enrol from the pipeline (Freelance Ready, list price pre-filled)
+  await page.goto("/pipeline");
+  await page.locator("li", { hasText: "ياسمين فؤاد" }).locator("select").selectOption({ label: "Enrolled" });
+  await expect(page.locator("[role=dialog]", { hasText: "Enrol student" })).toBeVisible();
+  await page.locator("[role=dialog] select").first().selectOption({ index: 0 });
+  await page.locator("[role=dialog] select").nth(1).selectOption("freelance_ready");
+  await expect(page.locator("[role=dialog] input[inputmode=numeric]")).toHaveValue("15000");
+  await page.click("[role=dialog] button:has-text('Enrol')");
+  await expect(page.locator("[role=dialog]")).toHaveCount(0);
+  await expect(page.locator("section[aria-label='Enrolled']", { hasText: "ياسمين فؤاد" })).toBeVisible();
+
+  // 6. the dashboard moved by exactly this lead
+  expect(await stat(page, "Leads")).toBe("Leads 21");
+  expect(await stat(page, "Revenue")).toContain("75,000 EGP"); // 60,000 + 15,000
+  await page.goto("/dashboard?all=1");
+  await expect(page.locator("section:has(h2:has-text('Funnel')) tr", { hasText: "Enrolled" })).toContainText("6");
+});
+
+test("a new user is nagged to set a password, changes it, is signed out, and the old password stops working", async ({ page }) => {
+  await signIn(page, "sayed@orladent.local"); // an owner
+  await page.goto("/settings/users");
+  const form = page.locator("form:has(h2:has-text('Add a user'))");
+  await form.locator("input[name=name]").fill("Nada Sales");
+  await form.locator("input[name=email]").fill("nada@orladent.local");
+  await form.locator("select[name=role]").selectOption("sales");
+  await form.locator("input[name=password]").fill("first password 1");
+  await form.locator("button:has-text('Create user')").click();
+  await expect(page.locator("[role=status]", { hasText: "Saved" })).toBeVisible();
+  await expect(page.locator("li", { hasText: "nada@orladent.local" })).toContainText("initial password");
+
+  await page.context().clearCookies();
+  await signIn(page, "nada@orladent.local", "first password 1");
+  await expect(page.locator("[role=status]", { hasText: "initial password" })).toBeVisible();
+  await expect(page.locator("nav a:has-text('Settings')")).toHaveCount(0); // sales: no settings link
+  await page.goto("/settings/users");
+  await expect(page.locator("h1", { hasText: "Not found" })).toBeVisible(); // no error page, no data
+
+  await page.goto("/account");
+  await page.fill("input[name=current]", "first password 1");
+  await page.fill("input[name=next]", "second password 2");
+  await page.fill("input[name=confirm]", "second password 2");
+  await page.click("button:has-text('Change password')");
+  await page.waitForURL("**/login");
+
+  await page.fill("input[name=email]", "nada@orladent.local");
+  await page.fill("input[name=password]", "first password 1");
+  await page.click("button[type=submit]");
+  await expect(page.locator("form [role=alert]")).toContainText("Wrong email or password");
+  await signIn(page, "nada@orladent.local", "second password 2");
+  await expect(page.locator("[role=status]", { hasText: "initial password" })).toHaveCount(0);
+});

@@ -20,14 +20,19 @@ function Wa({ phone }: { phone: string | null }) {
   );
 }
 
-function Section({ title, count, children, empty }: { title: string; count: number; children: React.ReactNode; empty: string }) {
+function Section({ title, count, shown, children, empty }: { title: string; count: number; shown: number; children: React.ReactNode; empty: string }) {
   return (
     <section className="rounded border border-line">
       <h2 className="flex items-center justify-between border-b border-line bg-surface px-3 py-2 text-sm font-medium">
         {title}
-        <span className={`rounded px-1.5 text-xs ${count ? "bg-gold/20 text-gold" : "bg-bg text-muted"}`}>{count}</span>
+        <span className={`rounded px-1.5 text-xs ${count ? "bg-gold/20 text-accent" : "bg-bg text-muted"}`}>{count}</span>
       </h2>
       {count === 0 ? <p className="px-3 py-4 text-sm text-muted">{empty}</p> : <ul className="divide-y divide-line">{children}</ul>}
+      {count > shown && (
+        <p className="border-t border-line px-3 py-2 text-xs text-muted">
+          Showing the first {shown} of {count}. Clear these to see the rest.
+        </p>
+      )}
     </section>
   );
 }
@@ -36,10 +41,10 @@ function FollowUpItem({ f, canWrite, overdue }: { f: TodayFollowUp; canWrite: bo
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 text-sm">
       <div className="min-w-0 flex-1">
-        <Link href={`/leads/${f.leadId}`} dir="auto" className="font-medium hover:text-gold">
+        <Link href={`/leads/${f.leadId}`} dir="auto" className="font-medium hover:text-accent">
           {f.leadName}
         </Link>
-        <div className={`text-xs ${overdue ? "text-red-400" : "text-muted"}`}>
+        <div className={`text-xs ${overdue ? "text-danger" : "text-muted"}`}>
           {overdue ? "Overdue since " : "Due "}
           {formatCairo(f.dueAt, !overdue)} · {f.kind}
           {f.fromCadence ? " · cadence" : ""}
@@ -94,11 +99,11 @@ export default async function TodayPage({ searchParams }: { searchParams: { mine
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="Uncontacted new leads" count={t.uncontacted.length} empty="Everyone has had a first message.">
+        <Section title="Uncontacted new leads" count={t.totals.uncontacted} shown={t.uncontacted.length} empty="Everyone has had a first message.">
           {t.uncontacted.map((l) => (
             <li key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 text-sm">
               <div className="min-w-0 flex-1">
-                <Link href={`/leads/${l.id}`} dir="auto" className="font-medium hover:text-gold">
+                <Link href={`/leads/${l.id}`} dir="auto" className="font-medium hover:text-accent">
                   {l.fullName}
                 </Link>{" "}
                 <SpeedBadge createdAt={l.createdAt} firstContactAt={l.firstContactAt} />
@@ -117,23 +122,23 @@ export default async function TodayPage({ searchParams }: { searchParams: { mine
           ))}
         </Section>
 
-        <Section title="Overdue follow-ups" count={t.overdue.length} empty="Nothing overdue.">
+        <Section title="Overdue follow-ups" count={t.totals.overdue} shown={t.overdue.length} empty="Nothing overdue.">
           {t.overdue.map((f) => (
             <FollowUpItem key={f.id} f={f} canWrite={canWrite} overdue />
           ))}
         </Section>
 
-        <Section title="Follow-ups due today" count={t.dueToday.length} empty="No follow-ups due today.">
+        <Section title="Follow-ups due today" count={t.totals.dueToday} shown={t.dueToday.length} empty="No follow-ups due today.">
           {t.dueToday.map((f) => (
             <FollowUpItem key={f.id} f={f} canWrite={canWrite} overdue={false} />
           ))}
         </Section>
 
-        <Section title="Consults today" count={t.consultsToday.length} empty="No consults today.">
+        <Section title="Consults today" count={t.consultsToday.length} shown={t.consultsToday.length} empty="No consults today.">
           {t.consultsToday.map((c) => (
             <li key={c.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
               <div className="min-w-0 flex-1">
-                <Link href={`/leads/${c.leadId}`} dir="auto" className="font-medium hover:text-gold">
+                <Link href={`/leads/${c.leadId}`} dir="auto" className="font-medium hover:text-accent">
                   {c.leadName}
                 </Link>
                 <div className="text-xs text-muted">
@@ -146,11 +151,11 @@ export default async function TodayPage({ searchParams }: { searchParams: { mine
           ))}
         </Section>
 
-        <Section title="Decisions due (offer sent 3+ days)" count={t.decisionsDue.length} empty="No offers waiting on a decision.">
+        <Section title="Decisions due (offer sent 3+ days)" count={t.totals.decisionsDue} shown={t.decisionsDue.length} empty="No offers waiting on a decision.">
           {t.decisionsDue.map((l) => (
             <li key={l.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
               <div className="min-w-0 flex-1">
-                <Link href={`/leads/${l.id}`} dir="auto" className="font-medium hover:text-gold">
+                <Link href={`/leads/${l.id}`} dir="auto" className="font-medium hover:text-accent">
                   {l.fullName}
                 </Link>
                 <div className="text-xs text-muted">Offer sent {l.daysInStage} days ago</div>

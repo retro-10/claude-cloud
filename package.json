@@ -10,10 +10,15 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "backup": "scripts/backup.sh",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:setup": "npm run db:migrate && npm run db:seed"
+  },
+  "overrides": {
+    "playwright-core": "1.56.1"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -27,6 +32,8 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "1.56.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.16.0",
     "@types/react": "^18.3.11",

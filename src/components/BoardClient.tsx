@@ -66,7 +66,7 @@ export function BoardClient(props: {
   return (
     <div>
       {error && (
-        <p role="alert" className="mb-2 text-sm text-red-500">
+        <p role="alert" className="mb-2 text-sm text-danger">
           {error}
         </p>
       )}
@@ -115,9 +115,9 @@ export function BoardClient(props: {
                       setDragId(null);
                       setOverStage(null);
                     }}
-                    className={`rounded border bg-bg p-2 text-sm ${props.canWrite ? "cursor-grab" : ""} ${c.overdue ? "border-red-500/60" : "border-line"} ${dragId === c.id ? "opacity-40" : ""}`}
+                    className={`rounded border bg-bg p-2 text-sm ${props.canWrite ? "cursor-grab" : ""} ${c.overdue ? "border-danger/60" : "border-line"} ${dragId === c.id ? "opacity-40" : ""}`}
                   >
-                    <Link href={`/leads/${c.id}`} dir="auto" className="block font-medium hover:text-gold">
+                    <Link href={`/leads/${c.id}`} dir="auto" className="block font-medium hover:text-accent">
                       {c.fullName}
                     </Link>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted">
@@ -126,7 +126,7 @@ export function BoardClient(props: {
                     </div>
                     <div className="mt-1 flex items-center gap-2 text-xs">
                       {c.nextFollowUp ? (
-                        <span className={c.overdue ? "font-medium text-red-400" : "text-muted"}>
+                        <span className={c.overdue ? "font-medium text-danger" : "text-muted"}>
                           {c.overdue ? "Overdue · " : "Next · "}
                           {shortDate(c.nextFollowUp)}
                         </span>
@@ -229,7 +229,7 @@ function LostDialog(props: {
         </select>
       </label>
       {error && (
-        <p role="alert" className="mb-2 text-sm text-red-500">
+        <p role="alert" className="mb-2 text-sm text-danger">
           {error}
         </p>
       )}
@@ -330,13 +330,13 @@ function EnrolDialog(props: { card: Card; cohorts: Cohort[]; isOwner: boolean; o
           <input className={field} value={ref} onChange={(e) => setRef(e.target.value)} dir="ltr" />
         </label>
         {(isFull || full) && props.isOwner && (
-          <label className="flex items-center gap-2 text-sm text-amber-400">
+          <label className="flex items-center gap-2 text-sm text-warn">
             <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
             Cohort is full: override the seat cap
           </label>
         )}
         {error && (
-          <p role="alert" className="text-sm text-red-500">
+          <p role="alert" className="text-sm text-danger">
             {error}
           </p>
         )}

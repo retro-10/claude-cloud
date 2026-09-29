@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,6 +10,10 @@
   --fg: 237 237 237; /* warm white #EDEDED */
   --muted: 160 160 160;
   --line: 52 52 52;
+  --accent: 201 162 39; /* Earned Gold #C9A227, as text */
+  --warn: 251 191 36;
+  --danger: 248 113 113;
+  --ok: 52 211 153;
 }
 [data-theme="light"] {
   --bg: 237 237 237;
@@ -18,8 +21,29 @@
   --fg: 26 26 26;
   --muted: 100 100 100;
   --line: 208 208 208;
+  --accent: 122 92 0; /* gold darkened for text on light backgrounds (5.3:1 on #EDEDED) */
+  --warn: 146 64 14;
+  --danger: 153 27 27; /* red-800: keeps the badge above 4.5:1 on its tinted background */
+  --ok: 6 95 70;
 }
 
 body {
   @apply bg-bg font-sans text-fg antialiased;
+}
+
+/* Visible keyboard focus everywhere, in the one accent colour */
+:focus-visible {
+  outline: 2px solid #c9a227;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

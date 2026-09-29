@@ -1,9 +1,9 @@
 import { formatMinutes, speedBadge } from "@/lib/speed";
 
 const STYLE = {
-  ok: "bg-emerald-500/15 text-emerald-400",
-  amber: "bg-amber-500/20 text-amber-400",
-  red: "bg-red-500/20 text-red-400",
+  ok: "bg-ok/15 text-ok",
+  amber: "bg-warn/20 text-warn",
+  red: "bg-danger/20 text-danger",
 } as const;
 
 // Server-rendered: shows minutes since creation as of page load, only while uncontacted.

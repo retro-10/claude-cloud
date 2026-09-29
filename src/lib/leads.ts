@@ -2,6 +2,7 @@ import { and, eq, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { activities, leads, lostReasons, stageEvents, stages } from "@/db/schema";
 import { audit } from "./audit";
+import { isUniqueViolation } from "./db-errors";
 import { cancelCadenceFollowUps } from "./followups";
 import { normalizePhone } from "./phone";
 
@@ -61,28 +62,39 @@ export async function createLead(db: Db, input: NewLeadInput, userId: number | n
   const duplicates = await findDuplicates(db, { phone, email: input.email });
   if (duplicates.length) return { ok: false, error: "duplicate", duplicates };
 
-  const lead = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(leads)
-      .values({
-        fullName: input.fullName.trim(),
-        phoneWhatsapp: phone,
-        email: blank(input.email)?.toLowerCase() ?? null,
-        city: blank(input.city),
-        segment: input.segment ?? null,
-        sourceId: input.sourceId ?? null,
-        campaignId: input.campaignId ?? null,
-        tierInterest: input.tierInterest ?? "unsure",
-        notes: blank(input.notes),
-        ownerId: input.ownerId ?? userId,
-      })
-      .returning();
-    // creation is the funnel's first event (from_stage NULL -> new)
-    await tx.insert(stageEvents).values({ leadId: row.id, fromStage: null, toStage: "new", byUserId: userId });
-    await audit(tx, { userId, entity: "lead", entityId: row.id, action: "create" });
-    return row;
-  });
-  return { ok: true, lead };
+  try {
+    const lead = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(leads)
+        .values({
+          fullName: input.fullName.trim(),
+          phoneWhatsapp: phone,
+          email: blank(input.email)?.toLowerCase() ?? null,
+          city: blank(input.city),
+          segment: input.segment ?? null,
+          sourceId: input.sourceId ?? null,
+          campaignId: input.campaignId ?? null,
+          tierInterest: input.tierInterest ?? "unsure",
+          notes: blank(input.notes),
+          ownerId: input.ownerId ?? userId,
+        })
+        .returning();
+      // creation is the funnel's first event (from_stage NULL -> new)
+      await tx.insert(stageEvents).values({ leadId: row.id, fromStage: null, toStage: "new", byUserId: userId });
+      await audit(tx, { userId, entity: "lead", entityId: row.id, action: "create" });
+      return row;
+    });
+    return { ok: true, lead };
+  } catch (e) {
+    // Two people adding the same person at the same moment both pass the check above; the unique
+    // index stops the second. Report it as the duplicate it is instead of leaking the driver's
+    // message, which contains the phone number.
+    if (isUniqueViolation(e)) {
+      const again = await findDuplicates(db, { phone, email: input.email });
+      if (again.length) return { ok: false, error: "duplicate", duplicates: again };
+    }
+    throw e;
+  }
 }
 
 export type ActivityInput = {
@@ -215,11 +227,16 @@ export async function updateLead(
   if (patch.notes !== undefined) set.notes = blank(patch.notes);
   if (patch.ownerId !== undefined) set.ownerId = patch.ownerId;
 
-  await db.transaction(async (tx) => {
-    await tx.update(leads).set(set).where(eq(leads.id, id));
-    // field names only, never values: no lead PII in the audit log
-    await audit(tx, { userId, entity: "lead", entityId: id, action: "update", diff: { fields: Object.keys(set).filter((k) => k !== "updatedAt") } });
-  });
+  try {
+    await db.transaction(async (tx) => {
+      await tx.update(leads).set(set).where(eq(leads.id, id));
+      // field names only, never values: no lead PII in the audit log
+      await audit(tx, { userId, entity: "lead", entityId: id, action: "update", diff: { fields: Object.keys(set).filter((k) => k !== "updatedAt") } });
+    });
+  } catch (e) {
+    if (isUniqueViolation(e)) return { ok: false, error: "Another lead has this phone or email", duplicates: await findDuplicates(db, { phone, email }, id) };
+    throw e;
+  }
   return { ok: true };
 }
 

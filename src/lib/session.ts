@@ -5,6 +5,8 @@ export const SESSION_COOKIE = "crm_session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 export type SessionUser = { id: number; name: string; email: string; role: Role };
+// pv = fingerprint of the password hash: changing or resetting a password invalidates every older session
+export type SessionClaims = SessionUser & { pv: string };
 
 // Edge-safe (used by middleware): no DB or Node-only imports here.
 function key() {
@@ -13,8 +15,8 @@ function key() {
   return new TextEncoder().encode(secret);
 }
 
-export async function signSession(user: SessionUser): Promise<string> {
-  return new SignJWT({ name: user.name, email: user.email, role: user.role })
+export async function signSession(user: SessionUser, pv: string): Promise<string> {
+  return new SignJWT({ name: user.name, email: user.email, role: user.role, pv })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(String(user.id))
     .setIssuedAt()
@@ -22,7 +24,7 @@ export async function signSession(user: SessionUser): Promise<string> {
     .sign(key());
 }
 
-export async function verifySession(token: string | undefined): Promise<SessionUser | null> {
+export async function verifySession(token: string | undefined): Promise<SessionClaims | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, key(), { algorithms: ["HS256"] });
@@ -31,6 +33,7 @@ export async function verifySession(token: string | undefined): Promise<SessionU
       name: String(payload.name),
       email: String(payload.email),
       role: payload.role as Role,
+      pv: String(payload.pv ?? ""),
     };
   } catch {
     return null;
@@ -40,7 +43,7 @@ export async function verifySession(token: string | undefined): Promise<SessionU
 export function cookieOptions() {
   return {
     httpOnly: true,
-    sameSite: "lax" as const, // also our CSRF baseline; server actions add Origin checking
+    sameSite: "lax" as const, // also our CSRF baseline; middleware additionally checks Origin on writes
     secure: process.env.COOKIE_SECURE === "true",
     path: "/",
     maxAge: SESSION_TTL_SECONDS,

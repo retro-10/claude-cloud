@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { startOfCairoDay } from "./time";
 
-export const BOARD_CARD_LIMIT = 100; // per column; the count badge always shows the true total
+export const BOARD_CARD_LIMIT = 40; // per column (most recently active first); the count badge always shows the true total
 
 export type BoardCard = {
   id: number;

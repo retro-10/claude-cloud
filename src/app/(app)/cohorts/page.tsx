@@ -16,7 +16,7 @@ export default async function CohortsPage({ searchParams }: { searchParams: { er
     <>
       <h1 className="mb-3 font-display text-2xl">Cohorts</h1>
       {searchParams.error && (
-        <p role="alert" className="mb-3 text-sm text-red-500">
+        <p role="alert" className="mb-3 text-sm text-danger">
           {searchParams.error}
         </p>
       )}
@@ -35,13 +35,13 @@ export default async function CohortsPage({ searchParams }: { searchParams: { er
             {list.map((c) => (
               <tr key={c.id} className="border-t border-line hover:bg-surface/60">
                 <td className="px-3 py-2">
-                  <Link href={`/cohorts/${c.id}`} className="font-medium hover:text-gold" dir="auto">
+                  <Link href={`/cohorts/${c.id}`} className="font-medium hover:text-accent" dir="auto">
                     {c.name}
                   </Link>
                 </td>
                 <td className="px-3 py-2 text-muted">{formatCairo(c.masterclassAt, false) || "—"}</td>
                 <td className="px-3 py-2">{closeLabel(c.enrolmentCloseAt)}</td>
-                <td className={`px-3 py-2 ${c.seatsUsed >= c.seatCap ? "text-amber-400" : ""}`}>
+                <td className={`px-3 py-2 ${c.seatsUsed >= c.seatCap ? "text-warn" : ""}`}>
                   {c.seatsUsed}/{c.seatCap}
                 </td>
                 <td className="px-3 py-2">{egp(c.revenueEgp)}</td>

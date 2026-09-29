@@ -92,7 +92,7 @@ export function ImportClient() {
           </div>
 
           {!hasKey && (
-            <p role="alert" className="text-sm text-amber-400">
+            <p role="alert" className="text-sm text-warn">
               Map a phone or email column so duplicates can be detected. Without one, re-importing the same file would create duplicates.
             </p>
           )}
@@ -113,7 +113,7 @@ export function ImportClient() {
                   <tr key={i} className="border-t border-line">
                     {IMPORT_FIELDS.filter((f) => mapping[f] !== undefined).map((f) => (
                       <td key={f} className="px-2 py-1" dir="auto">
-                        {f === "phone" && r.phone ? (normalizePhone(r.phone) ?? <span className="text-red-400">invalid: {r.phone}</span>) : r[f]}
+                        {f === "phone" && r.phone ? (normalizePhone(r.phone) ?? <span className="text-danger">invalid: {r.phone}</span>) : r[f]}
                       </td>
                     ))}
                   </tr>
@@ -139,7 +139,7 @@ export function ImportClient() {
       )}
 
       {result && !result.ok && (
-        <p role="alert" className="text-sm text-red-500">
+        <p role="alert" className="text-sm text-danger">
           {result.error}
         </p>
       )}

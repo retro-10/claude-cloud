@@ -43,7 +43,7 @@ export function LoginForm() {
         />
       </label>
       {state?.error && (
-        <p role="alert" className="text-sm text-red-500">
+        <p role="alert" className="text-sm text-danger">
           {state?.error}
         </p>
       )}

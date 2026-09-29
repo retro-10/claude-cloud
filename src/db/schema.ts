@@ -52,6 +52,8 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   role: roleEnum("role").notNull().default("sales"),
   active: boolean("active").notNull().default(true),
+  // NULL = still on the password it was created/seeded with; the app nags until the user sets their own
+  passwordChangedAt: ts("password_changed_at"),
   createdAt: createdAt(),
 });
 

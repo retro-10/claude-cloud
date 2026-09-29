@@ -4,3 +4,9 @@ node_modules
 .env
 backups
 coverage
+tests
+e2e
+test-results
+playwright-report
+playwright.config.ts
+*.md

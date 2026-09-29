@@ -114,7 +114,7 @@ export function LeadForm({
         <div className="flex items-center gap-3 sm:col-span-2">
           <Save />
           {state?.error && (
-            <span role="alert" className="text-sm text-red-500">
+            <span role="alert" className="text-sm text-danger">
               {state?.error}
             </span>
           )}

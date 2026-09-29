@@ -3,6 +3,7 @@ import type { Db } from "@/db";
 import { startOfCairoDay, startOfNextCairoDay } from "./time";
 
 export const DECISION_DUE_DAYS = 3;
+export const TODAY_LIMIT = 50; // rows shown per section; the count badge always shows the true total
 
 export type TodayFollowUp = {
   id: number;
@@ -23,6 +24,7 @@ export type Today = {
   overdue: TodayFollowUp[];
   consultsToday: TodayConsult[];
   decisionsDue: TodayLead[];
+  totals: { uncontacted: number; overdue: number; dueToday: number; decisionsDue: number };
 };
 
 const d = (v: unknown) => (v ? new Date(v as string) : null) as Date;
@@ -39,14 +41,14 @@ export async function getToday(db: Db, opts: { now?: Date; ownerId?: number } = 
     select l.id, l.full_name, l.phone_whatsapp, l.created_at, l.first_contact_at
     from leads l join stages s on s.key = l.stage
     where l.deleted_at is null and l.first_contact_at is null and s.kind = 'open' ${own}
-    order by l.created_at asc limit 100`)) as unknown as Record<string, unknown>[];
+    order by l.created_at asc limit ${TODAY_LIMIT}`)) as unknown as Record<string, unknown>[];
 
   const fu = async (cond: ReturnType<typeof sql>) =>
     (await db.execute(sql`
       select f.id, f.lead_id, l.full_name, l.phone_whatsapp, f.due_at, f.kind, f.note, f.template_id is not null as from_cadence
       from follow_ups f join leads l on l.id = f.lead_id
       where f.done_at is null and f.cancelled_at is null and l.deleted_at is null ${own} and ${cond}
-      order by f.due_at asc limit 200`)) as unknown as Record<string, unknown>[];
+      order by f.due_at asc limit ${TODAY_LIMIT}`)) as unknown as Record<string, unknown>[];
   const mapFu = (r: Record<string, unknown>): TodayFollowUp => ({
     id: r.id as number,
     leadId: r.lead_id as number,
@@ -72,7 +74,20 @@ export async function getToday(db: Db, opts: { now?: Date; ownerId?: number } = 
       select l.id, l.full_name, l.phone_whatsapp, l.created_at, l.first_contact_at,
         coalesce((select max(e.at) from stage_events e where e.lead_id = l.id and e.to_stage = 'offer_sent'), l.updated_at) as since
       from leads l where l.deleted_at is null and l.stage = 'offer_sent' ${own}) t
-    where since <= ${decisionCutoff}::timestamptz order by since asc limit 100`)) as unknown as Record<string, unknown>[];
+    where since <= ${decisionCutoff}::timestamptz order by since asc limit ${TODAY_LIMIT}`)) as unknown as Record<string, unknown>[];
+
+  const n = async (q: ReturnType<typeof sql>) => Number(((await db.execute(q)) as unknown as { n: number }[])[0].n);
+  const totals = {
+    uncontacted: await n(sql`select count(*)::int as n from leads l join stages s on s.key = l.stage
+      where l.deleted_at is null and l.first_contact_at is null and s.kind = 'open' ${own}`),
+    overdue: await n(sql`select count(*)::int as n from follow_ups f join leads l on l.id = f.lead_id
+      where f.done_at is null and f.cancelled_at is null and l.deleted_at is null ${own} and f.due_at < ${dayStart}::timestamptz`),
+    dueToday: await n(sql`select count(*)::int as n from follow_ups f join leads l on l.id = f.lead_id
+      where f.done_at is null and f.cancelled_at is null and l.deleted_at is null ${own}
+        and f.due_at >= ${dayStart}::timestamptz and f.due_at < ${dayEnd}::timestamptz`),
+    decisionsDue: await n(sql`select count(*)::int as n from leads l where l.deleted_at is null and l.stage = 'offer_sent' ${own}
+      and coalesce((select max(e.at) from stage_events e where e.lead_id = l.id and e.to_stage = 'offer_sent'), l.updated_at) <= ${decisionCutoff}::timestamptz`),
+  };
 
   const lead = (r: Record<string, unknown>): TodayLead => ({
     id: r.id as number,
@@ -97,5 +112,6 @@ export async function getToday(db: Db, opts: { now?: Date; ownerId?: number } = 
       outcome: r.outcome as string | null,
     })),
     decisionsDue: decisions.map(lead),
+    totals,
   };
 }

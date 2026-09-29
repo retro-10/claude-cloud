@@ -1,0 +1,18 @@
+# Used by docker-compose.prod.yml. Caddy obtains and renews the HTTPS certificate for $DOMAIN by itself.
+{$DOMAIN} {
+	encode gzip zstd
+
+	# CSV imports are posted as JSON rows; the app allows up to 10 MB
+	request_body {
+		max_size 12MB
+	}
+
+	# Caddy replaces any X-Forwarded-For sent by the client, so the login rate limit sees the real address.
+	# (This is only true because the app is not reachable except through this proxy.)
+	reverse_proxy app:3000 {
+		health_uri /api/health
+		health_interval 30s
+	}
+
+	header -Server
+}

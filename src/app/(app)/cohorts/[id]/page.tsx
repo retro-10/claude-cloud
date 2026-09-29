@@ -37,7 +37,7 @@ export default async function CohortPage({ params, searchParams }: { params: { i
         )}
       </div>
       {searchParams.error && (
-        <p role="alert" className="mb-3 text-sm text-red-500">
+        <p role="alert" className="mb-3 text-sm text-danger">
           {searchParams.error}
         </p>
       )}
@@ -50,11 +50,11 @@ export default async function CohortPage({ params, searchParams }: { params: { i
         <div className="rounded border border-line bg-surface p-3">
           <div className="text-xs text-muted">Enrolment closes</div>
           <div>{formatCairo(c.enrolmentCloseAt) || "—"}</div>
-          <div className="text-sm text-gold">{closeLabel(c.enrolmentCloseAt)}</div>
+          <div className="text-sm text-accent">{closeLabel(c.enrolmentCloseAt)}</div>
         </div>
         <div className="rounded border border-line bg-surface p-3">
           <div className="text-xs text-muted">Seats</div>
-          <div className={over ? "text-amber-400" : ""}>
+          <div className={over ? "text-warn" : ""}>
             {c.seatsUsed} of {c.seatCap}
             {over ? " (over cap)" : ""}
           </div>
@@ -96,13 +96,13 @@ export default async function CohortPage({ params, searchParams }: { params: { i
             {students.map((s) => (
               <tr key={s.enrolmentId} className="border-t border-line align-top">
                 <td className="px-3 py-2">
-                  <Link href={`/leads/${s.leadId}`} className="font-medium hover:text-gold" dir="auto">
+                  <Link href={`/leads/${s.leadId}`} className="font-medium hover:text-accent" dir="auto">
                     {s.fullName}
                   </Link>
                 </td>
                 <td className="px-3 py-2">{pretty(s.tier)}</td>
                 <td className="px-3 py-2">{egp(s.amountEgp)}</td>
-                <td className="px-3 py-2">{s.paidAt ? formatCairo(s.paidAt, false) : <span className="text-amber-400">unpaid</span>}</td>
+                <td className="px-3 py-2">{s.paidAt ? formatCairo(s.paidAt, false) : <span className="text-warn">unpaid</span>}</td>
                 <td className="px-3 py-2 text-muted" dir="ltr">
                   {s.paymentRef} {s.gateway === "paymob" ? "(paymob)" : ""}
                 </td>

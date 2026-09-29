@@ -6,10 +6,14 @@ import { z } from "zod";
 import { db } from "@/db";
 import { audit } from "@/lib/audit";
 import { authenticate } from "@/lib/auth";
-import { rateLimit } from "@/lib/rate-limit";
+import { clearHits, isLimited, recordHit } from "@/lib/rate-limit";
 import { SESSION_COOKIE, cookieOptions, signSession } from "@/lib/session";
 
 const schema = z.object({ email: z.string().email().max(200), password: z.string().min(1).max(200) });
+
+// Configurable so automated test runs (which sign in constantly) are not throttled; keep the defaults in production.
+const MAX_PER_ACCOUNT = Number(process.env.LOGIN_MAX_FAILED_PER_ACCOUNT ?? 5);
+const MAX_PER_IP = Number(process.env.LOGIN_MAX_FAILED_PER_IP ?? 20);
 
 export type LoginState = { error?: string };
 
@@ -19,18 +23,26 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
 
   const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
   const email = parsed.data.email.toLowerCase();
-  // 5 attempts per 15 min per email+IP, and 20 per 15 min per IP overall
-  const perAccount = rateLimit(`login:${ip}:${email}`, 5, 15 * 60_000);
-  const perIp = rateLimit(`login-ip:${ip}`, 20, 15 * 60_000);
-  if (!perAccount.ok || !perIp.ok) return { error: "Too many attempts. Try again in a few minutes." };
+  // Only FAILED attempts count: 5 per 15 min per email+IP, and 20 per 15 min per IP overall.
+  // Signing in normally (or several times) never locks anyone out; guessing does.
+  const WINDOW = 15 * 60_000;
+  const acct = `login:${ip}:${email}`;
+  const ipKey = `login-ip:${ip}`;
+  if (isLimited(acct, MAX_PER_ACCOUNT, WINDOW).limited || isLimited(ipKey, MAX_PER_IP, WINDOW).limited) {
+    return { error: "Too many failed attempts. Try again in a few minutes." };
+  }
 
   const user = await authenticate(db, email, parsed.data.password);
   if (!user) {
+    recordHit(acct, WINDOW);
+    recordHit(ipKey, WINDOW);
     await audit(db, { userId: null, entity: "auth", action: "login_failed" });
     return { error: "Wrong email or password." };
   }
+  clearHits(acct);
 
-  cookies().set(SESSION_COOKIE, await signSession(user), cookieOptions());
+  const { pv, ...sessionUser } = user;
+  cookies().set(SESSION_COOKIE, await signSession(sessionUser, pv), cookieOptions());
   await audit(db, { userId: user.id, entity: "auth", entityId: user.id, action: "login" });
   redirect("/");
 }
