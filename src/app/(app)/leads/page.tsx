@@ -42,9 +42,19 @@ export default async function LeadsPage({ searchParams }: { searchParams: Record
       <div className="mb-3 flex flex-wrap items-baseline gap-3">
         <h1 className="font-display text-2xl">{f.deleted === "1" ? "Deleted leads" : "Leads"}</h1>
         <span className="text-sm text-muted">{total} total</span>
-        <Link href={f.deleted === "1" ? "/leads" : "/leads?deleted=1"} className="ml-auto text-xs text-muted underline">
-          {f.deleted === "1" ? "Back to live leads" : can(user.role, "lead:delete") ? "Show deleted" : ""}
-        </Link>
+        <div className="ml-auto flex gap-3 text-xs text-muted">
+          {canWrite && (
+            <Link href="/leads/import" className="underline">
+              Import CSV
+            </Link>
+          )}
+          <a href={`/leads/export${qs({ page: undefined })}`} className="underline">
+            Export CSV
+          </a>
+          <Link href={f.deleted === "1" ? "/leads" : "/leads?deleted=1"} className="underline">
+            {f.deleted === "1" ? "Back to live leads" : can(user.role, "lead:delete") ? "Show deleted" : ""}
+          </Link>
+        </div>
       </div>
 
       {views.length > 0 && (
