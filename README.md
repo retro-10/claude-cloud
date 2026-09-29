@@ -22,7 +22,8 @@ Open http://localhost:3000 and sign in with a demo user. On start the app applie
 | --- | --- | --- |
 | Retro | retro@orladent.local | owner |
 | Badr | badr@orladent.local | owner |
-| Murail | murail@orladent.local | viewer |
+| Sayed | sayed@orladent.local | owner (admin) |
+| Mo | mo@orladent.local | finance (financial admin; read-only for now) |
 
 Password for all three is `SEED_PASSWORD` from your `.env`.
 

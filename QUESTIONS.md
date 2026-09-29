@@ -2,7 +2,7 @@
 
 Each has a safe default already applied. Answer any and it will be changed.
 
-1. **User accounts.** Names and emails for the three users? Default: `retro@`, `badr@`, `murail@orladent.local`, roles owner / owner / viewer. The brief says Murail gets "view and light edits", which matches `sales` more than `viewer`. Which one? (Default: `viewer`, the stricter.)
+1. **Financial admin role.** Mo is set up as `finance`, but nothing defines what that role can do, so it is read-only (same as `viewer`) for now. What should it be able to do? Likely candidates: see revenue and enrolments (once the dashboard exists), record or edit payments and enrolments, export revenue, but not edit leads or settings. Also: is "admin" (Sayed) the same as `owner` (full access incl. settings, users, audit log)? Assumed yes. Real emails for Sayed and Mo? Placeholders are `sayed@` and `mo@orladent.local`.
 2. **Lost reasons on day one.** Default list: Price, Timing, No response, Not a fit, Chose competitor, Hardware, Other.
 3. **Stage names.** Default labels: New, Contacted, Replied, Consult booked, Consult held, Offer sent, Enrolled, Lost, Nurture.
 4. **Next cohort.** Dates and seat cap not provided; the seed will use a placeholder cohort clearly named "Demo cohort" in Phase 6.

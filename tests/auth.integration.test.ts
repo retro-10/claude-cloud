@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { authenticate } from "@/lib/auth";
@@ -26,11 +26,13 @@ d("auth + seed against an empty database", () => {
   });
   afterAll(() => client.end());
 
-  it("seeds the nine stages, cadences and three users exactly once", async () => {
+  it("seeds the nine stages, cadences and the four accounts exactly once; Murail is gone", async () => {
     const stages = await db.select().from(s.stages);
     expect(stages.map((x) => x.key).sort()).toEqual(STAGES.map((x) => x.key).sort());
     expect(await db.select().from(s.cadenceTemplates)).toHaveLength(CADENCES.length);
-    expect(await db.select().from(s.users)).toHaveLength(3);
+    const all = await db.select().from(s.users);
+    expect(all.map((u) => `${u.name}:${u.role}`).sort()).toEqual(["Badr:owner", "Mo:finance", "Retro:owner", "Sayed:owner"]);
+    expect(all.some((u) => u.email === "murail@orladent.local")).toBe(false);
   });
 
   it("accepts the right password", async () => {
@@ -70,5 +72,25 @@ d("auth + seed against an empty database", () => {
     const [row] = await db.insert(s.leads).values({ fullName: "د. محمد علي" }).returning();
     const [back] = await db.select().from(s.leads).where(sql`${s.leads.id} = ${row.id}`);
     expect(back.fullName).toBe("د. محمد علي");
+  });
+});
+
+d("removing a previously seeded user", () => {
+  const client = postgres(url ?? "postgres://x", { max: 2, onnotice: () => {} });
+  const db = drizzle(client, { schema: s });
+  afterAll(() => client.end());
+
+  it("deletes a user with no history, deactivates one that has history", async () => {
+    const hash = await bcrypt.hash("pw", 4);
+    await db.insert(s.users).values({ name: "Murail", email: "murail@orladent.local", passwordHash: hash, role: "viewer" });
+    await seedReference(url, "pw");
+    expect(await db.select().from(s.users).where(eq(s.users.email, "murail@orladent.local"))).toHaveLength(0);
+
+    const [m] = await db.insert(s.users).values({ name: "Murail", email: "murail@orladent.local", passwordHash: hash, role: "viewer" }).returning();
+    await db.insert(s.auditLog).values({ userId: m.id, entity: "auth", action: "login" });
+    await seedReference(url, "pw");
+    const [after] = await db.select().from(s.users).where(eq(s.users.email, "murail@orladent.local"));
+    expect(after.active).toBe(false);
+    expect(await authenticate(db, "murail@orladent.local", "pw")).toBeNull();
   });
 });

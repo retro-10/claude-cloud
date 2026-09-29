@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as s from "./schema";
-import { CADENCES, DEMO_USERS, LOST_REASONS, OBJECTIONS, SOURCES, STAGES } from "./seed-data";
+import { CADENCES, DEMO_USERS, LOST_REASONS, OBJECTIONS, REMOVED_USERS, SOURCES, STAGES } from "./seed-data";
 
 // Idempotent: safe to run on every container start. Existing rows are left untouched.
 export async function seedReference(url = process.env.DATABASE_URL, password = process.env.SEED_PASSWORD) {
@@ -26,6 +27,15 @@ export async function seedReference(url = process.env.DATABASE_URL, password = p
       .insert(s.users)
       .values(DEMO_USERS.map((u) => ({ ...u, passwordHash })))
       .onConflictDoNothing();
+
+    for (const email of REMOVED_USERS) {
+      try {
+        await db.delete(s.users).where(eq(s.users.email, email));
+      } catch {
+        // foreign keys: the user has history, so keep the row but block login
+        await db.update(s.users).set({ active: false }).where(eq(s.users.email, email));
+      }
+    }
   } finally {
     await client.end();
   }

@@ -22,4 +22,10 @@ describe("role rules", () => {
     expect(can("viewer", "lead:delete")).toBe(false);
     expect(can("viewer", "settings:write")).toBe(false);
   });
+
+  it("finance is read-only until its permissions are defined", () => {
+    expect(can("finance", "lead:read")).toBe(true);
+    for (const a of ["lead:write", "lead:delete", "settings:write", "users:manage", "audit:read"] as const)
+      expect(can("finance", a)).toBe(false);
+  });
 });

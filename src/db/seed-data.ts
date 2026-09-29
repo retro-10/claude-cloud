@@ -61,5 +61,10 @@ export const CADENCES: { name: string; steps: CadenceStep[] }[] = [
 export const DEMO_USERS = [
   { name: "Retro", email: "retro@orladent.local", role: "owner" },
   { name: "Badr", email: "badr@orladent.local", role: "owner" },
-  { name: "Murail", email: "murail@orladent.local", role: "viewer" },
+  { name: "Sayed", email: "sayed@orladent.local", role: "owner" }, // admin
+  { name: "Mo", email: "mo@orladent.local", role: "finance" }, // financial admin
 ] as const;
+
+// Accounts that were seeded before and must not exist any more. The seed deletes them, or
+// deactivates them if they already have history (activities, audit rows) pointing at them.
+export const REMOVED_USERS = ["murail@orladent.local"];

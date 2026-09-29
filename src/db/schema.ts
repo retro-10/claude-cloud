@@ -17,7 +17,7 @@ import {
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const createdAt = () => ts("created_at").notNull().defaultNow();
 
-export const roleEnum = pgEnum("role", ["owner", "sales", "viewer"]);
+export const roleEnum = pgEnum("role", ["owner", "sales", "viewer", "finance"]);
 export const segmentEnum = pgEnum("segment", ["fresh_graduate", "technician", "dentist", "other"]);
 export const tierEnum = pgEnum("tier", ["foundation", "freelance_ready", "production_partner"]);
 export const tierInterestEnum = pgEnum("tier_interest", [

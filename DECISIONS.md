@@ -24,7 +24,11 @@
 Inter and Playfair Display load from Google Fonts in the browser. The app runs without them (falls back to system fonts), so nothing needs the network to start. To self-host later, drop the font files in `public/` and replace the `@import` in `globals.css`.
 
 ## Seed users
-The seed creates Retro (owner), Badr (owner) and Murail (viewer) with emails `@orladent.local` and one shared password from `SEED_PASSWORD`. Badr has "final say", so he is an owner. Replace emails and passwords before real use (see `QUESTIONS.md`).
+The seed creates Retro, Badr and Sayed (all `owner`) and Mo (`finance`) with emails `@orladent.local` and one shared password from `SEED_PASSWORD`. Badr has "final say", so he is an owner. "Admin" (Sayed) is mapped to `owner`, the role that can do everything. Replace emails and passwords before real use (see `QUESTIONS.md`).
+
+Murail was removed. `REMOVED_USERS` in `seed-data.ts` lists accounts the seed must not leave behind: it deletes them, or, if they already have history pointing at them, deactivates them (login blocked, history kept). Removing a name from `DEMO_USERS` alone would not remove it from an existing database.
+
+`finance` is a fourth role added for Mo (migration `0001`). Its permissions are not defined yet, so it is read-only, identical to `viewer`, until QUESTIONS.md #1 is answered.
 
 ## Phase 2 (leads)
 - **Duplicate handling blocks, it does not merge.** Quick add and edit refuse a phone or email that another lead already has and link to the existing lead (including soft-deleted ones, which must be restored, not re-created). Phones are normalised to E.164 first, so `010…`, `+20 10…` and Arabic-Indic digits all match. Numbers without a country code are assumed Egyptian.
