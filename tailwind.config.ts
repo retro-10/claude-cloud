@@ -30,8 +30,9 @@ const config: Config = {
         ok: token("ok"),
       },
       fontFamily: {
-        sans: ["Archivo", "system-ui", "-apple-system", '"Segoe UI"', "sans-serif"],
-        display: ['"Bodoni Moda"', "Georgia", '"Times New Roman"', "serif"],
+        // one clean, highly readable family everywhere; Arabic names fall back to Noto Sans Arabic
+        sans: ["Inter", '"Noto Sans Arabic"', "system-ui", "-apple-system", '"Segoe UI"', "Roboto", "sans-serif"],
+        display: ["Inter", '"Noto Sans Arabic"', "system-ui", "-apple-system", '"Segoe UI"', "sans-serif"],
       },
       boxShadow: {
         soft: "0 1px 2px rgb(0 0 0 / 0.18), 0 1px 1px rgb(0 0 0 / 0.08)",

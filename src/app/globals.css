@@ -54,7 +54,6 @@
   }
   body {
     @apply min-h-screen bg-bg font-sans text-[14px] leading-relaxed text-fg antialiased;
-    font-feature-settings: "cv11", "ss01";
     background-image: radial-gradient(1100px 520px at 85% -8%, rgb(var(--glow) / 0.07), transparent 60%),
       radial-gradient(800px 420px at -10% 110%, rgb(var(--glow) / 0.035), transparent 60%);
     background-attachment: fixed;
@@ -87,7 +86,7 @@
     @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted;
   }
   .page-title {
-    @apply font-display text-[28px] font-semibold leading-tight tracking-tight;
+    @apply font-display text-[26px] font-semibold leading-tight tracking-[-0.02em];
   }
 
   /* Buttons */

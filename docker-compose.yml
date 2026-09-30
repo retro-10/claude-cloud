@@ -26,7 +26,7 @@ services:
       AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SEED_PASSWORD: ${SEED_PASSWORD:?set SEED_PASSWORD in .env}
-      SEED_DEMO: ${SEED_DEMO:-true}
+      SEED_DEMO: ${SEED_DEMO:-false}
       TZ: UTC
     ports:
       - "${APP_PORT:-3000}:3000"

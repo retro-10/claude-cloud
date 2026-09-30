@@ -4,6 +4,7 @@ import type { Db } from "@/db";
 import { appSettings, cohorts, enrolments, ledgerEntries, leads, notionLinks, notionSyncRuns, programmeSessions, proofItems, sources, stages, teamMembers, users } from "@/db/schema";
 import { audit } from "../audit";
 import { SECTIONS, saveEntry, type Section, type Status } from "../finance";
+import { createLead } from "../leads";
 import { normalizePhone } from "../phone";
 import { LIST_PRICE_EGP, TIER_LABEL } from "../pricing";
 import { cairoLocalToDate, cairoYmd } from "../time";
@@ -49,7 +50,8 @@ export function notionConfig(env: Record<string, string | undefined> = process.e
     sessionsDb: env.NOTION_SESSIONS_DB || "1ade3ea7-6c29-4022-9dd7-5d26187b00bf",
     proofDb: env.NOTION_PROOF_DB || "a4df71c2-181d-46f9-9bbb-83300ed75379",
     teamDb: env.NOTION_TEAM_DB || "7e7b2eb3-c2f3-44e1-9104-c4cb814c0f70",
-    leadsDb: env.NOTION_LEADS_DB || null,
+    // the "Leads" database made for the CRM under the OrlaDent Camp page
+    leadsDb: env.NOTION_LEADS_DB || "09c1a825-08dc-4099-90d0-2c92511ad821",
     syncLeads: env.NOTION_SYNC_LEADS !== "false",
     appUrl: env.APP_URL?.replace(/\/$/, "") || (env.DOMAIN ? `https://${env.DOMAIN}` : null),
   };
@@ -67,7 +69,7 @@ const STATE_KEY = "notion_state";
 type State = { leadsDb?: string; cursors?: Partial<Record<Entity, string>>; version?: number };
 // Raise when the synced fields change: the next run then reads every page first, so values Notion already
 // has for the new fields come in instead of being overwritten by the CRM's empty defaults.
-const SYNC_VERSION = 3;
+const SYNC_VERSION = 4;
 
 export type RunResult = { pushed: number; pulled: number; created: number; conflicts: number; errors: string[]; more: boolean };
 
@@ -133,6 +135,8 @@ const STUDENT = { active: "Active", graduated: "Graduated", dropped: "Dropped" }
 const SECTION_LABEL = Object.fromEntries(Object.entries(SECTIONS).map(([k, v]) => [k, v.label])) as Record<Section, string>;
 const STATUS = { received: "Received", expected: "Expected", paid: "Paid", owed: "Owed", cancelled: "Cancelled" } as const;
 const TIERS = TIER_LABEL as Record<keyof typeof LIST_PRICE_EGP, string>;
+const SEGMENT = { fresh_graduate: "Fresh graduate", technician: "Technician", dentist: "Dentist", other: "Other" } as const;
+const INTEREST = { foundation: "Foundation", freelance_ready: "Freelance Ready", production_partner: "Production Partner", unsure: "Unsure" } as const;
 
 /** Phone as Notion's "Number" column holds it: the E.164 digits without the plus. */
 const phoneNumber = (e164: string | null) => (e164 ? Number(e164.replace(/\D/g, "")) : null);
@@ -647,8 +651,8 @@ const leadSpec: Spec = {
             stage: stage ?? l.stage,
             owner: owner ?? null,
             source: source ?? null,
-            segment: l.segment,
-            tier: l.tierInterest,
+            segment: l.segment ? SEGMENT[l.segment] : null,
+            tier: INTEREST[l.tierInterest],
             created: ymd(l.createdAt),
             decision: ymd(l.decisionDueAt),
             crm: c.cfg.appUrl ? `${c.cfg.appUrl}/leads/${l.id}` : null,
@@ -670,7 +674,7 @@ const leadSpec: Spec = {
       owner: get.select(P["Owner"]),
       source: get.select(P["Source"]),
       segment: get.select(P["Segment"]),
-      tier: get.select(P["Tier interest"]),
+      tier: get.select(P["Tier interest"]) ?? INTEREST.unsure,
       created: get.date(P["Created"]),
       decision: get.date(P["Decision due"]),
       crm: (P["Open in CRM"]?.url as string | null | undefined) ?? null,
@@ -690,21 +694,69 @@ const leadSpec: Spec = {
     "Decision due": put.date(f.decision as string | null),
     "Open in CRM": put.url(f.crm as string | null),
   }),
-  // only the name, email and notes come back; stage, owner and the rest are changed in the CRM
+  // Name, phone, email, source, segment, tier interest and notes come back (and a row added in Notion becomes
+  // a lead); stage, owner, created and decision date are the CRM's and are written back over any edit.
   apply: async (c, id, f) => {
-    if (!id) return "was added in Notion; add leads in the CRM so they are de-duplicated and routed";
+    const sourceId = await sourceIdFor(c, str(f.source));
+    const segment = (invert(SEGMENT)[String(f.segment ?? "")] ?? null) as keyof typeof SEGMENT | null;
+    const tierInterest = invert(INTEREST)[String(f.tier ?? "")] ?? "unsure";
+    const rawPhone = str(f.phone);
+    const phone = rawPhone ? normalizePhone(rawPhone) : null;
+    if (rawPhone && !phone) return `has a phone number the CRM cannot read (${rawPhone.replace(/\d(?=\d{3})/g, "•")})`;
+    if (!id) {
+      const r = await createLead(
+        c.db,
+        { fullName: String(f.name).slice(0, 200), phone: rawPhone, email: str(f.email), sourceId: sourceId ?? (await sourceIdFor(c, "Notion")), segment, tierInterest, notes: str(f.notes) },
+        null,
+        { allowNameMatch: true },
+      );
+      if (r.ok) return r.lead.id;
+      if (r.error === "duplicate") return "is already in the CRM with the same phone or email";
+      return "has a phone number the CRM cannot read";
+    }
     const [l] = await c.db.select().from(leads).where(eq(leads.id, id));
     if (!l) return "was removed from the CRM";
     const set: Partial<typeof leads.$inferInsert> = {};
     if (f.name !== l.fullName) set.fullName = String(f.name).slice(0, 200);
-    if (str(f.email) !== l.email) set.email = str(f.email);
+    if ((str(f.email)?.toLowerCase() ?? null) !== l.email) set.email = str(f.email)?.toLowerCase() ?? null;
     if (str(f.notes) !== l.notes) set.notes = str(f.notes);
+    if (phone !== l.phoneWhatsapp) {
+      // a number that belongs to another lead is left alone (merge them in the CRM)
+      const [taken] = phone ? await c.db.select({ id: leads.id }).from(leads).where(eq(leads.phoneWhatsapp, phone)) : [];
+      if (!taken) {
+        set.phoneWhatsapp = phone;
+        set.phoneRaw = rawPhone;
+      }
+    }
+    if (sourceId !== undefined && sourceId !== l.sourceId && f.source) set.sourceId = sourceId;
+    if (segment !== l.segment) set.segment = segment;
+    if (tierInterest !== l.tierInterest) set.tierInterest = tierInterest;
     set.updatedAt = new Date();
     await c.db.update(leads).set(set).where(eq(leads.id, id));
     await audit(c.db, { userId: null, entity: "lead", entityId: id, action: "notion_pull", diff: { fields: Object.keys(set).filter((k) => k !== "updatedAt") } });
     return id;
   },
+  // first sync, or a row typed in Notion for someone already in the CRM: link by phone or email, never duplicate
+  match: async (c, f) => {
+    const phone = str(f.phone) ? normalizePhone(String(f.phone)) : null;
+    const email = str(f.email);
+    if (!phone && !email) return null;
+    const [row] = await c.db
+      .select({ id: leads.id })
+      .from(leads)
+      .where(sql`${leads.deletedAt} is null and (${phone ? sql`${leads.phoneWhatsapp} = ${phone}` : sql`false`} or ${email ? sql`lower(${leads.email}) = lower(${email})` : sql`false`})`)
+      .limit(1);
+    return row?.id ?? null;
+  },
 };
+
+/** The CRM source for a Notion "Source" option; unknown options are added to the list. */
+async function sourceIdFor(c: Ctx, label: string | null): Promise<number | null> {
+  if (!label) return null;
+  await c.db.insert(sources).values({ label: label.slice(0, 80) }).onConflictDoNothing();
+  const [row] = await c.db.select({ id: sources.id }).from(sources).where(eq(sources.label, label.slice(0, 80)));
+  return row?.id ?? null;
+}
 
 // ---------------- Team (both ways; pay, equity and compensation notes are never read or written) ----------------
 

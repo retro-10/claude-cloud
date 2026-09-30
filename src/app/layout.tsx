@@ -18,7 +18,7 @@ export const viewport: Viewport = {
 // paint (media="print" then switched on load) and uses font-display: swap, so text shows at once in the
 // system font and switches when the fonts arrive. If they never arrive (offline, blocked) nothing breaks.
 const FONTS =
-  "https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Bodoni+Moda:opsz,wght@6..96,500;6..96,600;6..96,700&display=swap";
+  "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

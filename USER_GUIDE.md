@@ -194,7 +194,7 @@ minute. **Settings > Integrations** shows what is linked, the last runs and any 
 | Sessions | Programme card > Sessions | both ways |
 | Proof & Testimonial Bank | Programme card > Proof, and the **Proof bank** page | both ways |
 | Team | Settings > Team, and the "Paid to" list on costs | both ways: name, role, group, status, contact, duties. Salary, equity, payment schedule and compensation notes stay in Notion only and are never overwritten |
-| CRM Leads (created by the sync) | leads | CRM to Notion; only name, email and notes come back. Stages are changed in the CRM |
+| **Leads** (under OrlaDent Camp) | leads | both ways. **Add a row in Notion** (Name and Phone at least; Email, Source, Segment, Tier interest, Notes if you have them) and within a minute it is a lead in the CRM: the phone is cleaned up (01012345678 becomes +201012345678), duplicates are linked instead of copied, and it is routed to an owner. Stage, Owner, Created, Decision due and Open in CRM are set by the CRM |
 
 * When the same record was changed on both sides between two syncs, the **newer edit wins** (shown as a
   conflict in the run log).
@@ -204,6 +204,11 @@ minute. **Settings > Integrations** shows what is linked, the last runs and any 
   columns you fill by hand. A tier changed in Notion takes the list price (7,500 / 15,000 / 30,000 EGP).
 * Rows Notion cannot map (a ledger row without a Section, a candidate without a Batch or Tier) are listed as
   problems and left alone.
+
+**Going live with real data:** a fresh install has no demo data (`SEED_DEMO=false`). If yours still shows
+"Demo Lead" contacts, open **Settings > Integrations > Remove demo data** (owners): every demo lead, demo
+batch and DEMO money row goes, real data is untouched. After the first sync, your real candidates, batches
+and payments come in from Notion with their real numbers.
 
 **Setting it up (once, by whoever runs the server):** create an internal integration at
 notion.so/my-integrations (read, update and insert content), copy its token, then in Notion open the

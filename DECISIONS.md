@@ -296,3 +296,22 @@ The owners asked for every Notion-only column to come into the CRM:
 Found and fixed on the way: the enrol dialog's "seats taken" count on the pipeline and lead pages compared
 the wrong ids (a Drizzle subquery lost its table name), so a full batch could look open until the server
 refused the enrolment. Both now name the table explicitly.
+
+## Notion as the place leads are fed
+
+* The **Leads** database was created in the camp's Notion (under OrlaDent Camp) and is the default
+  `NOTION_LEADS_DB`. A row typed there becomes a CRM lead through the same `createLead` as the quick-add form:
+  phone normalised and validated, duplicates by phone or email linked instead of copied, routing rules pick the
+  owner, the "new lead" workflow fires. Name, phone, email, source, segment, tier interest and notes sync both
+  ways; stage, owner, created and decision date stay the CRM's (the pipeline's exit criteria and history
+  live there) and are written back to Notion. An unreadable number is reported in the run log, not guessed.
+  Sync version 4 re-reads the Leads database for the new columns.
+* Demo data is **off by default** (`SEED_DEMO=false`; CI turns it on for the stack test). Owners remove demo
+  rows from an existing install in Settings > Integrations: demo leads are recognised by construction
+  (name "Demo Lead NN" and a +20108000000NN number), batches by name when nothing real uses them, money,
+  sessions and proof by the "DEMO " prefix. Tested: nothing real is touched, and a second run is a no-op.
+
+## Fonts
+
+The owners asked for clean, readable type: **Inter** everywhere (headings included, semibold with tight
+tracking), with **Noto Sans Arabic** as the fallback for Arabic names. This replaces Bodoni Moda and Archivo.

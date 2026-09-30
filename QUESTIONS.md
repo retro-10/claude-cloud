@@ -54,7 +54,7 @@ Each has a safe default already applied. Answer any and it will be changed.
 40. **Candidates added in Notion.** One with a Batch and a Tier becomes an enrolled lead in the CRM (source
     "Notion"), skipping the pipeline's checks. OK, or should they arrive as leads to be worked first?
 41. **Notion-only columns.** Answered: bring all of them in. Consent on file, consent scope, QC score and leaderboard rank sync both ways; Sessions and the Proof & Testimonial Bank sync both ways; Team comes in read-only (no pay or equity). See DECISIONS.md.
-42. **Fonts.** Bodoni Moda and Archivo load from Google Fonts (see #22 about self-hosting).
+42. **Fonts.** Now Inter and Noto Sans Arabic (clean and readable, as asked), from Google Fonts (see #22 about self-hosting).
 43. **Team from the CRM.** Answered: yes. Owners add and edit team members in Settings > Team and it syncs to
     Notion. Pay columns turned out not to be needed: the sync writes only the columns it knows, so salary and
     equity stay in Notion untouched.
