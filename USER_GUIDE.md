@@ -77,7 +77,9 @@ A name alone never warns. A rule creates a **"Reply within 5 minutes"** task and
   outcome, the tier you recommended, the objections raised.
 * **Payments** (enrolled leads): due after discount, paid, remaining; every payment and expected installment,
   with **Received** to mark one as arrived; record a payment or schedule an installment; change the plan,
-  price, discount or student status (Active, Graduated, Dropped).
+  price, discount or student status (Active, Graduated, Dropped). **Dropped** stops the balance: the student owes
+  nothing more, their open installments are cancelled, and revenue counts only what they paid (less refunds).
+  Owners and finance only.
 * **Programme** (enrolled leads): QC score, leaderboard rank, **content consent** (whether we may use their
   work and words in content, and for what: voice, video, patient case, name), their **sessions** (1:1s and
   group Q&As, with the recording link) and **proof & testimonials** (type, consent status, where it may be
@@ -130,7 +132,7 @@ a card, or use **Move to…**. **Needs attention** shows only flagged cards; the
 Search (name, phone in any format, email, city, notes). **Filters** opens stage, source, segment, tier, owner, tag,
 dates and "overdue follow-up". **Save view** keeps a filter (optionally shared). Tick leads to move stage, assign
 or start a cadence in bulk (exit criteria apply per lead; skipped leads are reported). **Import** and **Export
-CSV** work as before; imports of past data are not checked against exit criteria and do not fire rules.
+CSV** (owners only: the file holds names, phones and emails) work as before; imports of past data are not checked against exit criteria and do not fire rules.
 
 ## Merging duplicates
 
@@ -222,7 +224,7 @@ email or name in the same batch; same ledger amount, date and category) instead 
 Date presets (30 days, 90 days, all time) or a range, plus source, campaign, segment, owner, batch. Revenue,
 leads, enrolments, median first contact; the funnel; speed to lead; **lost: said no vs no decision**; weekly
 trend (three small charts, with a table view); consults and sales cycle; revenue by tier, batch and source;
-source quality; top objections. Hover or Tab onto a bar for its exact value. **Anything based on fewer than 5
+source quality; top objections. Revenue figures are shown to owners and finance only. Hover or Tab onto a bar for its exact value. **Anything based on fewer than 5
 leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `METRICS.md`.
 
 ## Roles
@@ -230,9 +232,9 @@ leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `ME
 | Role | Can |
 | --- | --- |
 | **owner** (Retro, Badr, Sayed) | everything: leads, settings, users, audit log, Finance, override a full batch, override exit criteria |
-| **sales** | create and edit leads, activities, follow-ups, consults and enrolments; cannot delete, change settings or manage users |
-| **viewer** | read only |
-| **finance** (Mo) | read everything, Finance (record payments, costs, withdrawals), export revenue; cannot edit leads or settings |
+| **sales** | create and edit leads, activities, follow-ups, consults and enrolments; cannot delete, export the lead list, see revenue, change settings or manage users |
+| **viewer** | read leads only (no revenue, no lead export) |
+| **finance** (Mo) | read everything including revenue, Finance (record payments, costs, withdrawals), export revenue; cannot edit or export leads, or change settings |
 
 ## Owners: Settings
 
@@ -240,7 +242,8 @@ leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `ME
 * **Stages & criteria**: rename and reorder stages, add a stage (a warning past 7 open stages; names that are
   time periods like "Q4 deals" are refused), and switch each stage's checks on or off.
 * **Thresholds & routing**: response-time target, amber and red; working hours (off by default); neglected and
-  stale days; decision-due days; the default owner for new leads and routes by source or segment.
+  stale days; decision-due days; the default owner for new leads (Retro, unless you change it; blank means whoever
+  adds the lead) and routes by source or segment.
 * **Workflows**: the rules, each with an on/off switch, editable wording and delays, a form for new rules, and a
   run log of what fired. Built in: new lead → reply task + notification; reply → stop the cadence + reply task;
   consult "thinking" → post-consult cadence; no-show → recovery task in 2 hours; offer sent → decision-day task;

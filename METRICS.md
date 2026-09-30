@@ -18,7 +18,7 @@ cohort = enrolled in it). Every figure below is computed over those leads and th
 | Show-up rate | held / (held + no-show); consults still to happen are ignored |
 | Consult to enrolment | leads with a held consult who enrolled / leads with a held consult |
 | Sales cycle | median days from creation to the first event into Enrolled |
-| Revenue / collected | what the enrolled students owe (price − discount; a free seat owes 0) / what they have paid (Received candidate payments in the ledger, minus refunds) |
+| Revenue / collected | what the enrolled students owe (price − discount; a free seat owes 0; a dropped student only what they paid, net of refunds) / what they have paid (Received candidate payments in the ledger, minus refunds) |
 | Lost: said no vs no decision | lost leads by the kind of their lost reason (`lost_reasons.kind`: `explicit` or `no_decision`) |
 | Top lost reasons, top objections | counts, ties alphabetical, top 5 |
 | Source / campaign quality | leads, enrolled, enrolled / leads |
@@ -80,7 +80,7 @@ Rules from the Notion *Finances* page. Every figure reads the ledger (`ledger_en
 | Withdrawn | partner-withdrawal rows with status Paid for that partner |
 | Partner balance | all shares up to the end of the month shown − all withdrawals up to then |
 | Coming up | rows still Expected (income) or Owed (costs, withdrawals), oldest first |
-| Candidate due | price − discount (0 for a free seat) |
+| Candidate due | price − discount (0 for a free seat; for a dropped student, no more than they paid net of refunds, so nothing remains) |
 | Candidate paid | that candidate's Received payments − refunds |
 | Candidate expected | that candidate's Expected payments |
 | Remaining | due − paid (never below 0); overdue when an Expected payment's date has passed |

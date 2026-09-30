@@ -29,6 +29,13 @@ describe("role rules", () => {
       expect(can("finance", a)).toBe(false);
   });
 
+  it("only owners can download the lead list; only owner and finance see revenue", () => {
+    expect(can("owner", "lead:export")).toBe(true);
+    for (const r of ["sales", "viewer", "finance"] as const) expect(can(r, "lead:export")).toBe(false);
+    for (const r of ["owner", "finance"] as const) expect(can(r, "finance:read")).toBe(true);
+    for (const r of ["sales", "viewer"] as const) expect(can(r, "finance:read")).toBe(false);
+  });
+
   it("only owner and finance can touch payments or export revenue", () => {
     for (const r of ["sales", "viewer"] as const) {
       expect(can(r, "payment:write")).toBe(false);

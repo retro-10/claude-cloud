@@ -4,19 +4,21 @@ export type Action =
   | "lead:read"
   | "lead:write" // create/edit leads, activities, follow-ups, consults, enrolments
   | "lead:delete"
+  | "lead:export" // download the lead list (names, phones, emails): owners only
   | "settings:write"
   | "users:manage"
   | "payment:write" // record payments and edit ledger rows, candidate plans and discounts
   | "revenue:export"
   | "audit:read"
   | "stage:override" // move a lead although the stage's exit criteria are not met (with a reason)
-  | "finance:read"; // the Finance board: ledger, costs, partner shares (owner and finance only)
+  | "finance:read"; // revenue anywhere (dashboard, batches, a lead's payments) and the Finance board: owner and finance only
 
 const MATRIX: Record<Role, ReadonlySet<Action>> = {
   owner: new Set<Action>([
     "lead:read",
     "lead:write",
     "lead:delete",
+    "lead:export",
     "settings:write",
     "users:manage",
     "payment:write",

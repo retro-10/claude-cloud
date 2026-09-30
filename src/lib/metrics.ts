@@ -1,5 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 import type { Db } from "@/db";
+import { dueFor } from "./finance";
 import { cairoLocalToDate, startOfNextCairoDay } from "./time";
 import { rate, type Rate } from "./metrics-format";
 
@@ -46,8 +47,8 @@ export type Metrics = {
 };
 
 type Row = Record<string, unknown>;
-// what a student owes (alias e = enrolments): free seats 0, otherwise price minus discount
-const DUE = sql.raw(`(case when e.payment_plan = 'free_seat' then 0 else greatest(e.amount_egp - e.discount_egp, 0) end)`);
+// what a student owes (alias e = enrolments): free seats 0, dropped students what they paid, otherwise price minus discount
+const DUE = dueFor("e");
 const n = (v: unknown) => Number(v ?? 0);
 
 function selectedLeads(f: MetricFilters): SQL {

@@ -51,6 +51,11 @@ export async function seedReference(url = process.env.DATABASE_URL, password = p
         await db.update(s.users).set({ active: false }).where(eq(s.users.email, email));
       }
     }
+
+    // new leads belong to Retro unless a route says otherwise (owners' answer to QUESTIONS.md 27). Only set
+    // when nobody has saved a default owner yet, so a choice made in Settings > Thresholds & routing stays.
+    const [retro] = await db.select({ id: s.users.id }).from(s.users).where(eq(s.users.email, "retro@orladent.local"));
+    if (retro) await db.insert(s.appSettings).values({ key: "defaultOwnerId", value: retro.id }).onConflictDoNothing();
   } finally {
     await client.end();
   }

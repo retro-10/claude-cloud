@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { campaigns, cohorts, sources, users } from "@/db/schema";
 import { getMetrics, type MetricFilters } from "@/lib/metrics";
 import { fmtDays, fmtEgp, fmtMinutes, fmtRate } from "@/lib/metrics-format";
+import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
 import { BarList, Columns, Split } from "@/components/charts";
 import { Card, Icon, PageHeader, pretty, type IconName } from "@/components/ui";
@@ -49,7 +50,8 @@ export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage(props: { searchParams: Promise<SP> }) {
   const searchParams = await props.searchParams;
-  await requireUser();
+  const user = await requireUser();
+  const seeMoney = can(user.role, "finance:read");
   const today = cairoYmd(new Date());
   const explicit = searchParams.from || searchParams.to || searchParams.all;
   const f: MetricFilters = {
@@ -153,7 +155,7 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
       </form>
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Tile label="Revenue" value={fmtEgp(m.revenue.totalEgp)} hint={`${fmtEgp(m.revenue.collectedEgp)} collected`} icon="trend" hero />
+        {seeMoney && <Tile label="Revenue" value={fmtEgp(m.revenue.totalEgp)} hint={`${fmtEgp(m.revenue.collectedEgp)} collected`} icon="trend" hero />}
         <Tile label="Leads" value={String(m.totalLeads)} icon="leads" />
         <Tile label="Enrolments" value={String(m.revenue.enrolments)} hint={`${fmtDays(m.cycle.medianDays)} median sales cycle`} icon="cohorts" />
         <Tile label="Median first contact" value={fmtMinutes(m.speed.medianMinutes)} hint={`${fmtRate(m.speed.within5)} within 5 min`} icon="bolt" />
@@ -251,14 +253,16 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
           />
         </Card>
 
-        <Card title="Revenue" icon="trend">
-          <div className="eyebrow mb-2">By tier</div>
-          <BarList rows={m.revenue.byTier.map((r) => ({ label: pretty(r.tier), value: r.egp, note: `${r.count} enrolled` }))} unit=" EGP" />
-          <div className="eyebrow mb-2 mt-5">By batch</div>
-          <List rows={m.revenue.byCohort.map((r) => ({ label: r.name, value: `${r.count} · ${fmtEgp(r.egp)}` }))} />
-          <div className="eyebrow mb-2 mt-5">By source</div>
-          <List rows={m.revenue.bySource.map((r) => ({ label: r.label, value: `${r.count} · ${fmtEgp(r.egp)}` }))} />
-        </Card>
+        {seeMoney && (
+          <Card title="Revenue" icon="trend">
+            <div className="eyebrow mb-2">By tier</div>
+            <BarList rows={m.revenue.byTier.map((r) => ({ label: pretty(r.tier), value: r.egp, note: `${r.count} enrolled` }))} unit=" EGP" />
+            <div className="eyebrow mb-2 mt-5">By batch</div>
+            <List rows={m.revenue.byCohort.map((r) => ({ label: r.name, value: `${r.count} · ${fmtEgp(r.egp)}` }))} />
+            <div className="eyebrow mb-2 mt-5">By source</div>
+            <List rows={m.revenue.bySource.map((r) => ({ label: r.label, value: `${r.count} · ${fmtEgp(r.egp)}` }))} />
+          </Card>
+        )}
 
         <Card title="Source quality" icon="target">
           <table className="table">

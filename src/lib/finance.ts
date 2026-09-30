@@ -160,15 +160,26 @@ export async function recordPayment(
 
 // ---------------- reading: candidates ----------------
 
-/** What a candidate owes: free seat = 0, otherwise the agreed price minus the discount. */
-export const dueSql = sql<number>`(case when ${enrolments.paymentPlan} = 'free_seat' then 0 else greatest(${enrolments.amountEgp} - ${enrolments.discountEgp}, 0) end)`;
+/**
+ * What a candidate owes (for the enrolments row or alias `e`): free seat = 0, otherwise the agreed price minus the
+ * discount. A dropped student owes no more than they kept paid (net of refunds): their balance stops and revenue
+ * counts only the money they left with us.
+ */
+export function dueFor(e: string): SQL<number> {
+  const price = `greatest(${e}.amount_egp - ${e}.discount_egp, 0)`;
+  const paid = `coalesce((select sum(case when x.category = 'Refund' then -x.amount_egp else x.amount_egp end) from ledger_entries x
+    where x.enrolment_id = ${e}.id and x.deleted_at is null and x.section = 'income' and x.status = 'received'), 0)`;
+  return sql.raw(`(case when ${e}.payment_plan = 'free_seat' then 0 when ${e}.status = 'dropped' then least(${price}, greatest(${paid}, 0)) else ${price} end)`) as SQL<number>;
+}
+export const dueSql = dueFor(`"enrolments"`);
 const paidSql = sql<number>`coalesce((select sum(case when x.category = 'Refund' then -x.amount_egp else x.amount_egp end) from ledger_entries x
   where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'received'), 0)::int`;
-const expectedSql = sql<number>`coalesce((select sum(x.amount_egp) from ledger_entries x
-  where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'expected'), 0)::int`;
+// a dropped student is expected to pay nothing more
+const expectedSql = sql<number>`(case when ${enrolments.status} = 'dropped' then 0 else coalesce((select sum(x.amount_egp) from ledger_entries x
+  where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'expected'), 0) end)::int`;
 // an Expected payment without a date is still owed but has no due date (it never shows as overdue)
-const nextDueSql = sql<string | null>`(select min(x.date) from ledger_entries x
-  where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'expected')`;
+const nextDueSql = sql<string | null>`(case when ${enrolments.status} = 'dropped' then null else (select min(x.date) from ledger_entries x
+  where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'expected') end)`;
 
 export type CandidateRow = {
   enrolmentId: number;
@@ -354,7 +365,7 @@ export async function financeBoard(db: Db, month = thisMonth()): Promise<Board> 
       .from(ledgerEntries)
       .leftJoin(enrolments, eq(enrolments.id, ledgerEntries.enrolmentId))
       .leftJoin(leads, eq(leads.id, enrolments.leadId))
-      .where(and(isNull(ledgerEntries.deletedAt), sql`${ledgerEntries.status} in ('expected', 'owed')`))
+      .where(and(isNull(ledgerEntries.deletedAt), sql`${ledgerEntries.status} in ('expected', 'owed')`, sql`${enrolments.status} is distinct from 'dropped'`))
       .orderBy(sql`${effectiveDate} asc`)
       .limit(100),
     db
@@ -452,8 +463,25 @@ export async function updateCandidate(
     if (p[k] !== undefined) (set as Record<string, unknown>)[k] = p[k];
   }
   if (p.notes !== undefined) set.notes = clean(p.notes);
-  const rows = await db.update(enrolments).set(set).where(eq(enrolments.id, enrolmentId)).returning({ id: enrolments.id });
-  if (!rows.length) return { ok: false, error: "Candidate not found" };
-  await audit(db, { userId, entity: "enrolment", entityId: enrolmentId, action: "update", diff: { fields: Object.keys(set).filter((k) => k !== "updatedAt") } });
-  return { ok: true };
+  return db.transaction(async (tx) => {
+    const rows = await tx.update(enrolments).set(set).where(eq(enrolments.id, enrolmentId)).returning({ id: enrolments.id });
+    if (!rows.length) return { ok: false, error: "Candidate not found" } as const;
+    // a dropped student pays nothing more: their open instalments are cancelled (money already received stays)
+    const cancelled =
+      p.status === "dropped"
+        ? await tx
+            .update(ledgerEntries)
+            .set({ status: "cancelled", updatedAt: new Date() })
+            .where(and(eq(ledgerEntries.enrolmentId, enrolmentId), isNull(ledgerEntries.deletedAt), eq(ledgerEntries.section, "income"), eq(ledgerEntries.status, "expected")))
+            .returning({ id: ledgerEntries.id })
+        : [];
+    await audit(tx, {
+      userId,
+      entity: "enrolment",
+      entityId: enrolmentId,
+      action: "update",
+      diff: { fields: Object.keys(set).filter((k) => k !== "updatedAt"), ...(cancelled.length ? { cancelledInstalments: cancelled.length } : {}) },
+    });
+    return { ok: true } as const;
+  });
 }

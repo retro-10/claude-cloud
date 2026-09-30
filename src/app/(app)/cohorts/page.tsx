@@ -58,10 +58,12 @@ export default async function CohortsPage(props: { searchParams: Promise<{ error
                   <div className={`h-full rounded-full ${full ? "bg-warn" : "bg-gradient-to-r from-brand-deep to-brand"}`} style={{ width: `${pct}%` }} />
                 </div>
               </div>
-              <div className="flex items-baseline justify-between border-t border-line pt-3">
-                <span className="text-xs text-muted">Revenue</span>
-                <span className="num font-display text-lg font-semibold">{egp(c.revenueEgp)}</span>
-              </div>
+              {can(user.role, "finance:read") && (
+                <div className="flex items-baseline justify-between border-t border-line pt-3">
+                  <span className="text-xs text-muted">Revenue</span>
+                  <span className="num font-display text-lg font-semibold">{egp(c.revenueEgp)}</span>
+                </div>
+              )}
             </Link>
           );
         })}

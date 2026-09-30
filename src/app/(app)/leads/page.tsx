@@ -68,9 +68,11 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
                 <Icon name="upload" size={14} /> Import
               </Link>
             )}
-            <a href={`/leads/export${qs({ page: undefined })}`} className="btn btn-secondary btn-sm">
-              <Icon name="download" size={14} /> Export CSV
-            </a>
+            {can(user.role, "lead:export") && (
+              <a href={`/leads/export${qs({ page: undefined })}`} className="btn btn-secondary btn-sm">
+                <Icon name="download" size={14} /> Export CSV
+              </a>
+            )}
             {can(user.role, "lead:delete") && (
               <Link href={f.deleted === "1" ? "/leads" : "/leads?deleted=1"} className="btn btn-ghost btn-sm">
                 <Icon name="trash" size={14} /> {f.deleted === "1" ? "Live leads" : "Deleted"}

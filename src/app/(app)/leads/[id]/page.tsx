@@ -466,7 +466,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
 
           <ConsultsPanel leadId={lead.id} canWrite={canWrite} />
 
-          {candidates.map((c) => (
+          {can(user.role, "finance:read") && candidates.map((c) => (
             <Card key={c.enrolmentId} title={`${c.cohort} · ${TIER_LABEL[c.tier] ?? c.tier}`} icon="cohorts" label="Payments">
               <div id="money" className="scroll-mt-24" />
               <CandidateMoney

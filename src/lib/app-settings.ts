@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { appSettings } from "@/db/schema";
 import { audit } from "./audit";
@@ -109,7 +109,8 @@ export async function saveSettings(db: Db, patch: Partial<Settings>, actorId: nu
   if (merged.slaTargetMin > merged.slaRedMin) return { ok: false, error: "The target must be below the red threshold" };
   await db.transaction(async (tx) => {
     for (const [k, v] of entries) {
-      const value = VALIDATE[k](v) as unknown;
+      // a JSON null ("no default owner"), not SQL NULL: the column is NOT NULL
+      const value = (VALIDATE[k](v) ?? sql`'null'::jsonb`) as unknown;
       await tx
         .insert(appSettings)
         .values({ key: k, value, updatedBy: actorId })

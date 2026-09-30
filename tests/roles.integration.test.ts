@@ -228,7 +228,7 @@ d("role rules on the server", () => {
     expect((await attempt(() => A.moveLead({ leadId, stage: "consult_booked" }))).kind).toBe("ok");
   });
 
-  it("route handlers: lead export needs sign-in; cohort (revenue) export is owner/finance only and audited", async () => {
+  it("route handlers: lead export is owners only; cohort (revenue) export is owner/finance only; both audited", async () => {
     const leadExport = (await import("@/app/(app)/leads/export/route")).GET;
     const cohortExport = (await import("@/app/(app)/cohorts/[id]/export/route")).GET;
     const req = () => new NextRequest("http://localhost/leads/export");
@@ -240,7 +240,7 @@ d("role rules on the server", () => {
     const expected: Record<string, number> = { owner: 200, finance: 200, sales: 403, viewer: 403 };
     for (const role of ROLES) {
       await signInAs(email(role));
-      expect((await leadExport(req())).status, `lead export as ${role}`).toBe(200);
+      expect((await leadExport(req())).status, `lead export as ${role}`).toBe(role === "owner" ? 200 : 403);
       const res = await cohortExport(req(), { params: Promise.resolve({ id: String(cohortId) }) });
       expect(res.status, `cohort export as ${role}`).toBe(expected[role]);
       if (res.status === 200) {
@@ -250,7 +250,7 @@ d("role rules on the server", () => {
     }
     await signInAs(email("owner"));
     expect((await cohortExport(req(), { params: Promise.resolve({ id: "99999" }) })).status).toBe(404);
-    expect((await client`select count(*)::int as n from audit_log where action = 'export'`)[0].n).toBeGreaterThanOrEqual(4);
+    expect((await client`select count(*)::int as n from audit_log where action = 'export'`)[0].n).toBeGreaterThanOrEqual(3);
   });
 
   it("two people adding the same phone at once: one wins, the other gets the duplicate, nobody gets a database error", async () => {

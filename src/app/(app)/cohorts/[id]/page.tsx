@@ -26,7 +26,7 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
   const pct = Math.min(100, Math.round((c.seatsUsed / c.seatCap) * 100));
   const over = c.seatsUsed > c.seatCap;
   const remaining = students.reduce((a, s) => a + s.remaining, 0);
-  const seeMoney = can(user.role, "finance:read") || can(user.role, "revenue:export");
+  const seeMoney = can(user.role, "finance:read");
 
   return (
     <>
@@ -51,8 +51,8 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Seats" value={`${c.seatsUsed} / ${c.seatCap}`} hint={over ? "over the cap" : `${c.seatCap - c.seatsUsed} left`} icon="cohorts" />
         <Stat label="Enrolment" value={closeLabel(c.enrolmentCloseAt)} hint={c.enrolmentCloseAt ? `closes ${formatCairo(c.enrolmentCloseAt)}` : "no close date"} icon="calendar" />
-        <Stat label="Owed by students" value={egp(c.revenueEgp)} hint={`${egp(c.collectedEgp)} collected`} icon="trend" tone="brand" />
-        <Stat label="Still to collect" value={egp(remaining)} hint={`${students.filter((s) => s.remaining > 0).length} students with a balance`} icon="hourglass" />
+        {seeMoney && <Stat label="Owed by students" value={egp(c.revenueEgp)} hint={`${egp(c.collectedEgp)} collected`} icon="trend" tone="brand" />}
+        {seeMoney && <Stat label="Still to collect" value={egp(remaining)} hint={`${students.filter((s) => s.remaining > 0).length} students with a balance`} icon="hourglass" />}
       </div>
       <div className="mb-6 h-2 overflow-hidden rounded-full bg-raised" role="img" aria-label={`${pct}% of seats taken`}>
         <div className={`h-full rounded-full ${over ? "bg-warn" : "bg-brand"}`} style={{ width: `${pct}%` }} />
@@ -61,7 +61,7 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
       <div className="mb-6 flex flex-wrap gap-2 text-sm">
         {Object.entries(byTier).map(([tier, v]) => (
           <span key={tier} className="chip px-3 py-1 text-xs">
-            {TIER_LABEL[tier] ?? tier} · {v.count} · {egp(v.egp)}
+            {TIER_LABEL[tier] ?? tier} · {v.count}{seeMoney ? ` · ${egp(v.egp)}` : ""}
           </span>
         ))}
       </div>
