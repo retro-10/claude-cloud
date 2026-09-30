@@ -12,6 +12,7 @@ const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/settings/templates", label: "Message templates", icon: "template" },
   { href: "/settings/lists", label: "Sources & reasons", icon: "list" },
   { href: "/settings/cadences", label: "Cadences", icon: "calendar" },
+  { href: "/settings/finance", label: "Finance split", icon: "trend" },
   { href: "/settings/audit", label: "Audit log", icon: "history" },
 ];
 
@@ -27,7 +28,7 @@ export function SettingsNav() {
             href={t.href}
             aria-current={active ? "page" : undefined}
             className={`-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition ${
-              active ? "border-gold font-medium text-fg" : "border-transparent text-muted hover:text-fg"
+              active ? "border-brand font-medium text-fg" : "border-transparent text-muted hover:text-fg"
             }`}
           >
             <Icon name={t.icon} size={14} className={active ? "text-accent" : ""} />

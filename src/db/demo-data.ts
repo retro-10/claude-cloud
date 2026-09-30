@@ -144,17 +144,47 @@ export async function insertDemo(
 
     if (l.enrol) {
       const enrolledAt = path.find((p) => p.stage === "enrolled")!.at;
-      await db.insert(s.enrolments).values({
-        leadId: lead.id,
-        cohortId: l.enrol.cohort === "A" ? cohortA.id : cohortB.id,
-        tier: l.enrol.tier,
+      const cohortId = l.enrol.cohort === "A" ? cohortA.id : cohortB.id;
+      const [en] = await db
+        .insert(s.enrolments)
+        .values({ leadId: lead.id, cohortId, tier: l.enrol.tier, amountEgp: l.enrol.amount, createdAt: enrolledAt, updatedAt: enrolledAt })
+        .returning();
+      // payments live in the ledger: paid = one Received payment, unpaid = one Expected payment
+      await db.insert(s.ledgerEntries).values({
+        entry: `${lead.fullName} — ${l.enrol.paid ? "payment" : "payment due"}`,
         amountEgp: l.enrol.amount,
-        paidAt: l.enrol.paid ? enrolledAt : null,
-        gateway: "other",
+        date: l.enrol.paid ? enrolledAt : null,
+        section: "income",
+        category: "Candidate payment",
+        status: l.enrol.paid ? "received" : "expected",
+        reference: l.enrol.paid ? `DEMO-${lead.id}` : null,
+        enrolmentId: en.id,
+        cohortId,
         createdAt: enrolledAt,
+        updatedAt: enrolledAt,
       });
     }
   }
+
+  // a few costs and one withdrawal so the finance board shows the split working (all marked DEMO)
+  const cost = (entry: string, amountEgp: number, day: number, section: "fixed_costs" | "variable_costs" | "partner_withdrawals", category: string, extra: Partial<typeof s.ledgerEntries.$inferInsert> = {}) => ({
+    entry: `DEMO ${entry}`,
+    amountEgp,
+    date: at(start, day),
+    section,
+    category,
+    status: "paid" as const,
+    createdAt: at(start, day),
+    updatedAt: at(start, day),
+    ...extra,
+  });
+  await db.insert(s.ledgerEntries).values([
+    cost("Editing software", 1200, 3, "fixed_costs", "Subscriptions"),
+    cost("Ad creatives", 3500, 9, "variable_costs", "Content creator"),
+    cost("Freelance closer commission", 2000, 24, "variable_costs", "Freelancers & sales"),
+    cost("Advance to Badr", 3000, 26, "partner_withdrawals", "Partner withdrawal", { partner: "Badr" }),
+    cost("Studio rent", 4000, 35, "fixed_costs", "Salaries", { status: "owed" }),
+  ]);
 
   if (opts.withFollowUps && opts.now) {
     // a few open items relative to "now" so the Today screen has something to show

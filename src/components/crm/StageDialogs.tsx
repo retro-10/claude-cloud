@@ -31,9 +31,9 @@ export function Modal({ title, icon = "arrowRight", children, onCancel, wide }: 
         onMouseDown={(e) => e.stopPropagation()}
         className={`relative w-full ${wide ? "max-w-lg" : "max-w-md"} overflow-hidden rounded-2xl border border-line bg-surface shadow-pop animate-pop-in`}
       >
-        <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold to-transparent" />
+        <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent" />
         <div className="flex items-center gap-3 border-b border-line px-5 py-4">
-          <span className="grid h-9 w-9 place-items-center rounded-xl border border-gold/40 bg-gold/10 text-accent">
+          <span className="grid h-9 w-9 place-items-center rounded-xl border border-brand/40 bg-brand/10 text-accent">
             <Icon name={icon} />
           </span>
           <h2 className="flex-1 font-display text-xl font-semibold">{title}</h2>
@@ -183,11 +183,14 @@ export function EnrolDialog(props: { lead: LeadLite; cohorts: CohortLite[]; isOw
       ? (props.lead.tierInterest as (typeof TIERS)[number])
       : "foundation";
   const [tier, setTier] = useState<(typeof TIERS)[number]>(start0);
-  const [amount, setAmount] = useState(String(props.lead.offerAmountEgp ?? LIST_PRICE_EGP[start0] ?? ""));
+  const [amount, setAmount] = useState(String(props.lead.offerAmountEgp ?? LIST_PRICE_EGP[start0]));
+  const [discount, setDiscount] = useState("0");
+  const [plan, setPlan] = useState<"one_time" | "installments" | "free_seat">("one_time");
+  const [paidNow, setPaidNow] = useState("");
   const [cohortId, setCohortId] = useState(String(props.cohorts[0]?.id ?? ""));
   const [paidOn, setPaidOn] = useState("");
+  const [finalOn, setFinalOn] = useState("");
   const [ref, setRef] = useState("");
-  const [gateway, setGateway] = useState<"paymob" | "other">("paymob");
   const [override, setOverride] = useState(false);
   const [missing, setMissing] = useState<Missing[]>([]);
   const [canOverrideCriteria, setCanOverrideCriteria] = useState(false);
@@ -198,6 +201,9 @@ export function EnrolDialog(props: { lead: LeadLite; cohorts: CohortLite[]; isOw
 
   const cohort = props.cohorts.find((c) => String(c.id) === cohortId);
   const isFull = cohort ? cohort.used >= cohort.seatCap : false;
+  const due = plan === "free_seat" ? 0 : Math.max(0, Number(amount || 0) - Number(discount || 0));
+  const now = plan === "one_time" ? (paidNow === "" ? due : Number(paidNow)) : Number(paidNow || 0);
+  const egp = (n: number) => `${new Intl.NumberFormat("en-US").format(n)} EGP`;
 
   const submit = (force: boolean) =>
     start(async () => {
@@ -207,9 +213,12 @@ export function EnrolDialog(props: { lead: LeadLite; cohorts: CohortLite[]; isOw
         cohortId: Number(cohortId),
         tier,
         amountEgp: Number(amount),
+        discountEgp: Number(discount || 0),
+        paymentPlan: plan,
+        paidAmountEgp: plan === "free_seat" ? 0 : ref.trim() ? now : 0,
         paidOn: paidOn || null,
         paymentRef: ref || null,
-        gateway,
+        finalInstalmentOn: plan === "installments" ? finalOn || null : null,
         overrideCap: override,
         overrideCriteria: force ? why : null,
       });
@@ -229,7 +238,7 @@ export function EnrolDialog(props: { lead: LeadLite; cohorts: CohortLite[]; isOw
       </p>
       <div className="grid grid-cols-2 gap-3">
         <label className="field col-span-2">
-          Cohort
+          Batch
           <select className="input" value={cohortId} onChange={(e) => { setCohortId(e.target.value); setFull(false); setOverride(false); }}>
             {props.cohorts.map((c) => (
               <option key={c.id} value={c.id}>
@@ -246,7 +255,7 @@ export function EnrolDialog(props: { lead: LeadLite; cohorts: CohortLite[]; isOw
             onChange={(e) => {
               const t = e.target.value as (typeof TIERS)[number];
               setTier(t);
-              setAmount(String(LIST_PRICE_EGP[t] ?? "")); // Production Partner is custom: blank
+              setAmount(String(LIST_PRICE_EGP[t]));
             }}
           >
             {TIERS.map((t) => (
@@ -257,30 +266,66 @@ export function EnrolDialog(props: { lead: LeadLite; cohorts: CohortLite[]; isOw
           </select>
         </label>
         <label className="field">
-          Amount (EGP)
-          <input className="input num" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))} placeholder={tier === "production_partner" ? "Custom price" : ""} />
+          Price (EGP)
+          <input className="input num" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))} />
         </label>
         <label className="field">
-          Payment reference
-          <input className="input" value={ref} onChange={(e) => setRef(e.target.value)} dir="ltr" placeholder="Paymob transaction id" />
-        </label>
-        <label className="field">
-          Gateway
-          <select className="input" value={gateway} onChange={(e) => setGateway(e.target.value as "paymob" | "other")}>
-            <option value="paymob">paymob</option>
-            <option value="other">other</option>
+          Payment plan
+          <select className="input" value={plan} onChange={(e) => setPlan(e.target.value as typeof plan)}>
+            <option value="one_time">One-time</option>
+            <option value="installments">Installments</option>
+            <option value="free_seat">Free seat</option>
           </select>
         </label>
-        <label className="field col-span-2">
-          Paid on (optional)
-          <input type="date" className="input" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} />
+        <label className="field">
+          Discount (EGP)
+          <input className="input num" inputMode="numeric" disabled={plan === "free_seat"} value={discount} onChange={(e) => setDiscount(e.target.value.replace(/\D/g, ""))} />
         </label>
+        {plan !== "free_seat" && (
+          <>
+            <label className="field">
+              Paid now (EGP)
+              <input
+                className="input num"
+                inputMode="numeric"
+                placeholder={plan === "one_time" ? String(due) : "First installment"}
+                value={paidNow}
+                onChange={(e) => setPaidNow(e.target.value.replace(/\D/g, ""))}
+                aria-label="Paid now (EGP)"
+              />
+            </label>
+            <label className="field">
+              Paid on
+              <input type="date" className="input" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} />
+            </label>
+            <label className="field col-span-2">
+              Transfer or receipt reference
+              <input className="input" value={ref} onChange={(e) => setRef(e.target.value)} dir="ltr" placeholder="e.g. InstaPay or bank transfer reference" />
+            </label>
+            {plan === "installments" && (
+              <label className="field col-span-2">
+                Final installment due
+                <input type="date" className="input" value={finalOn} onChange={(e) => setFinalOn(e.target.value)} />
+              </label>
+            )}
+          </>
+        )}
       </div>
+      <p className="well mt-3 px-3 py-2 text-xs text-muted">
+        Due <span className="num font-semibold text-fg">{egp(due)}</span>
+        {plan !== "free_seat" && (
+          <>
+            {" "}· paid now <span className="num font-semibold text-fg">{egp(ref.trim() ? Math.min(now, due) : 0)}</span>
+            {due - (ref.trim() ? now : 0) > 0 && <> · the rest is recorded as an expected payment</>}
+          </>
+        )}
+        . Candidates pay OrlaDent directly; the payment goes into the ledger.
+      </p>
       <div className="mt-4 flex flex-col gap-3">
         {(isFull || full) && props.isOwner && (
           <label className="flex items-center gap-2 text-sm text-warn">
             <input type="checkbox" className="check" checked={override} onChange={(e) => setOverride(e.target.checked)} />
-            Cohort is full: override the seat cap
+            Batch is full: override the seat cap
           </label>
         )}
         {missing.length > 0 && <MissingList missing={missing} />}

@@ -2,6 +2,7 @@ import { asc, desc, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { cohorts, enrolments, leads } from "@/db/schema";
 import { audit } from "./audit";
+import { dueSql, listCandidates } from "./finance";
 
 export type CohortInput = {
   name: string;
@@ -9,6 +10,8 @@ export type CohortInput = {
   masterclassAt?: Date | null;
   enrolmentCloseAt?: Date | null;
   startAt?: Date | null;
+  openAt?: Date | null;
+  status?: (typeof cohorts.$inferInsert)["status"];
 };
 
 export async function createCohort(db: Db, input: CohortInput, userId: number | null) {
@@ -20,6 +23,8 @@ export async function createCohort(db: Db, input: CohortInput, userId: number | 
       masterclassAt: input.masterclassAt ?? null,
       enrolmentCloseAt: input.enrolmentCloseAt ?? null,
       startAt: input.startAt ?? null,
+      openAt: input.openAt ?? null,
+      status: input.status ?? "planning",
     })
     .returning();
   await audit(db, { userId, entity: "cohort", entityId: row.id, action: "create" });
@@ -46,6 +51,9 @@ export async function updateCohort(
         masterclassAt: input.masterclassAt ?? null,
         enrolmentCloseAt: input.enrolmentCloseAt ?? null,
         startAt: input.startAt ?? null,
+        openAt: input.openAt ?? null,
+        status: input.status ?? c.status,
+        updatedAt: new Date(),
       })
       .where(eq(cohorts.id, id));
     await audit(tx, { userId, entity: "cohort", entityId: id, action: "update" });
@@ -61,8 +69,10 @@ export type CohortSummary = {
   masterclassAt: Date | null;
   enrolmentCloseAt: Date | null;
   startAt: Date | null;
-  revenueEgp: number; // sum of enrolment amounts (booked)
-  collectedEgp: number; // of which paid_at is set
+  openAt: Date | null;
+  status: "planning" | "live" | "closed";
+  revenueEgp: number; // what the students owe in total (price − discount; free seats 0)
+  collectedEgp: number; // received payments linked to the batch's students
 };
 
 export async function listCohorts(db: Db): Promise<CohortSummary[]> {
@@ -74,9 +84,13 @@ export async function listCohorts(db: Db): Promise<CohortSummary[]> {
       masterclassAt: cohorts.masterclassAt,
       enrolmentCloseAt: cohorts.enrolmentCloseAt,
       startAt: cohorts.startAt,
+      openAt: cohorts.openAt,
+      status: cohorts.status,
       seatsUsed: sql<number>`count(${enrolments.id})::int`,
-      revenueEgp: sql<number>`coalesce(sum(${enrolments.amountEgp}), 0)::int`,
-      collectedEgp: sql<number>`coalesce(sum(${enrolments.amountEgp}) filter (where ${enrolments.paidAt} is not null), 0)::int`,
+      revenueEgp: sql<number>`coalesce(sum(${dueSql}), 0)::int`,
+      collectedEgp: sql<number>`coalesce((select sum(case when x.category = 'Refund' then -x.amount_egp else x.amount_egp end) from ledger_entries x
+        join enrolments xe on xe.id = x.enrolment_id where xe.cohort_id = ${cohorts.id} and x.deleted_at is null
+        and x.section = 'income' and x.status = 'received'), 0)::int`,
     })
     .from(cohorts)
     .leftJoin(enrolments, eq(enrolments.cohortId, cohorts.id))
@@ -88,54 +102,12 @@ export async function listCohorts(db: Db): Promise<CohortSummary[]> {
 export async function getCohort(db: Db, id: number) {
   const [summary] = (await listCohorts(db)).filter((c) => c.id === id);
   if (!summary) return null;
-  const students = await db
-    .select({
-      enrolmentId: enrolments.id,
-      leadId: leads.id,
-      fullName: leads.fullName,
-      phone: leads.phoneWhatsapp,
-      email: leads.email,
-      tier: enrolments.tier,
-      amountEgp: enrolments.amountEgp,
-      paidAt: enrolments.paidAt,
-      paymentRef: enrolments.paymentRef,
-      gateway: enrolments.gateway,
-      createdAt: enrolments.createdAt,
-    })
-    .from(enrolments)
-    .innerJoin(leads, eq(leads.id, enrolments.leadId))
-    .where(eq(enrolments.cohortId, id))
-    .orderBy(asc(enrolments.id));
+  const students = await listCandidates(db, { cohortId: id });
   const byTier: Record<string, { count: number; egp: number }> = {};
   for (const s of students) {
     byTier[s.tier] ??= { count: 0, egp: 0 };
     byTier[s.tier].count++;
-    byTier[s.tier].egp += s.amountEgp;
+    byTier[s.tier].egp += s.due;
   }
   return { summary, students, byTier };
-}
-
-export type PaymentPatch = {
-  tier?: (typeof enrolments.$inferInsert)["tier"];
-  amountEgp?: number;
-  paidAt?: Date | null;
-  paymentRef?: string | null;
-  gateway?: (typeof enrolments.$inferInsert)["gateway"];
-};
-
-// Payment details on an existing enrolment. Cohort and lead never change here.
-export async function updateEnrolmentPayment(db: Db, enrolmentId: number, patch: PaymentPatch, userId: number | null) {
-  if (patch.amountEgp !== undefined && (!Number.isInteger(patch.amountEgp) || patch.amountEgp <= 0)) {
-    return { ok: false as const, error: "Amount must be a whole number of EGP above zero" };
-  }
-  const set: Partial<typeof enrolments.$inferInsert> = {};
-  if (patch.tier !== undefined) set.tier = patch.tier;
-  if (patch.amountEgp !== undefined) set.amountEgp = patch.amountEgp;
-  if (patch.paidAt !== undefined) set.paidAt = patch.paidAt;
-  if (patch.paymentRef !== undefined) set.paymentRef = patch.paymentRef?.trim() || null;
-  if (patch.gateway !== undefined) set.gateway = patch.gateway;
-  const rows = await db.update(enrolments).set(set).where(eq(enrolments.id, enrolmentId)).returning({ id: enrolments.id });
-  if (!rows.length) return { ok: false as const, error: "Enrolment not found" };
-  await audit(db, { userId, entity: "enrolment", entityId: enrolmentId, action: "payment_update", diff: { fields: Object.keys(set) } });
-  return { ok: true as const };
 }

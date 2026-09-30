@@ -33,7 +33,7 @@ export const CHECKS: Record<CheckKey, { label: string; fix: string }> = {
   offer_price: { label: "Price stated", fix: "Enter the price you quoted." },
   offer_link_sent: { label: "Payment link sent", fix: "Add the payment link and mark it sent." },
   decision_date: { label: "Decision date agreed", fix: "Enter the date they said they will decide by." },
-  payment_reference: { label: "Payment confirmed with a reference", fix: "Enter the payment reference." },
+  payment_reference: { label: "Payment received with a reference", fix: "Record the payment received and its transfer or receipt reference, or choose a free seat." },
   lost_reason: { label: "Lost reason selected", fix: "Pick a lost reason." },
   next_step: { label: "Next contact date set", fix: "Choose when to contact them next." },
 };

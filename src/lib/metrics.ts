@@ -46,6 +46,8 @@ export type Metrics = {
 };
 
 type Row = Record<string, unknown>;
+// what a student owes (alias e = enrolments): free seats 0, otherwise price minus discount
+const DUE = sql.raw(`(case when e.payment_plan = 'free_seat' then 0 else greatest(e.amount_egp - e.discount_egp, 0) end)`);
 const n = (v: unknown) => Number(v ?? 0);
 
 function selectedLeads(f: MetricFilters): SQL {
@@ -91,15 +93,16 @@ export async function getMetrics(db: Db, f: MetricFilters = {}, now: Date = new 
       q(sql`select count(*)::int as n,
               percentile_cont(0.5) within group (order by extract(epoch from (fe.at - sel.created_at)) / 86400) as median_days
             from sel join (select lead_id, min(at) as at from stage_events where to_stage in ${WON} group by lead_id) fe on fe.lead_id = sel.id`),
-      q(sql`select count(*)::int as n, coalesce(sum(e.amount_egp), 0)::int as total,
-              coalesce(sum(e.amount_egp) filter (where e.paid_at is not null), 0)::int as collected
+      q(sql`select count(*)::int as n, coalesce(sum(${DUE}), 0)::int as total,
+              coalesce(sum((select sum(case when x.category = 'Refund' then -x.amount_egp else x.amount_egp end) from ledger_entries x
+                where x.enrolment_id = e.id and x.deleted_at is null and x.section = 'income' and x.status = 'received')), 0)::int as collected
             from enrolments e join sel on sel.id = e.lead_id`),
-      q(sql`select e.tier::text as k, count(*)::int as n, sum(e.amount_egp)::int as egp from enrolments e join sel on sel.id = e.lead_id
-            group by e.tier order by sum(e.amount_egp) desc, e.tier`),
-      q(sql`select c.id, c.name as k, count(*)::int as n, sum(e.amount_egp)::int as egp from enrolments e join sel on sel.id = e.lead_id
+      q(sql`select e.tier::text as k, count(*)::int as n, sum(${DUE})::int as egp from enrolments e join sel on sel.id = e.lead_id
+            group by e.tier order by sum(${DUE}) desc, e.tier`),
+      q(sql`select c.id, c.name as k, count(*)::int as n, sum(${DUE})::int as egp from enrolments e join sel on sel.id = e.lead_id
             join cohorts c on c.id = e.cohort_id group by c.id, c.name order by c.id`),
-      q(sql`select coalesce(s.label, 'Unknown') as k, count(*)::int as n, sum(e.amount_egp)::int as egp from enrolments e
-            join sel on sel.id = e.lead_id left join sources s on s.id = sel.source_id group by s.label order by sum(e.amount_egp) desc, s.label`),
+      q(sql`select coalesce(s.label, 'Unknown') as k, count(*)::int as n, sum(${DUE})::int as egp from enrolments e
+            join sel on sel.id = e.lead_id left join sources s on s.id = sel.source_id group by s.label order by sum(${DUE}) desc, s.label`),
       q(sql`select r.label as k, r.kind as kind, count(*)::int as n from leads l join sel on sel.id = l.id join lost_reasons r on r.id = l.lost_reason_id
             where l.stage in (select key from stages where kind = 'lost') group by r.label, r.kind order by count(*) desc, r.label`),
       q(sql`select o.label as k, count(*)::int as n from consult_objections co join consults c on c.id = co.consult_id

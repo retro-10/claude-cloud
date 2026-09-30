@@ -42,7 +42,7 @@ const initials = (n: string) =>
     .toUpperCase();
 
 const ACCENT: Record<StageLite["kind"], string> = {
-  open: "from-gold/70 to-gold/0",
+  open: "from-brand/70 to-brand/0",
   won: "from-ok/80 to-ok/0",
   lost: "from-danger/70 to-danger/0",
   nurture: "from-muted/60 to-muted/0",
@@ -149,7 +149,7 @@ export function BoardClient(props: {
                 if (card) requestMove(card, st);
               }}
               className={`relative flex w-[17.5rem] shrink-0 snap-start flex-col rounded-2xl border bg-surface/50 transition-colors ${
-                overStage === st.key ? "border-gold/70 bg-gold/5" : "border-line"
+                overStage === st.key ? "border-brand/70 bg-brand/5" : "border-line"
               }`}
             >
               <div aria-hidden className={`absolute inset-x-4 top-0 h-[2px] rounded-full bg-gradient-to-r ${ACCENT[st.kind]}`} />
@@ -174,7 +174,7 @@ export function BoardClient(props: {
                       setDragId(null);
                       setOverStage(null);
                     }}
-                    className={`group rounded-xl border bg-raised/80 p-3 text-sm shadow-soft transition hover:-translate-y-px hover:border-gold/40 hover:shadow-lift ${
+                    className={`group rounded-xl border bg-raised/80 p-3 text-sm shadow-soft transition hover:-translate-y-px hover:border-brand/40 hover:shadow-lift ${
                       props.canWrite ? "cursor-grab active:cursor-grabbing" : ""
                     } ${c.overdue ? "border-danger/50" : "border-line"} ${dragId === c.id ? "opacity-40" : ""}`}
                   >
@@ -183,7 +183,7 @@ export function BoardClient(props: {
                         {c.fullName}
                       </Link>
                       {c.owner && (
-                        <span title={`Owner: ${c.owner}`} className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-gold/30 bg-surface text-[10px] font-semibold text-accent">
+                        <span title={`Owner: ${c.owner}`} className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-brand/30 bg-surface text-[10px] font-semibold text-accent">
                           {initials(c.owner)}
                         </span>
                       )}

@@ -25,9 +25,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/", label: "Today", icon: "today", section: "Work", count: counts.today, alert: counts.overdue > 0, keys: "G T", exact: true },
     { href: "/leads", label: "Leads", icon: "leads", section: "Work", keys: "G L" },
     { href: "/pipeline", label: "Pipeline", icon: "pipeline", section: "Work", keys: "G P" },
-    { href: "/cohorts", label: "Cohorts", icon: "cohorts", section: "Programme", keys: "G C" },
+    { href: "/cohorts", label: "Batches", icon: "cohorts", section: "Programme", keys: "G C" },
     { href: "/dashboard", label: "Dashboard", icon: "dashboard", section: "Insight", keys: "G D" },
   ];
+  if (can(user.role, "finance:read")) nav.push({ href: "/finance", label: "Finance", icon: "trend", section: "Insight", keys: "G F" });
   // V1: smart views with live counts; the ones that are warnings use the attention colour
   for (const k of VIEW_ORDER) {
     const v = VIEWS[k];
@@ -39,7 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <>
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[70] focus:rounded-lg focus:bg-gold focus:px-3 focus:py-2 focus:font-medium focus:text-ink">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[70] focus:rounded-lg focus:bg-brand focus:px-3 focus:py-2 focus:font-medium focus:text-onbrand">
         Skip to content
       </a>
       <AppFrame user={{ name: user.name, role: user.role }} nav={nav} canWrite={can(user.role, "lead:write")} sources={src}

@@ -14,7 +14,7 @@ function Submit() {
   return (
     <button disabled={pending} className="btn btn-primary">
       {pending ? "Adding…" : "Add lead"}
-      {!pending && <kbd className="rounded bg-ink/15 px-1 text-[10px] font-semibold">↵</kbd>}
+      {!pending && <kbd className="rounded bg-white/20 px-1 text-[10px] font-semibold">↵</kbd>}
     </button>
   );
 }
@@ -65,9 +65,9 @@ export function QuickAdd({ sources }: { sources: { id: number; label: string }[]
             aria-label="Quick add lead"
             className="relative w-full max-w-md overflow-hidden rounded-2xl border border-line bg-surface shadow-pop animate-pop-in"
           >
-            <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold to-transparent" />
+            <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent" />
             <div className="flex items-start gap-3 border-b border-line px-5 pb-4 pt-5">
-              <span className="grid h-9 w-9 place-items-center rounded-xl border border-gold/40 bg-gold/10 text-accent">
+              <span className="grid h-9 w-9 place-items-center rounded-xl border border-brand/40 bg-brand/10 text-accent">
                 <Icon name="bolt" />
               </span>
               <div className="min-w-0 flex-1">

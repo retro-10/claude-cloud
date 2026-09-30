@@ -10,7 +10,7 @@ import { createStageAction, moveStageAction, renameStageAction, setCriterionActi
 
 export const metadata = { title: "Stages · Settings" };
 const KIND: Record<string, { label: string; cls: string }> = {
-  open: { label: "open", cls: "chip-gold" },
+  open: { label: "open", cls: "chip-brand" },
   won: { label: "won · needs an enrolment", cls: "chip-ok" },
   lost: { label: "lost · needs a reason", cls: "chip-danger" },
   nurture: { label: "nurture", cls: "" },
@@ -67,7 +67,7 @@ export default async function PipelineSettings(props: { searchParams: Promise<{ 
                         <input type="hidden" name="stageKey" value={s.key} />
                         <input type="hidden" name="checkKey" value={k} />
                         <input type="hidden" name="required" value="0" />
-                        <button className="chip chip-gold hover:border-danger/50 hover:text-danger" title="Remove this check" aria-label={`Remove check: ${CHECKS[k as keyof typeof CHECKS]?.label}`}>
+                        <button className="chip chip-brand hover:border-danger/50 hover:text-danger" title="Remove this check" aria-label={`Remove check: ${CHECKS[k as keyof typeof CHECKS]?.label}`}>
                           {CHECKS[k as keyof typeof CHECKS]?.label ?? k} <Icon name="x" size={10} />
                         </button>
                       </form>

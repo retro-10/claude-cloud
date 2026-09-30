@@ -3,40 +3,49 @@
 @tailwind utilities;
 
 /*
- * Palette: Charcoal, Warm White, one gold accent (#C9A227).
+ * OrlaDent Camp palette (Brand Guardrails in Notion): Ground, Card, Indigo accent, Ink.
+ * One accent per asset; OrlaDent core's Earned Gold is not used here.
  * Dark is the default; light overrides. Space-separated RGB so Tailwind alpha works.
  * Every text token keeps 4.5:1 contrast on bg, surface and raised (checked by the axe e2e scan).
  */
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: 12 12 11;
-  --surface: 21 21 20;
-  --raised: 30 30 28;
-  --fg: 238 235 228; /* warm white */
-  --muted: 160 155 146;
-  --faint: 92 89 84; /* decoration only, never text */
-  --line: 46 45 42;
-  --accent: 212 175 55; /* gold as text */
+  --bg: 11 11 16; /* Ground #0B0B10 */
+  --surface: 22 21 29; /* Card #16151D */
+  --raised: 31 30 41;
+  --fg: 244 243 248; /* Ink #F4F3F8 */
+  --muted: 184 180 201; /* Ink dim #B8B4C9 */
+  --faint: 74 71 96; /* decoration only, never text */
+  --line: 45 43 61;
+  --brand: 94 80 255; /* Indigo #5E50FF: fills */
+  --brand-soft: 139 127 255; /* Indigo soft #8B7FFF */
+  --brand-deep: 74 58 230;
+  --onbrand: 255 255 255;
+  --accent: 163 153 255; /* indigo as text on dark */
   --warn: 245 190 70;
-  --danger: 248 118 108;
+  --danger: 240 138 138;
   --ok: 94 214 160;
-  --glow: 201 162 39;
+  --glow: 94 80 255;
 }
 [data-theme="light"] {
   color-scheme: light;
-  --bg: 245 243 238; /* warm paper */
+  --bg: 245 244 250;
   --surface: 255 255 255;
-  --raised: 250 249 246;
-  --fg: 26 25 23;
-  --muted: 94 90 83;
-  --faint: 205 200 190;
-  --line: 226 222 213;
-  --accent: 122 92 0; /* gold darkened for text on light backgrounds */
+  --raised: 250 249 253;
+  --fg: 21 19 31;
+  --muted: 92 88 115;
+  --faint: 205 201 222;
+  --line: 225 222 239;
+  --brand: 94 80 255;
+  --brand-soft: 122 109 255;
+  --brand-deep: 68 54 224;
+  --onbrand: 255 255 255;
+  --accent: 68 54 224; /* #4436E0 */
   --warn: 146 64 14;
-  --danger: 153 27 27;
+  --danger: 180 44 44;
   --ok: 6 95 70;
-  --glow: 201 162 39;
+  --glow: 94 80 255;
 }
 
 @layer base {
@@ -59,11 +68,11 @@
     text-wrap: balance;
   }
   ::selection {
-    background: rgb(201 162 39 / 0.35);
+    background: rgb(var(--brand) / 0.35);
   }
   /* Visible keyboard focus everywhere, in the one accent colour */
   :focus-visible {
-    outline: 2px solid #c9a227;
+    outline: 2px solid rgb(var(--brand-soft));
     outline-offset: 2px;
     border-radius: 6px;
   }
@@ -92,10 +101,10 @@
     @apply w-9 px-0;
   }
   .btn-primary {
-    @apply bg-gold text-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_1px_2px_rgb(0_0_0/0.3)] hover:bg-gold-soft active:translate-y-px;
+    @apply bg-brand text-onbrand shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_1px_2px_rgb(0_0_0/0.3)] hover:bg-brand-soft active:translate-y-px;
   }
   .btn-secondary {
-    @apply border border-line bg-raised text-fg hover:border-gold/60 hover:bg-surface active:translate-y-px;
+    @apply border border-line bg-raised text-fg hover:border-brand/60 hover:bg-surface active:translate-y-px;
   }
   .btn-ghost {
     @apply text-muted hover:bg-raised hover:text-fg;
@@ -104,12 +113,12 @@
     @apply border border-danger/40 text-danger hover:bg-danger/10;
   }
   .btn-wa {
-    @apply bg-gold text-ink hover:bg-gold-soft;
+    @apply bg-brand text-onbrand hover:bg-brand-soft;
   }
 
   /* Form controls */
   .input {
-    @apply h-9 w-full min-w-0 rounded-lg border border-line bg-bg px-3 text-sm text-fg shadow-[inset_0_1px_2px_rgb(0_0_0/0.12)] transition placeholder:text-muted hover:border-faint focus:border-gold/70 focus:outline-none focus:ring-2 focus:ring-gold/25 disabled:cursor-not-allowed disabled:opacity-70;
+    @apply h-9 w-full min-w-0 rounded-lg border border-line bg-bg px-3 text-sm text-fg shadow-[inset_0_1px_2px_rgb(0_0_0/0.12)] transition placeholder:text-muted hover:border-faint focus:border-brand/70 focus:outline-none focus:ring-2 focus:ring-brand/25 disabled:cursor-not-allowed disabled:opacity-70;
   }
   textarea.input {
     @apply h-auto py-2 leading-relaxed;
@@ -129,7 +138,7 @@
     @apply flex min-w-0 flex-col gap-1.5 text-xs font-medium text-muted;
   }
   .check {
-    @apply h-4 w-4 cursor-pointer rounded border-line accent-[#C9A227];
+    @apply h-4 w-4 cursor-pointer rounded border-line accent-[rgb(var(--brand))];
   }
 
   /* Surfaces */
@@ -150,8 +159,8 @@
   .chip {
     @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-line bg-raised px-2 py-0.5 text-[11px] font-medium leading-4 text-muted;
   }
-  .chip-gold {
-    @apply border-gold/40 bg-gold/10 text-accent;
+  .chip-brand {
+    @apply border-brand/40 bg-brand/10 text-accent;
   }
   .chip-ok {
     @apply border-ok/40 bg-ok/10 text-ok;

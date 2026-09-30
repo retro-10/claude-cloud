@@ -1,3 +1,4 @@
+import { TIER_LABEL } from "./pricing";
 import { and, asc, eq, gte, isNull } from "drizzle-orm";
 import type { Db } from "@/db";
 import { cohorts, consults, leads } from "@/db/schema";
@@ -8,11 +9,6 @@ import { type Placeholder, type TemplateContext } from "./templates-render";
 export * from "./templates-render";
 
 
-const TIER_LABEL: Record<string, string> = {
-  foundation: "Foundation",
-  freelance_ready: "Freelance Ready",
-  production_partner: "Production Partner",
-};
 
 const date = (d: Date, lang: "ar" | "en", withTime = false) =>
   new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-GB", {

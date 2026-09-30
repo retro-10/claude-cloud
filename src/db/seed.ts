@@ -33,9 +33,9 @@ export async function seedReference(url = process.env.DATABASE_URL, password = p
     await db.insert(s.cadenceTemplates).values(CADENCES).onConflictDoNothing();
     await seedRelease11(db);
 
-    // placeholder so the enrolment prompt works out of the box; rename or replace it in Cohorts
+    // placeholder so the enrolment prompt works out of the box; rename or replace it in Batches (40 seats is the camp cap)
     const existing = await db.select({ id: s.cohorts.id }).from(s.cohorts).limit(1);
-    if (!existing.length) await db.insert(s.cohorts).values({ name: "Demo cohort", seatCap: 30 });
+    if (!existing.length) await db.insert(s.cohorts).values({ name: "Demo cohort", seatCap: 40 });
 
     const passwordHash = await bcrypt.hash(password, 12);
     await db

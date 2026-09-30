@@ -8,14 +8,13 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        charcoal: "#1A1A1A",
-        ink: "#0F0F0F",
-        warm: "#EDEDED",
-        gold: {
-          DEFAULT: "#C9A227", // the single accent
-          soft: "#E3C766",
-          deep: "#9C7A12",
+        // Camp's one accent (Indigo, Brand Guardrails)
+        brand: {
+          DEFAULT: token("brand"),
+          soft: token("brand-soft"),
+          deep: token("brand-deep"),
         },
+        onbrand: token("onbrand"),
         // theme-aware tokens, defined in globals.css
         bg: token("bg"),
         surface: token("surface"),
@@ -31,14 +30,14 @@ const config: Config = {
         ok: token("ok"),
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        display: ['"Playfair Display"', "Georgia", "serif"],
+        sans: ["Archivo", "system-ui", "-apple-system", '"Segoe UI"', "sans-serif"],
+        display: ['"Bodoni Moda"', "Georgia", '"Times New Roman"', "serif"],
       },
       boxShadow: {
         soft: "0 1px 2px rgb(0 0 0 / 0.18), 0 1px 1px rgb(0 0 0 / 0.08)",
         lift: "0 12px 32px -12px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.18)",
         pop: "0 24px 64px -16px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(var(--line) / 0.9)",
-        glow: "0 0 0 1px rgb(201 162 39 / 0.45), 0 8px 28px -10px rgb(201 162 39 / 0.45)",
+        glow: "0 0 0 1px rgb(var(--glow) / 0.45), 0 8px 28px -10px rgb(var(--glow) / 0.5)",
       },
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },

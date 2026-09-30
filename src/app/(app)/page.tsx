@@ -33,7 +33,7 @@ function Section({
   icon: IconName;
   count: number;
   shown: number;
-  tone?: "gold" | "danger";
+  tone?: "brand" | "danger";
   hint?: string;
   children: React.ReactNode;
   empty: string;
@@ -41,13 +41,13 @@ function Section({
   action?: React.ReactNode;
 }) {
   return (
-    <section id={id} aria-labelledby={`${id}-h`} className={`card relative scroll-mt-20 overflow-hidden ${tone === "gold" && count ? "border-gold/40" : ""}`}>
-      {tone === "gold" && count > 0 && <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold to-transparent" />}
+    <section id={id} aria-labelledby={`${id}-h`} className={`card relative scroll-mt-20 overflow-hidden ${tone === "brand" && count ? "border-brand/40" : ""}`}>
+      {tone === "brand" && count > 0 && <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent" />}
       <div className="card-head">
         <h2 id={`${id}-h`} className="card-title flex items-center gap-2">
           <Icon name={icon} className={tone === "danger" && count ? "text-danger" : "text-accent"} />
           {title}
-          <span className={`count ${count ? (tone === "danger" ? "bg-danger/15 text-danger" : "bg-gold/15 text-accent") : ""}`}>{count}</span>
+          <span className={`count ${count ? (tone === "danger" ? "bg-danger/15 text-danger" : "bg-brand/15 text-accent") : ""}`}>{count}</span>
         </h2>
         {action}
       </div>
@@ -126,8 +126,8 @@ export default async function TodayPage(props: { searchParams: Promise<{ mine?: 
   const s = t.settings;
   const todo = t.totals.queue + t.totals.overdue + t.totals.dueToday;
 
-  const tiles: { href: string; label: string; value: number; icon: IconName; tone?: "danger" | "gold"; sub: string }[] = [
-    { href: "#queue", label: "Waiting on you", value: t.totals.queue, icon: "hourglass", tone: "gold", sub: `target ${s.slaTargetMin} min` },
+  const tiles: { href: string; label: string; value: number; icon: IconName; tone?: "danger" | "brand"; sub: string }[] = [
+    { href: "#queue", label: "Waiting on you", value: t.totals.queue, icon: "hourglass", tone: "brand", sub: `target ${s.slaTargetMin} min` },
     { href: "#overdue", label: "Overdue", value: t.totals.overdue, icon: "alert", tone: "danger", sub: "follow-ups" },
     { href: "#due", label: "Due today", value: t.totals.dueToday, icon: "calendar", sub: "follow-ups" },
     { href: "#consults", label: "Consults today", value: t.consultsToday.length, icon: "phone", sub: `${t.consultsToday.filter((c) => c.held).length} held` },
@@ -168,7 +168,7 @@ export default async function TodayPage(props: { searchParams: Promise<{ mine?: 
             href={k.href}
             style={{ animationDelay: `${i * 40}ms` }}
             className={`card group relative overflow-hidden p-4 transition hover:-translate-y-0.5 hover:shadow-lift animate-rise-in ${
-              k.value && k.tone === "danger" ? "border-danger/40" : k.value && k.tone === "gold" ? "border-gold/40" : ""
+              k.value && k.tone === "danger" ? "border-danger/40" : k.value && k.tone === "brand" ? "border-brand/40" : ""
             }`}
           >
             <div className="flex items-center justify-between text-xs font-medium text-muted">
@@ -187,7 +187,7 @@ export default async function TodayPage(props: { searchParams: Promise<{ mine?: 
             id="queue"
             title="Response queue"
             icon="hourglass"
-            tone="gold"
+            tone="brand"
             count={t.totals.queue}
             shown={t.queue.length}
             hint={`Longest waiting first. Amber after ${s.slaAmberMin} min, red after ${s.slaRedMin} min${s.workingHours.enabled ? `, counting ${s.workingHours.start}–${s.workingHours.end} only` : ""}.`}

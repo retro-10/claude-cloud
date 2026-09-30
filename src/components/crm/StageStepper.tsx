@@ -49,16 +49,16 @@ export function StageStepper(props: {
                   isCur
                     ? s.kind === "won"
                       ? "border-ok/50 bg-ok/15 text-ok"
-                      : "border-gold/60 bg-gold/15 text-accent shadow-glow"
+                      : "border-brand/60 bg-brand/15 text-accent shadow-glow"
                     : past
-                      ? "border-line bg-raised text-fg hover:border-gold/50"
-                      : "border-line/70 text-muted hover:border-gold/50 hover:text-fg"
+                      ? "border-line bg-raised text-fg hover:border-brand/50"
+                      : "border-line/70 text-muted hover:border-brand/50 hover:text-fg"
                 } disabled:cursor-default`}
               >
                 {past && <Icon name="check" size={12} className="text-ok" />}
                 {s.label}
               </button>
-              {i < path.length - 1 && <span aria-hidden className={`h-px w-3 ${past ? "bg-gold/60" : "bg-line"}`} />}
+              {i < path.length - 1 && <span aria-hidden className={`h-px w-3 ${past ? "bg-brand/60" : "bg-line"}`} />}
             </li>
           );
         })}

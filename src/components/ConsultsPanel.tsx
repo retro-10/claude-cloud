@@ -33,7 +33,7 @@ export async function ConsultsPanel({ leadId, canWrite }: { leadId: number; canW
               : now > c.scheduledAt
                 ? "Awaiting result"
                 : "Scheduled";
-          const tone = c.held ? "chip-ok" : c.outcome === "no_show" ? "chip-danger" : status === "Awaiting result" ? "chip-warn" : "chip-gold";
+          const tone = c.held ? "chip-ok" : c.outcome === "no_show" ? "chip-danger" : status === "Awaiting result" ? "chip-warn" : "chip-brand";
           const tier = TIERS.find(([k]) => k === c.recommendedTier)?.[1];
           return (
             <li key={c.id} className="px-4 py-3 text-sm">
@@ -51,7 +51,7 @@ export async function ConsultsPanel({ leadId, canWrite }: { leadId: number; canW
               </div>
               {(tier || (chosen.get(c.id) ?? []).length > 0) && (
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {tier && <span className="chip chip-gold">recommended: {tier}</span>}
+                  {tier && <span className="chip chip-brand">recommended: {tier}</span>}
                   {(chosen.get(c.id) ?? []).map((id) => (
                     <span key={id} className="chip">
                       {label(id)}

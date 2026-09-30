@@ -9,7 +9,8 @@ export type Action =
   | "payment:write" // edit payment details on an existing enrolment
   | "revenue:export"
   | "audit:read"
-  | "stage:override"; // move a lead although the stage's exit criteria are not met (with a reason)
+  | "stage:override"
+  | "finance:read"; // the Finance board: ledger, costs, partner shares (owner and finance only) // move a lead although the stage's exit criteria are not met (with a reason)
 
 const MATRIX: Record<Role, ReadonlySet<Action>> = {
   owner: new Set<Action>([
@@ -22,11 +23,12 @@ const MATRIX: Record<Role, ReadonlySet<Action>> = {
     "revenue:export",
     "audit:read",
     "stage:override",
+    "finance:read",
   ]),
   sales: new Set<Action>(["lead:read", "lead:write"]),
   viewer: new Set<Action>(["lead:read"]),
   // Finance: sees everything, records/edits payments and exports revenue. No lead, settings or user edits.
-  finance: new Set<Action>(["lead:read", "payment:write", "revenue:export"]),
+  finance: new Set<Action>(["lead:read", "payment:write", "revenue:export", "finance:read"]),
 };
 
 export function can(role: Role, action: Action): boolean {

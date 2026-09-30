@@ -224,7 +224,7 @@ export function CommandPalette({ links, canWrite }: { links: PaletteLink[]; canW
             spellCheck={false}
             className="h-14 min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted focus-visible:outline-none"
           />
-          {loading && <span className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-gold" aria-hidden />}
+          {loading && <span className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-brand" aria-hidden />}
           <kbd className="kbd">Esc</kbd>
         </div>
         <div ref={listRef} id={listId} role="listbox" aria-label="Results" className="max-h-[min(60vh,440px)] overflow-y-auto p-2">
@@ -246,7 +246,7 @@ export function CommandPalette({ links, canWrite }: { links: PaletteLink[]; canW
                   onMouseMove={() => setActive(i)}
                   onClick={() => c.run()}
                   className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                    i === active ? "bg-raised text-fg shadow-[inset_2px_0_0_#C9A227]" : "text-fg/90"
+                    i === active ? "bg-raised text-fg shadow-[inset_2px_0_0_rgb(var(--brand))]" : "text-fg/90"
                   }`}
                 >
                   <Icon name={c.icon} className={i === active ? "text-accent" : "text-muted"} />

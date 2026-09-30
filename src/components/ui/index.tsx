@@ -3,7 +3,7 @@ import { Icon, type IconName } from "./Icon";
 
 export { Icon, type IconName };
 
-// Server-safe building blocks (no hooks). Visual language: charcoal surfaces, hairline borders, one gold accent.
+// Server-safe building blocks (no hooks). Visual language: charcoal surfaces, hairline borders, one indigo accent.
 
 export function PageHeader({
   title,
@@ -79,7 +79,7 @@ export function EmptyState({ icon = "sparkle", title, children }: { icon?: IconN
   );
 }
 
-// Initials on a neutral disc with a gold hairline: identity without adding colours to the palette.
+// Initials on a neutral disc with a hairline in the accent: identity without adding colours to the palette.
 export function Avatar({ name, size = 28 }: { name: string | null | undefined; size?: number }) {
   const initials = (name ?? "?")
     .trim()
@@ -92,7 +92,7 @@ export function Avatar({ name, size = 28 }: { name: string | null | undefined; s
     <span
       aria-hidden
       style={{ width: size, height: size, fontSize: Math.max(10, size * 0.38) }}
-      className="inline-grid shrink-0 place-items-center rounded-full border border-gold/35 bg-gradient-to-br from-raised to-surface font-semibold text-accent"
+      className="inline-grid shrink-0 place-items-center rounded-full border border-brand/35 bg-gradient-to-br from-raised to-surface font-semibold text-accent"
     >
       {initials || "?"}
     </span>
@@ -110,11 +110,11 @@ export function Stat({
   value: React.ReactNode;
   hint?: React.ReactNode;
   icon?: IconName;
-  tone?: "gold";
+  tone?: "brand";
 }) {
   return (
-    <div className={`card relative overflow-hidden p-4 ${tone === "gold" ? "border-gold/40" : ""}`}>
-      {tone === "gold" && <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold to-transparent" />}
+    <div className={`card relative overflow-hidden p-4 ${tone === "brand" ? "border-brand/40" : ""}`}>
+      {tone === "brand" && <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent" />}
       <div className="flex items-center justify-between gap-2">
         <div className="text-xs font-medium text-muted">{label}</div>
         {icon && <Icon name={icon} className="text-muted" />}
@@ -140,7 +140,7 @@ export function Tabs({ items, current }: { items: { href: string; label: string;
             href={t.href}
             aria-current={active ? "page" : undefined}
             className={`relative -mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition ${
-              active ? "border-gold font-medium text-fg" : "border-transparent text-muted hover:text-fg"
+              active ? "border-brand font-medium text-fg" : "border-transparent text-muted hover:text-fg"
             }`}
           >
             {t.label}
@@ -155,6 +155,6 @@ export function Tabs({ items, current }: { items: { href: string; label: string;
 export const pretty = (s: string | null | undefined) => (s ? s.replace(/_/g, " ") : "");
 
 export function StageChip({ label, kind }: { label: string; kind?: string | null }) {
-  const cls = kind === "won" ? "chip chip-ok" : kind === "lost" ? "chip chip-danger" : kind === "nurture" ? "chip" : "chip chip-gold";
+  const cls = kind === "won" ? "chip chip-ok" : kind === "lost" ? "chip chip-danger" : kind === "nurture" ? "chip" : "chip chip-brand";
   return <span className={cls}>{label}</span>;
 }

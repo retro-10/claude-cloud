@@ -17,8 +17,8 @@ type SP = Record<string, string | undefined>;
 
 function Tile({ label, value, hint, icon, hero }: { label: string; value: string; hint?: string; icon: IconName; hero?: boolean }) {
   return (
-    <div data-stat={label} className={`card relative overflow-hidden p-4 ${hero ? "border-gold/40" : ""}`}>
-      {hero && <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold to-transparent" />}
+    <div data-stat={label} className={`card relative overflow-hidden p-4 ${hero ? "border-brand/40" : ""}`}>
+      {hero && <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent" />}
       <div className="flex items-center justify-between text-xs font-medium text-muted">
         <div>{label}</div>
         <Icon name={icon} className={hero ? "text-accent" : "text-muted"} />
@@ -138,8 +138,8 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
             </option>
           ))}
         </select>
-        <select name="cohort" defaultValue={f.cohort ?? ""} aria-label="Cohort" className="input w-auto">
-          <option value="">All cohorts</option>
+        <select name="cohort" defaultValue={f.cohort ?? ""} aria-label="Batch" className="input w-auto">
+          <option value="">All batches</option>
           {cohs.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -254,7 +254,7 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
         <Card title="Revenue" icon="trend">
           <div className="eyebrow mb-2">By tier</div>
           <BarList rows={m.revenue.byTier.map((r) => ({ label: pretty(r.tier), value: r.egp, note: `${r.count} enrolled` }))} unit=" EGP" />
-          <div className="eyebrow mb-2 mt-5">By cohort</div>
+          <div className="eyebrow mb-2 mt-5">By batch</div>
           <List rows={m.revenue.byCohort.map((r) => ({ label: r.name, value: `${r.count} · ${fmtEgp(r.egp)}` }))} />
           <div className="eyebrow mb-2 mt-5">By source</div>
           <List rows={m.revenue.bySource.map((r) => ({ label: r.label, value: `${r.count} · ${fmtEgp(r.egp)}` }))} />

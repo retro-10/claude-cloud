@@ -43,7 +43,13 @@ export const consultOutcomeEnum = pgEnum("consult_outcome", [
   "not_fit",
   "no_show",
 ]);
-export const gatewayEnum = pgEnum("gateway", ["paymob", "other"]);
+// Candidates pay OrlaDent directly (no payment gateway); a candidate may pay once or in instalments.
+export const paymentPlanEnum = pgEnum("payment_plan", ["one_time", "installments", "free_seat"]);
+export const studentStatusEnum = pgEnum("student_status", ["active", "graduated", "dropped"]);
+export const cohortStatusEnum = pgEnum("cohort_status", ["planning", "live", "closed"]);
+// Finance ledger, mirroring the Notion Ledger: money only counts once it is Received (income) or Paid (costs).
+export const ledgerSectionEnum = pgEnum("ledger_section", ["income", "fixed_costs", "variable_costs", "partner_withdrawals"]);
+export const ledgerStatusEnum = pgEnum("ledger_status", ["received", "expected", "paid", "owed", "cancelled"]);
 // "no_decision" = went silent after the offer, kept apart from an explicit "no" (reported separately)
 export const lostReasonKindEnum = pgEnum("lost_reason_kind", ["explicit", "no_decision"]);
 
@@ -97,6 +103,9 @@ export const cohorts = pgTable("cohorts", {
   enrolmentCloseAt: ts("enrolment_close_at"),
   seatCap: integer("seat_cap").notNull(),
   startAt: ts("start_at"),
+  openAt: ts("open_at"), // enrolment opens
+  status: cohortStatusEnum("status").notNull().default("planning"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 
 export const leads = pgTable(
@@ -266,11 +275,15 @@ export const enrolments = pgTable(
       .notNull()
       .references(() => cohorts.id),
     tier: tierEnum("tier").notNull(),
-    amountEgp: integer("amount_egp").notNull(),
-    paidAt: ts("paid_at"),
-    paymentRef: text("payment_ref"),
-    gateway: gatewayEnum("gateway").notNull().default("other"),
+    amountEgp: integer("amount_egp").notNull(), // tier price agreed (before discount)
+    discountEgp: integer("discount_egp").notNull().default(0),
+    paymentPlan: paymentPlanEnum("payment_plan").notNull().default("one_time"),
+    firstInstalmentAt: ts("first_instalment_at"),
+    finalInstalmentAt: ts("final_instalment_at"),
+    status: studentStatusEnum("status").notNull().default("active"),
+    notes: text("notes"),
     createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex("enrolments_lead_cohort_uq").on(t.leadId, t.cohortId),
@@ -423,4 +436,57 @@ export const leadMerges = pgTable("lead_merges", {
   byUserId: integer("by_user_id").references(() => users.id),
   mergedAt: ts("merged_at").notNull().defaultNow(),
   undoneAt: ts("undone_at"),
+});
+
+// Every money movement: candidate payments (linked to an enrolment), client work, costs, refunds, partner
+// withdrawals. Payments are ledger rows, so a candidate can pay in several instalments.
+export const ledgerEntries = pgTable(
+  "ledger_entries",
+  {
+    id: serial("id").primaryKey(),
+    entry: text("entry").notNull(), // short title, e.g. "Kero — final installment"
+    amountEgp: integer("amount_egp").notNull(), // always positive; the section says which way it goes
+    date: ts("date"), // when the money moved (or is due); NULL = the day it was recorded
+    dateApproximate: boolean("date_approximate").notNull().default(false),
+    section: ledgerSectionEnum("section").notNull(),
+    category: text("category").notNull(),
+    status: ledgerStatusEnum("status").notNull(),
+    partner: text("partner"), // for partner withdrawals
+    fromTo: text("from_to"),
+    reference: text("reference"), // transfer / receipt reference
+    notes: text("notes"),
+    enrolmentId: integer("enrolment_id").references(() => enrolments.id),
+    cohortId: integer("cohort_id").references(() => cohorts.id),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+    deletedAt: ts("deleted_at"),
+  },
+  (t) => [index("ledger_date_idx").on(t.date), index("ledger_enrolment_idx").on(t.enrolmentId)],
+);
+
+// Two-way Notion sync: which Notion page each local row is, and what both sides looked like at the last sync.
+export const notionLinks = pgTable(
+  "notion_links",
+  {
+    id: serial("id").primaryKey(),
+    entity: text("entity").notNull(), // lead | cohort | enrolment | ledger
+    localId: integer("local_id").notNull(),
+    pageId: text("page_id").notNull().unique(),
+    notionEditedAt: ts("notion_edited_at"), // last_edited_time of the page after our last read or write
+    syncedAt: ts("synced_at").notNull().defaultNow(), // local updated_at we last pushed or pulled
+    hash: text("hash"), // hash of the synced field values, to skip no-op writes
+  },
+  (t) => [uniqueIndex("notion_links_entity_local_uq").on(t.entity, t.localId)],
+);
+
+export const notionSyncRuns = pgTable("notion_sync_runs", {
+  id: serial("id").primaryKey(),
+  startedAt: ts("started_at").notNull().defaultNow(),
+  finishedAt: ts("finished_at"),
+  pushed: integer("pushed").notNull().default(0),
+  pulled: integer("pulled").notNull().default(0),
+  created: integer("created").notNull().default(0),
+  conflicts: integer("conflicts").notNull().default(0),
+  errors: jsonb("errors").$type<string[]>().notNull().default([]),
 });

@@ -18,11 +18,11 @@ export default async function CohortsPage(props: { searchParams: Promise<{ error
   const now = new Date();
   return (
     <>
-      <PageHeader eyebrow="Programme" title="Cohorts" subtitle="Seats are real QC capacity. Every deadline in the CRM and in templates comes from these records." />
+      <PageHeader eyebrow="Programme" title="Batches" subtitle="Seats are real QC capacity. Every deadline in the CRM and in templates comes from these records." />
       <Flash error={searchParams.error} />
       {list.length === 0 && (
         <div className="card">
-          <EmptyState icon="cohorts" title="No cohorts yet" />
+          <EmptyState icon="cohorts" title="No batches yet" />
         </div>
       )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -35,9 +35,9 @@ export default async function CohortsPage(props: { searchParams: Promise<{ error
               key={c.id}
               href={`/cohorts/${c.id}`}
               style={{ animationDelay: `${i * 40}ms` }}
-              className={`card group relative flex flex-col gap-4 overflow-hidden p-5 transition hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-lift animate-rise-in`}
+              className={`card group relative flex flex-col gap-4 overflow-hidden p-5 transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lift animate-rise-in`}
             >
-              {open && <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold to-transparent" />}
+              {open && <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent" />}
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <h2 className="font-display text-xl font-semibold group-hover:text-accent" dir="auto">
@@ -45,7 +45,7 @@ export default async function CohortsPage(props: { searchParams: Promise<{ error
                   </h2>
                   <p className="mt-0.5 text-xs text-muted">Masterclass {formatCairo(c.masterclassAt, false) || "not set"}</p>
                 </div>
-                <span className={`chip ${open ? (full ? "chip-warn" : "chip-gold") : ""}`}>{closeLabel(c.enrolmentCloseAt)}</span>
+                <span className={`chip ${open ? (full ? "chip-warn" : "chip-brand") : ""}`}>{closeLabel(c.enrolmentCloseAt)}</span>
               </div>
               <div>
                 <div className="mb-1.5 flex items-baseline justify-between text-sm">
@@ -55,7 +55,7 @@ export default async function CohortsPage(props: { searchParams: Promise<{ error
                   </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-raised" role="progressbar" aria-label={`${c.name} seats taken`} aria-valuenow={c.seatsUsed} aria-valuemin={0} aria-valuemax={c.seatCap}>
-                  <div className={`h-full rounded-full ${full ? "bg-warn" : "bg-gradient-to-r from-gold-deep to-gold"}`} style={{ width: `${pct}%` }} />
+                  <div className={`h-full rounded-full ${full ? "bg-warn" : "bg-gradient-to-r from-brand-deep to-brand"}`} style={{ width: `${pct}%` }} />
                 </div>
               </div>
               <div className="flex items-baseline justify-between border-t border-line pt-3">
@@ -69,7 +69,7 @@ export default async function CohortsPage(props: { searchParams: Promise<{ error
 
       {can(user.role, "settings:write") && (
         <form action={createCohortAction} className="card mt-6 grid max-w-2xl grid-cols-1 gap-3 p-5 sm:grid-cols-2">
-          <h2 className="font-display text-lg font-semibold sm:col-span-2">New cohort</h2>
+          <h2 className="font-display text-lg font-semibold sm:col-span-2">New batch</h2>
           <label className="field">
             Name
             <input name="name" required dir="auto" className={box} />
@@ -91,7 +91,7 @@ export default async function CohortsPage(props: { searchParams: Promise<{ error
             <input name="startAt" type="datetime-local" className={box} />
           </label>
           <div className="flex items-end">
-            <button className="btn btn-primary">Create cohort</button>
+            <button className="btn btn-primary">Create batch</button>
           </div>
         </form>
       )}

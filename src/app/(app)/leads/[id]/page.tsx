@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { activities, cadenceTemplates, cohorts, consults, enrolments, followUps, leads, lostReasons, sources, stageEvents, stages, users } from "@/db/schema";
+import { activities, cadenceTemplates, cohorts, consults, followUps, leads, ledgerEntries, lostReasons, sources, stageEvents, stages, users } from "@/db/schema";
 import { ComposeButton } from "@/components/crm/Composer";
 import { DoneMenu, SnoozeMenu } from "@/components/crm/FollowUpActions";
 import { LiveWait } from "@/components/crm/LiveWait";
 import { StageStepper } from "@/components/crm/StageStepper";
 import { ConsultsPanel } from "@/components/ConsultsPanel";
+import { CandidateMoney } from "@/components/finance/CandidateMoney";
 import { Flash } from "@/components/Flash";
 import { LeadForm } from "@/components/LeadForm";
 import { Avatar, Card, EmptyState, Icon, type IconName } from "@/components/ui";
 import { getSettings } from "@/lib/app-settings";
 import { CONSENT_METHODS, currentConsent } from "@/lib/consent";
+import { listCandidates } from "@/lib/finance";
 import { CHECKS, evaluate, requiredChecks } from "@/lib/exit-criteria";
 import { undoableMerges } from "@/lib/merge";
 import { can } from "@/lib/rbac";
@@ -48,7 +50,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
   const [lead] = await db.select().from(leads).where(eq(leads.id, id));
   if (!lead) notFound();
 
-  const [stageList, sourceList, ownerList, reasons, acts, events, cons, fus, tpls, cohortRows, enrols, settings, consent, merges] = await Promise.all([
+  const [stageList, sourceList, ownerList, reasons, acts, events, cons, fus, tpls, cohortRows, candidates, settings, consent, merges] = await Promise.all([
     db.select().from(stages).orderBy(asc(stages.position)),
     db.select().from(sources).orderBy(asc(sources.id)),
     db.select({ id: users.id, name: users.name }).from(users).where(eq(users.active, true)),
@@ -62,11 +64,18 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
       .select({ id: cohorts.id, name: cohorts.name, seatCap: cohorts.seatCap, used: sql<number>`(select count(*)::int from enrolments e where e.cohort_id = ${cohorts.id})` })
       .from(cohorts)
       .orderBy(asc(cohorts.id)),
-    db.select({ e: enrolments, cohort: cohorts.name }).from(enrolments).leftJoin(cohorts, eq(cohorts.id, enrolments.cohortId)).where(eq(enrolments.leadId, id)),
+    listCandidates(db, { leadId: id }),
     getSettings(db),
     currentConsent(db, id),
     undoableMerges(db, id),
   ]);
+  const payments = candidates.length
+    ? await db
+        .select()
+        .from(ledgerEntries)
+        .where(and(inArray(ledgerEntries.enrolmentId, candidates.map((c) => c.enrolmentId)), isNull(ledgerEntries.deletedAt)))
+        .orderBy(asc(ledgerEntries.createdAt))
+    : [];
   const openFus = fus.filter((f) => !f.doneAt && !f.cancelledAt).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime());
   const stage = stageList.find((s) => s.key === lead.stage);
   const stageLabel = (k: string | null) => stageList.find((s) => s.key === k)?.label ?? k ?? "";
@@ -148,7 +157,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
 
       {/* Hero */}
       <section className="card relative overflow-hidden p-5 animate-rise-in">
-        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-gold/10 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-brand/10 blur-3xl" />
         <div className="relative flex flex-wrap items-start gap-4">
           <Avatar name={lead.fullName} size={56} />
           <div className="min-w-0 flex-1">
@@ -156,7 +165,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
               {lead.fullName}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className={`chip ${stage?.kind === "won" ? "chip-ok" : stage?.kind === "lost" ? "chip-danger" : "chip-gold"}`}>{stage?.label}</span>
+              <span className={`chip ${stage?.kind === "won" ? "chip-ok" : stage?.kind === "lost" ? "chip-danger" : "chip-brand"}`}>{stage?.label}</span>
               <span className="chip num">{health.daysInStage}d in stage</span>
               {!lead.firstContactAt && stage?.kind === "open" && (
                 <LiveWait since={lead.createdAt.toISOString()} amber={settings.slaAmberMin} red={settings.slaRedMin} workingHours={settings.workingHours} />
@@ -375,7 +384,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
                 <li key={i} className="relative flex gap-3 pb-4 last:pb-0">
                   <span
                     className={`relative z-[1] grid h-8 w-8 shrink-0 place-items-center rounded-full border ${
-                      t.dir === "in" ? "border-gold/50 bg-gold/10 text-accent" : t.kind === "stage" ? "border-line bg-raised text-fg" : "border-line bg-surface text-muted"
+                      t.dir === "in" ? "border-brand/50 bg-brand/10 text-accent" : t.kind === "stage" ? "border-line bg-raised text-fg" : "border-line bg-surface text-muted"
                     }`}
                   >
                     <Icon name={t.dir === "in" ? "reply" : (ICON[t.kind] ?? "note")} size={14} />
@@ -389,7 +398,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
                       </span>
                     </div>
                     {t.body && (
-                      <p dir="auto" className={`mt-1.5 whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${t.dir === "in" ? "border border-gold/20 bg-gold/5" : "bg-raised/60"}`}>
+                      <p dir="auto" className={`mt-1.5 whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${t.dir === "in" ? "border border-brand/20 bg-brand/5" : "bg-raised/60"}`}>
                         {t.body}
                       </p>
                     )}
@@ -452,23 +461,17 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
 
           <ConsultsPanel leadId={lead.id} canWrite={canWrite} />
 
-          {enrols.length > 0 && (
-            <Card title="Enrolments" icon="cohorts" bodyClass="p-0">
-              <ul className="divide-y divide-line/70">
-                {enrols.map(({ e, cohort }) => (
-                  <li key={e.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-                    <span>
-                      <span className="font-medium">{cohort}</span>
-                      <span className="block text-xs capitalize text-muted">
-                        {e.tier.replace(/_/g, " ")} · {e.paymentRef ? `ref ${e.paymentRef}` : "no reference"}
-                      </span>
-                    </span>
-                    <span className="num font-medium">{egp(e.amountEgp)}</span>
-                  </li>
-                ))}
-              </ul>
+          {candidates.map((c) => (
+            <Card key={c.enrolmentId} title={`${c.cohort} · ${c.tier.replace(/_/g, " ")}`} icon="cohorts" label="Payments">
+              <div id="money" className="scroll-mt-24" />
+              <CandidateMoney
+                c={c}
+                payments={payments.filter((p) => p.enrolmentId === c.enrolmentId)}
+                canWrite={can(user.role, "payment:write")}
+                back={`/leads/${lead.id}`}
+              />
             </Card>
-          )}
+          ))}
 
           <Card title="Details" icon="user">
             <LeadForm lead={lead} sources={sourceList} owners={ownerList} readOnly={!canWrite} />

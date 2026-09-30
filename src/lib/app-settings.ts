@@ -21,6 +21,7 @@ export type Settings = {
   defaultOwnerId: number | null; // A3: owner for new leads when no route matches (null = whoever adds it)
   routes: Route[]; // A3: first matching route decides the owner
   maxOpenStages: number; // P2: warn above this many open stages
+  financeSplit: { partners: { name: string; pct: number }[]; capitalPct: number }; // how net income is split
 };
 
 export const DEFAULTS: Settings = {
@@ -35,6 +36,16 @@ export const DEFAULTS: Settings = {
   defaultOwnerId: null,
   routes: [],
   maxOpenStages: 7,
+  // from the Notion Finances page: Badr 30% · Sayyed 20% · Retro 15% · Mo 15% · Capital 20%
+  financeSplit: {
+    partners: [
+      { name: "Badr", pct: 30 },
+      { name: "Sayyed", pct: 20 },
+      { name: "Retro", pct: 15 },
+      { name: "Mo", pct: 15 },
+    ],
+    capitalPct: 20,
+  },
 };
 
 type Key = keyof Settings;
@@ -57,6 +68,16 @@ const VALIDATE: { [K in Key]: (v: unknown) => Settings[K] | undefined } = {
     if (!w || typeof w.enabled !== "boolean" || !HHMM.test(w.start) || !HHMM.test(w.end) || w.start >= w.end) return undefined;
     if (!Array.isArray(w.days) || !w.days.every((d) => Number.isInteger(d) && d >= 0 && d <= 6)) return undefined;
     return { enabled: w.enabled, start: w.start, end: w.end, days: [...new Set(w.days)].sort() };
+  }) as never,
+  financeSplit: ((v: unknown) => {
+    const f = v as Settings["financeSplit"];
+    if (!f || !Array.isArray(f.partners) || !f.partners.length || f.partners.length > 10) return undefined;
+    const pctOk = (n: unknown) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 100;
+    if (!pctOk(f.capitalPct) || !f.partners.every((p) => typeof p.name === "string" && p.name.trim() && p.name.length <= 40 && pctOk(p.pct))) return undefined;
+    if (new Set(f.partners.map((p) => p.name.trim())).size !== f.partners.length) return undefined;
+    const total = f.partners.reduce((a, p) => a + p.pct, 0) + f.capitalPct;
+    if (Math.abs(total - 100) > 0.001) return undefined; // the split must account for all of net income
+    return { partners: f.partners.map((p) => ({ name: p.name.trim(), pct: p.pct })), capitalPct: f.capitalPct };
   }) as never,
   routes: ((v: unknown) =>
     Array.isArray(v) &&

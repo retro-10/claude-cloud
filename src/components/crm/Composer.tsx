@@ -124,7 +124,7 @@ export function Composer() {
         className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-pop animate-pop-in"
       >
         <div className="flex items-center gap-3 border-b border-line px-5 py-4">
-          <span className="grid h-9 w-9 place-items-center rounded-xl border border-gold/40 bg-gold/10 text-accent">
+          <span className="grid h-9 w-9 place-items-center rounded-xl border border-brand/40 bg-brand/10 text-accent">
             <Icon name="chat" />
           </span>
           <div className="min-w-0 flex-1">
@@ -157,7 +157,7 @@ export function Composer() {
                       setTplId(null);
                       setText("");
                     }}
-                    className={`btn btn-sm flex-1 ${lang === l ? "btn-secondary border-gold/50" : "btn-ghost"}`}
+                    className={`btn btn-sm flex-1 ${lang === l ? "btn-secondary border-brand/50" : "btn-ghost"}`}
                   >
                     {l === "ar" ? "العربية" : "English"}
                   </button>
@@ -174,7 +174,7 @@ export function Composer() {
                   <li key={t.id}>
                     <button
                       onClick={() => pick(t)}
-                      className={`w-full rounded-lg px-2.5 py-2 text-left text-sm ${tplId === t.id ? "bg-raised shadow-[inset_2px_0_0_#C9A227]" : "hover:bg-raised/60"}`}
+                      className={`w-full rounded-lg px-2.5 py-2 text-left text-sm ${tplId === t.id ? "bg-raised shadow-[inset_2px_0_0_rgb(var(--brand))]" : "hover:bg-raised/60"}`}
                     >
                       <span className="block font-medium">{t.name}</span>
                       <span className="block text-xs text-muted">{CATEGORIES[t.category] ?? t.category}</span>
@@ -241,7 +241,7 @@ export function Composer() {
 
         {data && stage === "confirm" && (
           <div className="flex flex-col items-center gap-4 px-6 py-10 text-center">
-            <span className="grid h-12 w-12 place-items-center rounded-full border border-gold/40 bg-gold/10 text-accent">
+            <span className="grid h-12 w-12 place-items-center rounded-full border border-brand/40 bg-brand/10 text-accent">
               <Icon name="send" size={20} />
             </span>
             <div>

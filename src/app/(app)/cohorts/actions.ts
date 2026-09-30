@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import { createCohort, updateCohort, updateEnrolmentPayment } from "@/lib/cohorts";
+import { createCohort, updateCohort } from "@/lib/cohorts";
 import { requireCan } from "@/lib/server-auth";
 import { cairoLocalToDate } from "@/lib/time";
 
@@ -19,6 +19,8 @@ const cohortSchema = z.object({
   masterclassAt: optDate,
   enrolmentCloseAt: optDate,
   startAt: optDate,
+  openAt: optDate,
+  status: z.enum(["planning", "live", "closed"]).optional(),
 });
 
 const err = (path: string, msg: string) => redirect(`${path}?error=${encodeURIComponent(msg)}`);
@@ -39,39 +41,6 @@ export async function updateCohortAction(form: FormData) {
   const p = cohortSchema.safeParse(Object.fromEntries(form));
   if (!p.success) err(path, "Check the name and seat cap.");
   const r = await updateCohort(db, cohortId, p.data!, user.id);
-  revalidatePath(path);
-  if (!r.ok) err(path, r.error);
-  redirect(path);
-}
-
-const paymentSchema = z.object({
-  enrolmentId: id,
-  cohortId: id,
-  tier: z.enum(["foundation", "freelance_ready", "production_partner"]),
-  amountEgp: z.coerce.number().int().positive(),
-  paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
-  paymentRef: z.string().max(200).optional(),
-  gateway: z.enum(["paymob", "other"]),
-});
-
-export async function updatePaymentAction(form: FormData) {
-  const user = await requireCan("payment:write");
-  const p = paymentSchema.safeParse(Object.fromEntries(form));
-  const path = `/cohorts/${form.get("cohortId")}`;
-  if (!p.success) err(path, "Amount must be a whole number of EGP above zero.");
-  const d = p.data!;
-  const r = await updateEnrolmentPayment(
-    db,
-    d.enrolmentId,
-    {
-      tier: d.tier,
-      amountEgp: d.amountEgp,
-      paidAt: d.paidOn ? new Date(`${d.paidOn}T12:00:00Z`) : null,
-      paymentRef: d.paymentRef ?? null,
-      gateway: d.gateway,
-    },
-    user.id,
-  );
   revalidatePath(path);
   if (!r.ok) err(path, r.error);
   redirect(path);

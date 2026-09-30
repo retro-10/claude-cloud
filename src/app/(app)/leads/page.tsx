@@ -83,11 +83,11 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
 
       {/* views: smart ones and saved ones */}
       <nav aria-label="Views" className="mb-4 flex flex-wrap items-center gap-1.5">
-        <Link href="/leads" className={`chip px-3 py-1 text-xs ${!view && !viewQuery ? "chip-gold" : "hover:text-fg"}`}>
+        <Link href="/leads" className={`chip px-3 py-1 text-xs ${!view && !viewQuery ? "chip-brand" : "hover:text-fg"}`}>
           All
         </Link>
         {(Object.keys(VIEWS) as (keyof typeof VIEWS)[]).map((k) => (
-          <Link key={k} href={`/leads?view=${k}`} aria-current={view === k ? "page" : undefined} className={`chip px-3 py-1 text-xs ${view === k ? "chip-gold" : "hover:text-fg"}`}>
+          <Link key={k} href={`/leads?view=${k}`} aria-current={view === k ? "page" : undefined} className={`chip px-3 py-1 text-xs ${view === k ? "chip-brand" : "hover:text-fg"}`}>
             <Icon name={VIEWS[k].icon} size={12} /> {VIEWS[k].label}
           </Link>
         ))}
@@ -127,7 +127,7 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
         </div>
         <details className="mt-2" open={activeFilters > 0}>
           <summary className="btn btn-ghost btn-sm w-fit cursor-pointer list-none">
-            <Icon name="filter" size={13} /> Filters {activeFilters > 0 && <span className="count bg-gold/15 text-accent">{activeFilters}</span>}
+            <Icon name="filter" size={13} /> Filters {activeFilters > 0 && <span className="count bg-brand/15 text-accent">{activeFilters}</span>}
           </summary>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             <select name="stage" defaultValue={f.stage ?? ""} className="input" aria-label="Stage">
@@ -327,7 +327,7 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
                       </div>
                     </td>
                     <td className="whitespace-nowrap">
-                      <span className={`chip ${l.stageKind === "won" ? "chip-ok" : l.stageKind === "lost" ? "chip-danger" : l.stageKind === "open" ? "chip-gold" : ""}`}>{l.stageLabel}</span>
+                      <span className={`chip ${l.stageKind === "won" ? "chip-ok" : l.stageKind === "lost" ? "chip-danger" : l.stageKind === "open" ? "chip-brand" : ""}`}>{l.stageLabel}</span>
                       <span className="num ml-1.5 text-xs text-muted">{h.daysInStage}d</span>
                     </td>
                     <td className="whitespace-nowrap text-muted">{l.source ?? "—"}</td>

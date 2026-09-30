@@ -25,7 +25,7 @@ export function NotificationBell({ items, unread }: { items: BellItem[]; unread:
           <Icon name="inbox" size={18} />
           <span className="sr-only">Notifications{unread ? `, ${unread} unread` : ""}</span>
           {unread > 0 && (
-            <span aria-hidden className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-gold px-1 text-[10px] font-bold leading-none text-ink">
+            <span aria-hidden className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-onbrand">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
@@ -51,7 +51,7 @@ export function NotificationBell({ items, unread }: { items: BellItem[]; unread:
                   href={n.leadId ? `/leads/${n.leadId}` : "/"}
                   className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-sm hover:bg-raised"
                 >
-                  <span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.unread ? "bg-gold" : "bg-line"}`} />
+                  <span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.unread ? "bg-brand" : "bg-line"}`} />
                   <span className="min-w-0 flex-1" dir="auto">
                     {n.title}
                   </span>

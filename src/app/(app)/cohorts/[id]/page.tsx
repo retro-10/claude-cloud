@@ -1,19 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
+import { Flash } from "@/components/Flash";
+import { PaidBar } from "@/components/finance/CandidateMoney";
+import { Card, EmptyState, Icon, PageHeader, Stat, pretty } from "@/components/ui";
+import { closeLabel, egp } from "@/lib/cohort-format";
 import { getCohort } from "@/lib/cohorts";
+import { PAYMENT_PLAN_LABEL, STUDENT_STATUS_LABEL } from "@/lib/finance";
+import { TIER_LABEL } from "@/lib/pricing";
 import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
 import { formatCairo, toCairoLocalInput } from "@/lib/time";
-import { updateCohortAction, updatePaymentAction } from "../actions";
-import { closeLabel, egp } from "@/lib/cohort-format";
-import { Flash } from "@/components/Flash";
-import { Icon, PageHeader } from "@/components/ui";
+import { updateCohortAction } from "../actions";
 
-const box = "input";
-const pretty = (s: string) => s.replace(/_/g, " ");
+export const metadata = { title: "Batch" };
 
-export default async function CohortPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
+export default async function CohortPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; notice?: string }> }) {
   const [params, searchParams] = await Promise.all([props.params, props.searchParams]);
   const user = await requireUser();
   const id = Number(params.id);
@@ -23,152 +25,132 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
   const { summary: c, students, byTier } = data;
   const pct = Math.min(100, Math.round((c.seatsUsed / c.seatCap) * 100));
   const over = c.seatsUsed > c.seatCap;
+  const remaining = students.reduce((a, s) => a + s.remaining, 0);
+  const seeMoney = can(user.role, "finance:read") || can(user.role, "revenue:export");
 
   return (
     <>
       <Link href="/cohorts" className="mb-3 flex w-fit items-center gap-1 text-xs text-muted hover:text-fg">
-        <Icon name="chevronLeft" size={14} /> All cohorts
+        <Icon name="chevronLeft" size={14} /> All batches
       </Link>
       <PageHeader
-        eyebrow="Cohort"
+        eyebrow={`Batch · ${c.status}`}
         title={c.name}
         titleDir="auto"
         subtitle={closeLabel(c.enrolmentCloseAt)}
         actions={
           can(user.role, "revenue:export") ? (
             <a href={`/cohorts/${c.id}/export`} className="btn btn-secondary btn-sm">
-              <Icon name="download" size={14} /> Export enrolments CSV
+              <Icon name="download" size={14} /> Export students CSV
             </a>
           ) : undefined
         }
       />
-      <Flash error={searchParams.error} />
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="card p-4">
-          <div className="mb-1 text-xs font-medium text-muted">Masterclass</div>
-          <div>{formatCairo(c.masterclassAt) || "—"}</div>
-        </div>
-        <div className="card p-4">
-          <div className="mb-1 text-xs font-medium text-muted">Enrolment closes</div>
-          <div>{formatCairo(c.enrolmentCloseAt) || "—"}</div>
-          <div className="text-sm text-accent">{closeLabel(c.enrolmentCloseAt)}</div>
-        </div>
-        <div className="card p-4">
-          <div className="mb-1 text-xs font-medium text-muted">Seats</div>
-          <div className={over ? "text-warn" : ""}>
-            {c.seatsUsed} of {c.seatCap}
-            {over ? " (over cap)" : ""}
-          </div>
-          <div className="mt-1 h-1.5 rounded bg-bg" role="img" aria-label={`${pct}% of seats used`}>
-            <div className="h-1.5 rounded-full bg-gold" style={{ width: `${pct}%` }} />
-          </div>
-        </div>
-        <div className="card p-4">
-          <div className="mb-1 text-xs font-medium text-muted">Revenue</div>
-          <div>{egp(c.revenueEgp)}</div>
-          <div className="mb-1 text-xs font-medium text-muted">{egp(c.collectedEgp)} collected</div>
-        </div>
+      <Flash error={searchParams.error} notice={searchParams.notice} />
+
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Seats" value={`${c.seatsUsed} / ${c.seatCap}`} hint={over ? "over the cap" : `${c.seatCap - c.seatsUsed} left`} icon="cohorts" />
+        <Stat label="Enrolment" value={closeLabel(c.enrolmentCloseAt)} hint={c.enrolmentCloseAt ? `closes ${formatCairo(c.enrolmentCloseAt)}` : "no close date"} icon="calendar" />
+        <Stat label="Owed by students" value={egp(c.revenueEgp)} hint={`${egp(c.collectedEgp)} collected`} icon="trend" tone="brand" />
+        <Stat label="Still to collect" value={egp(remaining)} hint={`${students.filter((s) => s.remaining > 0).length} students with a balance`} icon="hourglass" />
+      </div>
+      <div className="mb-6 h-2 overflow-hidden rounded-full bg-raised" role="img" aria-label={`${pct}% of seats taken`}>
+        <div className={`h-full rounded-full ${over ? "bg-warn" : "bg-brand"}`} style={{ width: `${pct}%` }} />
       </div>
 
-      <h2 className="mb-2 font-display text-lg font-semibold">Revenue by tier</h2>
       <div className="mb-6 flex flex-wrap gap-2 text-sm">
         {Object.entries(byTier).map(([tier, v]) => (
-          <span key={tier} className="card px-3 py-1.5">
-            {pretty(tier)}: {v.count} · {egp(v.egp)}
+          <span key={tier} className="chip px-3 py-1 text-xs">
+            {TIER_LABEL[tier] ?? tier} · {v.count} · {egp(v.egp)}
           </span>
         ))}
-        {Object.keys(byTier).length === 0 && <span className="text-muted">No enrolments yet.</span>}
       </div>
 
-      <h2 className="mb-2 font-display text-lg font-semibold">Students ({students.length})</h2>
-      <div className="card mb-6 overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="text-[11px] uppercase tracking-wider text-muted">
-            <tr>
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Tier</th>
-              <th className="px-3 py-2">Amount</th>
-              <th className="px-3 py-2">Paid</th>
-              <th className="px-3 py-2">Reference</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {students.map((s) => (
-              <tr key={s.enrolmentId} className="border-t border-line align-top">
-                <td className="px-3 py-2">
-                  <Link href={`/leads/${s.leadId}`} className="font-medium hover:text-accent" dir="auto">
-                    {s.fullName}
-                  </Link>
-                </td>
-                <td className="px-3 py-2">{pretty(s.tier)}</td>
-                <td className="px-3 py-2">{egp(s.amountEgp)}</td>
-                <td className="px-3 py-2">{s.paidAt ? formatCairo(s.paidAt, false) : <span className="text-warn">unpaid</span>}</td>
-                <td className="px-3 py-2 text-muted" dir="ltr">
-                  {s.paymentRef} {s.gateway === "paymob" ? "(paymob)" : ""}
-                </td>
-                <td className="px-3 py-2">
-                  {can(user.role, "payment:write") && (
-                    <details>
-                      <summary className="cursor-pointer text-xs text-muted hover:text-fg">Edit payment</summary>
-                      <form action={updatePaymentAction} className="mt-2 flex flex-col gap-2 well p-3">
-                        <input type="hidden" name="enrolmentId" value={s.enrolmentId} />
-                        <input type="hidden" name="cohortId" value={c.id} />
-                        <select name="tier" defaultValue={s.tier} className={box} aria-label="Tier">
-                          {["foundation", "freelance_ready", "production_partner"].map((t) => (
-                            <option key={t} value={t}>
-                              {pretty(t)}
-                            </option>
-                          ))}
-                        </select>
-                        <input name="amountEgp" type="number" min={1} defaultValue={s.amountEgp} required className={box} aria-label="Amount (EGP)" />
-                        <input name="paidOn" type="date" defaultValue={s.paidAt ? s.paidAt.toISOString().slice(0, 10) : ""} className={box} aria-label="Paid on" />
-                        <input name="paymentRef" defaultValue={s.paymentRef ?? ""} placeholder="Reference" dir="ltr" className={box} />
-                        <select name="gateway" defaultValue={s.gateway} className={box} aria-label="Gateway">
-                          <option value="other">other</option>
-                          <option value="paymob">paymob</option>
-                        </select>
-                        <button className="btn btn-primary self-start">Save</button>
-                      </form>
-                    </details>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {students.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-muted">
-                  Nobody enrolled yet. Enrol leads from the Pipeline.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Card title={`Students (${students.length})`} icon="leads" bodyClass="p-0" className="mb-6">
+        {students.length === 0 ? (
+          <EmptyState icon="cohorts" title="Nobody enrolled yet">Enrol leads from the Pipeline or a lead’s stage bar.</EmptyState>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table min-w-[820px]">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Tier</th>
+                  <th>Plan</th>
+                  <th>Status</th>
+                  {seeMoney && <th className="w-40">Paid</th>}
+                  {seeMoney && <th className="text-right">Remaining</th>}
+                  {seeMoney && <th>Next due</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((s) => (
+                  <tr key={s.enrolmentId}>
+                    <td>
+                      <Link href={`/leads/${s.leadId}#money`} className="font-medium hover:text-accent" dir="auto">
+                        {s.fullName}
+                      </Link>
+                    </td>
+                    <td className="whitespace-nowrap">{TIER_LABEL[s.tier] ?? s.tier}</td>
+                    <td>
+                      <span className={`chip ${s.paymentPlan === "installments" ? "chip-warn" : ""}`}>{PAYMENT_PLAN_LABEL[s.paymentPlan]}</span>
+                    </td>
+                    <td>
+                      <span className={`chip ${s.status === "active" ? "chip-ok" : s.status === "dropped" ? "chip-danger" : "chip-brand"}`}>{STUDENT_STATUS_LABEL[s.status]}</span>
+                    </td>
+                    {seeMoney && (
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <PaidBar c={s} />
+                          <span className="num whitespace-nowrap text-xs text-muted">{s.due ? `${Math.round((s.paid / s.due) * 100)}%` : ""}</span>
+                        </div>
+                      </td>
+                    )}
+                    {seeMoney && <td className={`num whitespace-nowrap text-right ${s.remaining ? "text-warn" : "text-muted"}`}>{egp(s.remaining)}</td>}
+                    {seeMoney && <td className="num whitespace-nowrap text-muted">{s.nextDue ? formatCairo(s.nextDue, false) : "—"}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       {can(user.role, "settings:write") && (
-        <form action={updateCohortAction} className="grid max-w-2xl grid-cols-1 gap-3 card p-4 sm:grid-cols-2">
+        <form action={updateCohortAction} className="card grid max-w-3xl grid-cols-1 gap-3 p-5 sm:grid-cols-2">
           <input type="hidden" name="id" value={c.id} />
-          <h2 className="font-display text-lg font-semibold sm:col-span-2">Edit cohort</h2>
+          <h2 className="font-display text-lg font-semibold sm:col-span-2">Edit batch</h2>
           <label className="field">
             Name
-            <input name="name" defaultValue={c.name} required dir="auto" className={box} />
+            <input name="name" defaultValue={c.name} required dir="auto" className="input" />
           </label>
           <label className="field">
-            Seat cap
-            <input name="seatCap" type="number" min={c.seatsUsed || 1} defaultValue={c.seatCap} required className={box} />
+            Seat cap (the real QC capacity)
+            <input name="seatCap" type="number" min={c.seatsUsed || 1} defaultValue={c.seatCap} required className="input" />
           </label>
           <label className="field">
-            Masterclass (Cairo time)
-            <input name="masterclassAt" type="datetime-local" defaultValue={toCairoLocalInput(c.masterclassAt)} className={box} />
+            Status
+            <select name="status" defaultValue={c.status} className="input">
+              <option value="planning">Planning</option>
+              <option value="live">Live</option>
+              <option value="closed">Closed</option>
+            </select>
+          </label>
+          <label className="field">
+            Enrolment opens (Cairo time)
+            <input name="openAt" type="datetime-local" defaultValue={toCairoLocalInput(c.openAt)} className="input" />
           </label>
           <label className="field">
             Enrolment closes (Cairo time)
-            <input name="enrolmentCloseAt" type="datetime-local" defaultValue={toCairoLocalInput(c.enrolmentCloseAt)} className={box} />
+            <input name="enrolmentCloseAt" type="datetime-local" defaultValue={toCairoLocalInput(c.enrolmentCloseAt)} className="input" />
+          </label>
+          <label className="field">
+            Masterclass (Cairo time)
+            <input name="masterclassAt" type="datetime-local" defaultValue={toCairoLocalInput(c.masterclassAt)} className="input" />
           </label>
           <label className="field">
             Course starts
-            <input name="startAt" type="datetime-local" defaultValue={toCairoLocalInput(c.startAt)} className={box} />
+            <input name="startAt" type="datetime-local" defaultValue={toCairoLocalInput(c.startAt)} className="input" />
           </label>
           <div className="flex items-end">
             <button className="btn btn-primary">Save</button>

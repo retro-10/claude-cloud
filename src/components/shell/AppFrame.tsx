@@ -41,16 +41,22 @@ function isActive(pathname: string, item: NavItem, search = "") {
   return item.exact ? pathname === path : pathname === path || pathname.startsWith(path + "/");
 }
 
+// Camp wordmark, stacked ORLA / DENT / CAMP as in the brand guardrails.
 function Brand() {
   return (
     <Link href="/" className="group flex items-center gap-3 rounded-lg px-2 py-1" aria-label="OrlaDent Camp CRM, go to Today">
-      <span className="relative grid h-9 w-9 place-items-center overflow-hidden rounded-xl border border-gold/50 bg-gradient-to-br from-[#2a2415] via-[#17150f] to-[#0c0c0b] shadow-glow">
-        <span className="font-display text-lg font-semibold leading-none text-gold">O</span>
-        <span aria-hidden className="absolute inset-x-1 top-0 h-px bg-gradient-to-r from-transparent via-gold-soft/80 to-transparent" />
+      <span className="relative grid h-10 w-10 place-items-center overflow-hidden rounded-xl border border-brand/50 bg-gradient-to-br from-brand/35 via-surface to-bg shadow-glow">
+        <span className="font-display text-[9px] font-bold leading-[1.05] tracking-[0.12em] text-fg">
+          ORLA
+          <br />
+          DENT
+          <br />
+          <span className="text-accent">CAMP</span>
+        </span>
       </span>
       <span className="leading-tight">
-        <span className="block font-display text-[17px] font-semibold tracking-tight">OrlaDent</span>
-        <span className="block text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">Camp CRM</span>
+        <span className="block font-display text-[18px] font-semibold tracking-tight">OrlaDent Camp</span>
+        <span className="block text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">Sales &amp; finance</span>
       </span>
     </Link>
   );
@@ -80,7 +86,7 @@ function NavList({ nav, pathname, onNavigate }: { nav: NavItem[]; pathname: stri
                         active ? "bg-raised font-medium text-fg" : "text-muted hover:bg-raised/60 hover:text-fg"
                       }`}
                     >
-                      {active && <span aria-hidden className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gold" />}
+                      {active && <span aria-hidden className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-brand" />}
                       <Icon name={n.icon} size={17} className={active ? "text-accent" : "text-muted group-hover:text-fg"} />
                       <span className="min-w-0 flex-1 truncate">{n.label}</span>
                       {n.count !== undefined && n.count > 0 && (
@@ -109,7 +115,7 @@ function UserCard({ user }: { user: Props["user"] }) {
   return (
     <div className="flex items-center gap-2 rounded-xl border border-line bg-surface/70 p-2">
       <Link href="/account" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1 hover:bg-raised" title="My account">
-        <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-gold/40 bg-raised text-xs font-semibold text-accent">
+        <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-brand/40 bg-raised text-xs font-semibold text-accent">
           {initials}
         </span>
         <span className="min-w-0 leading-tight">
@@ -164,7 +170,7 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
         <div className="px-4 pb-4">
           <button
             onClick={() => emit(OPEN_PALETTE)}
-            className="flex h-9 w-full items-center gap-2 rounded-lg border border-line bg-bg/70 px-3 text-sm text-muted transition hover:border-gold/50 hover:text-fg"
+            className="flex h-9 w-full items-center gap-2 rounded-lg border border-line bg-bg/70 px-3 text-sm text-muted transition hover:border-brand/50 hover:text-fg"
           >
             <Icon name="search" />
             <span className="flex-1 text-left">Search…</span>
@@ -237,13 +243,13 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
               <Link key={n.href} href={n.href} aria-current={active ? "page" : undefined} className={`relative flex flex-col items-center gap-0.5 py-2 text-[11px] ${active ? "text-accent" : "text-muted"}`}>
                 <Icon name={n.icon} size={20} />
                 {n.label}
-                {!!n.count && <span aria-hidden className="absolute right-[26%] top-1.5 h-2 w-2 rounded-full bg-gold" />}
+                {!!n.count && <span aria-hidden className="absolute right-[26%] top-1.5 h-2 w-2 rounded-full bg-brand" />}
               </Link>
             );
           })}
           {canWrite ? (
             <button onClick={() => emit(OPEN_QUICK_ADD)} className="flex flex-col items-center gap-0.5 py-2 text-[11px] text-muted">
-              <span className="grid h-6 w-6 place-items-center rounded-full bg-gold text-ink">
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-brand text-onbrand">
                 <Icon name="plus" size={16} />
               </span>
               Add

@@ -46,9 +46,12 @@ const enrolSchema = z.object({
   cohortId: z.number().int().positive(),
   tier: z.enum(["foundation", "freelance_ready", "production_partner"]),
   amountEgp: z.number().int().positive().max(10_000_000),
+  discountEgp: z.number().int().min(0).max(10_000_000).default(0),
+  paymentPlan: z.enum(["one_time", "installments", "free_seat"]).default("one_time"),
+  paidAmountEgp: z.number().int().min(0).max(10_000_000).nullable().optional(),
   paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   paymentRef: z.string().max(200).nullable().optional(),
-  gateway: z.enum(["paymob", "other"]).default("other"),
+  finalInstalmentOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   overrideCap: z.boolean().optional(),
   overrideCriteria: z.string().max(500).nullable().optional(),
 });
@@ -72,9 +75,12 @@ export async function enrolAction(input: unknown): Promise<EnrolActionResult> {
       cohortId: p.data.cohortId,
       tier: p.data.tier,
       amountEgp: p.data.amountEgp,
+      discountEgp: p.data.discountEgp,
+      paymentPlan: p.data.paymentPlan,
+      paidAmountEgp: p.data.paidAmountEgp ?? null,
       paidAt: p.data.paidOn ? new Date(`${p.data.paidOn}T12:00:00Z`) : null,
       paymentRef: p.data.paymentRef,
-      gateway: p.data.gateway,
+      finalInstalmentAt: p.data.finalInstalmentOn ? new Date(`${p.data.finalInstalmentOn}T12:00:00Z`) : null,
       overrideCap,
       overrideCriteria: canOverride ? p.data.overrideCriteria : null,
     },
@@ -96,11 +102,11 @@ export async function enrolAction(input: unknown): Promise<EnrolActionResult> {
             : `Cohort is full (${r.seatsUsed}/${r.seatCap}). Ask an owner to override.`,
       };
     case "criteria":
-      return { ok: false, error: "Payment must be confirmed with a reference before enrolling.", missing: r.missing, canOverride };
+      return { ok: false, error: "Record the payment received and its reference (or choose a free seat) before enrolling.", missing: r.missing, canOverride };
     case "already_enrolled":
       return { ok: false, error: "This lead is already enrolled in that cohort." };
     case "invalid_amount":
-      return { ok: false, error: "Amount must be a whole number of EGP above zero." };
+      return { ok: false, error: "Check the amounts: price above zero, discount and payment not more than the price." };
     default:
       return { ok: false, error: "Lead or cohort not found." };
   }

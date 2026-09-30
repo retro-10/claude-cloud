@@ -44,7 +44,7 @@ export default async function WorkflowSettings(props: { searchParams: Promise<{ 
           {rules.map((r) => (
             <section key={r.id} aria-label={r.name} className={`card p-4 ${r.enabled ? "" : "opacity-60"}`}>
               <div className="flex flex-wrap items-start gap-3">
-                <span className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border ${r.enabled ? "border-gold/40 bg-gold/10 text-accent" : "border-line text-muted"}`}>
+                <span className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border ${r.enabled ? "border-brand/40 bg-brand/10 text-accent" : "border-line text-muted"}`}>
                   <Icon name="flow" size={15} />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -72,8 +72,8 @@ export default async function WorkflowSettings(props: { searchParams: Promise<{ 
                   <form action={toggleRuleAction}>
                     <input type="hidden" name="id" value={r.id} />
                     <input type="hidden" name="enabled" value={r.enabled ? "0" : "1"} />
-                    <button role="switch" aria-checked={r.enabled} aria-label={`${r.name}: ${r.enabled ? "on" : "off"}`} className={`relative h-6 w-11 rounded-full border transition ${r.enabled ? "border-gold/60 bg-gold/80" : "border-line bg-raised"}`}>
-                      <span className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-fg shadow transition-all ${r.enabled ? "left-[22px] bg-ink" : "left-0.5"}`} />
+                    <button role="switch" aria-checked={r.enabled} aria-label={`${r.name}: ${r.enabled ? "on" : "off"}`} className={`relative h-6 w-11 rounded-full border transition ${r.enabled ? "border-brand/60 bg-brand/80" : "border-line bg-raised"}`}>
+                      <span className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-fg shadow transition-all ${r.enabled ? "left-[22px] bg-white" : "left-0.5"}`} />
                     </button>
                   </form>
                 </div>
