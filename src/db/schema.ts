@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  customType,
   index,
   integer,
   jsonb,
@@ -617,3 +618,25 @@ export const weeklyReviews = pgTable("weekly_reviews", {
   updatedAt: ts("updated_at").notNull().defaultNow(),
   createdAt: createdAt(),
 });
+
+// Files on a lead (student) or a batch: certificates, receipts, case files, contracts. Kept in Postgres so the
+// nightly pg_dump backs them up with everything else; 8 MB each. Lists never select `data`.
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: serial("id").primaryKey(),
+    fileName: text("file_name").notNull(),
+    contentType: text("content_type").notNull(),
+    size: integer("size").notNull(),
+    sha256: text("sha256").notNull(),
+    data: bytea("data").notNull(),
+    note: text("note"),
+    leadId: integer("lead_id").references(() => leads.id),
+    cohortId: integer("cohort_id").references(() => cohorts.id),
+    uploadedBy: integer("uploaded_by").references(() => users.id),
+    createdAt: createdAt(),
+    deletedAt: ts("deleted_at"),
+  },
+  (t) => [index("attachments_lead_idx").on(t.leadId), index("attachments_cohort_idx").on(t.cohortId)],
+);

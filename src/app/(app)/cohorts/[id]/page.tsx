@@ -5,6 +5,8 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { TaskForm, TaskList } from "@/components/tasks/TaskPanel";
 import { listTasks } from "@/lib/tasks";
+import { FilesPanel } from "@/components/FilesPanel";
+import { listAttachments } from "@/lib/attachments";
 import { Flash } from "@/components/Flash";
 import { PaidBar } from "@/components/finance/CandidateMoney";
 import { Card, EmptyState, Icon, PageHeader, Stat, pretty } from "@/components/ui";
@@ -24,10 +26,11 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
   const user = await requireUser();
   const id = Number(params.id);
   if (!Number.isInteger(id)) notFound();
-  const [data, batchTasks, people] = await Promise.all([
+  const [data, batchTasks, people, files] = await Promise.all([
     getCohort(db, id),
     listTasks(db, { cohortId: id, status: "open" }),
     db.select({ id: users.id, name: users.name }).from(users).where(eq(users.active, true)).orderBy(asc(users.name)),
+    listAttachments(db, { cohortId: id }),
   ]);
   if (!data) notFound();
   const { summary: c, students, byTier } = data;
@@ -81,6 +84,10 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
             <TaskForm people={people} back={`/cohorts/${c.id}`} cohortId={c.id} me={user.id} />
           </div>
         )}
+      </Card>
+
+      <Card title={`Files (${files.length})`} icon="layers" className="mb-6">
+        <FilesPanel rows={files} back={`/cohorts/${c.id}`} cohortId={c.id} canWrite={can(user.role, "file:write")} me={user.id} isOwner={can(user.role, "settings:write")} />
       </Card>
 
       <Card title={`Students (${students.length})`} icon="leads" bodyClass="p-0" className="mb-6">

@@ -78,6 +78,13 @@
       "when": 1790794629611,
       "tag": "0010_two_factor",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790795114721,
+      "tag": "0011_attachments",
+      "breakpoints": true
     }
   ]
 }

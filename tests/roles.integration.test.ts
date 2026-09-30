@@ -124,6 +124,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/settings/targets/actions")),
       ...(await import("@/app/(app)/command/actions")),
       ...(await import("@/app/(app)/tools/actions")),
+      ...(await import("@/app/(app)/files/actions")),
     };
   });
   afterAll(async () => {
@@ -166,6 +167,11 @@ d("role rules on the server", () => {
     ["saveReviewAction", ["owner"], () => strict(() => A.saveReviewAction(fd({ week: "2026-10-05", wins: "A good week" })))],
     ["saveOfferToLeadAction", ["owner", "sales"], () => strict(() => A.saveOfferToLeadAction(fd({ leadId, tier: "foundation", amount: 7000, link: "", decision: "2030-01-10" })))],
     ["resetTwoFactorAction", ["owner"], async () => A.resetTwoFactorAction(fd({ id: (await db.select().from(s.users).where(eq(s.users.email, email("viewer"))))[0].id }))],
+    ["uploadFileAction", ["owner", "sales", "finance"], () => {
+      const f = fd({ leadId, back: `/leads/${leadId}` });
+      f.set("file", new File([Buffer.from("%PDF-1.4")], "receipt.pdf", { type: "application/pdf" }));
+      return strict(() => A.uploadFileAction(f));
+    }],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 
@@ -276,6 +282,29 @@ d("role rules on the server", () => {
     await signInAs(email("owner"));
     expect((await cohortExport(req(), { params: Promise.resolve({ id: "99999" }) })).status).toBe(404);
     expect((await client`select count(*)::int as n from audit_log where action = 'export'`)[0].n).toBeGreaterThanOrEqual(3);
+  });
+
+  it("file downloads: signed in and able to read leads; only raster images open inline; every download audited", async () => {
+    const route = (await import("@/app/(app)/files/[id]/route")).GET;
+    const [png] = await db.insert(s.attachments).values({ fileName: "photo.png", contentType: "image/png", size: 3, sha256: "x", data: Buffer.from("png"), leadId }).returning();
+    const [htm] = await db.insert(s.attachments).values({ fileName: "حالة.pdf", contentType: "application/pdf", size: 3, sha256: "x", data: Buffer.from("pdf"), leadId }).returning();
+    const get = (id: number | string) => route(new NextRequest(`http://localhost/files/${id}`), { params: Promise.resolve({ id: String(id) }) });
+    await signInAs(null);
+    expect((await get(png.id)).status).toBe(401);
+    for (const role of ROLES) {
+      await signInAs(email(role));
+      expect((await get(png.id)).status, role).toBe(200);
+    }
+    let res = await get(png.id);
+    expect(res.headers.get("content-type")).toBe("image/png");
+    expect(res.headers.get("content-disposition")).toMatch(/^inline;/);
+    res = await get(htm.id);
+    expect(res.headers.get("content-type")).toBe("application/octet-stream");
+    expect(res.headers.get("content-disposition")).toContain(`attachment; filename="____.pdf"; filename*=UTF-8''${encodeURIComponent("حالة.pdf")}`);
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(Buffer.from(await res.arrayBuffer()).toString()).toBe("pdf");
+    expect((await get("abc")).status).toBe(404);
+    expect((await get(999999)).status).toBe(404);
   });
 
   it("two people adding the same phone at once: one wins, the other gets the duplicate, nobody gets a database error", async () => {

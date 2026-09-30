@@ -11,6 +11,8 @@ import { ConsultsPanel } from "@/components/ConsultsPanel";
 import { CandidateMoney } from "@/components/finance/CandidateMoney";
 import { TaskForm, TaskList } from "@/components/tasks/TaskPanel";
 import { listTasks } from "@/lib/tasks";
+import { FilesPanel } from "@/components/FilesPanel";
+import { listAttachments } from "@/lib/attachments";
 import { ProgrammeCard } from "@/components/programme/ProgrammeCard";
 import { Flash } from "@/components/Flash";
 import { LeadForm } from "@/components/LeadForm";
@@ -82,7 +84,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
         .orderBy(asc(ledgerEntries.createdAt))
     : [];
   const enrolmentIds = candidates.map((c) => c.enrolmentId);
-  const [sessions, proof, leadTasks] = await Promise.all([listSessions(db, enrolmentIds), listProof(db, { enrolmentIds }), listTasks(db, { leadId: id, status: "all" })]);
+  const [sessions, proof, leadTasks, files] = await Promise.all([listSessions(db, enrolmentIds), listProof(db, { enrolmentIds }), listTasks(db, { leadId: id, status: "all" }), listAttachments(db, { leadId: id })]);
   const openFus = fus.filter((f) => !f.doneAt && !f.cancelledAt).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime());
   const stage = stageList.find((s) => s.key === lead.stage);
   const stageLabel = (k: string | null) => stageList.find((s) => s.key === k)?.label ?? k ?? "";
@@ -486,6 +488,10 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
                 <TaskForm people={ownerList} back={`/leads/${lead.id}`} leadId={lead.id} me={user.id} />
               </div>
             )}
+          </Card>
+
+          <Card title={`Files (${files.length})`} icon="layers" label="Files">
+            <FilesPanel rows={files} back={`/leads/${lead.id}`} leadId={lead.id} canWrite={can(user.role, "file:write") && !lead.deletedAt} me={user.id} isOwner={can(user.role, "settings:write")} />
           </Card>
 
           {can(user.role, "finance:read") && candidates.map((c) => (
