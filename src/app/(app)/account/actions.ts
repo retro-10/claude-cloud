@@ -22,7 +22,8 @@ export async function confirmTwoFactorAction(_prev: TwoFactorState, form: FormDa
   const user = await requireUser();
   const r = await confirmSetup(db, user.id, code(form));
   if (!r.ok) return { error: r.error };
-  revalidatePath("/", "layout");
+  // no revalidate here: a refresh would swap this form for the "on" view and lose the codes before they are
+  // saved. The codes panel has a button that reloads the page once they are written down.
   return { recoveryCodes: r.recoveryCodes, done: "Two-factor sign-in is on." };
 }
 
@@ -30,7 +31,6 @@ export async function newRecoveryCodesAction(_prev: TwoFactorState, form: FormDa
   const user = await requireUser();
   const r = await regenerateRecoveryCodes(db, user.id, code(form));
   if (!r.ok) return { error: r.error };
-  revalidatePath("/account");
   return { recoveryCodes: r.recoveryCodes, done: "New recovery codes made; the old ones no longer work." };
 }
 

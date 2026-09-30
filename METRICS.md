@@ -84,3 +84,22 @@ Rules from the Notion *Finances* page. Every figure reads the ledger (`ledger_en
 | Candidate paid | that candidate's Received payments − refunds |
 | Candidate expected | that candidate's Expected payments |
 | Remaining | due − paid (never below 0); overdue when an Expected payment's date has passed |
+
+## Command centre (`src/lib/command.ts`) and targets (`src/lib/targets.ts`)
+
+| Number | Definition |
+| --- | --- |
+| Pulse | The 7 days up to now against the 7 days before them (rolling, not calendar weeks) |
+| New leads | Live leads created in the window (merged-away leads excluded) |
+| Consults held | Consults marked held whose scheduled time falls in the window |
+| Enrolments | Enrolments created in the window |
+| Cash collected | Income ledger rows with status Received, dated in the window, less refunds |
+| Tasks done | Tasks finished in the window |
+| Revenue (targets) | What the window's new students owe: price less discount; free seats 0; dropped students what they paid |
+| Quarter | Cairo calendar quarter (Q4 = 1 October 00:00 to 1 January 00:00, Cairo time) |
+| Expected by now | Target × share of the quarter that has passed |
+| On track / at risk / behind | Actual ≥ expected / ≥ 80% of expected / below that; reached = actual ≥ target; missed = quarter over and short |
+| Leads past the red time | Open leads never contacted, created more than the red threshold ago (working hours not applied) |
+| Overdue instalments | Expected income rows dated before today, excluding dropped students |
+| Batch planner | Consults = seats ÷ consult-to-enrolment rate; leads = consults ÷ lead-to-consult rate; per week = total ÷ weeks left (at least 1 week) |
+| Planner defaults | Last 180 days: share of new leads with a held consult; share of those that enrolled; average price after discount excluding free seats. Below 30 leads: 20% and 40%, and the average list price |

@@ -6,6 +6,12 @@ import { planBatch } from "@/lib/tools";
 
 const fmt = (n: number) => new Intl.NumberFormat("en-US").format(n);
 const pct = (x: number) => String(Math.round(x * 1000) / 10);
+const timeLeft = (weeks: number) => {
+  const days = Math.round(weeks * 7);
+  if (days < 14) return `${days} day${days === 1 ? "" : "s"}`;
+  const w = Math.round(weeks * 10) / 10;
+  return `${w} weeks`;
+};
 
 /** Seats to fill → consults → leads, per week until enrolment closes, at your own conversion rates. */
 export function BatchPlanner({ d, today }: { d: PlannerDefaults; today: string }) {
@@ -85,7 +91,7 @@ export function BatchPlanner({ d, today }: { d: PlannerDefaults; today: string }
         ) : (
           <>
             <p className="text-sm text-muted">
-              To fill {fmt(Number(seats))} seats in {Math.max(1, Math.round(weeks * 10) / 10)} weeks you need about:
+              To fill {fmt(Number(seats))} seat{Number(seats) === 1 ? "" : "s"} in {timeLeft(weeks)} you need about:
             </p>
             <dl className="mt-4 grid grid-cols-2 gap-3">
               <div className="well p-3">

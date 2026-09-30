@@ -11,63 +11,68 @@ const PRIORITY_CHIP: Record<string, string> = { high: "chip chip-danger", normal
 
 /** The add-a-task form. On a lead or batch page the link is fixed; on the Tasks page a batch can be picked. */
 export function TaskForm({ people, back, leadId, cohortId, batches, me, open = false }: { people: Person[]; back: string; leadId?: number; cohortId?: number; batches?: Batch[]; me: number; open?: boolean }) {
-  return (
-    <details className="group" open={open}>
-      <summary className="btn btn-secondary btn-sm w-fit cursor-pointer list-none">
-        <Icon name="plus" size={14} /> Add task
-      </summary>
-      <form action={createTaskAction} className="mt-3 grid gap-3 sm:grid-cols-2">
-        <input type="hidden" name="back" value={back} />
-        {leadId && <input type="hidden" name="leadId" value={leadId} />}
-        {cohortId && <input type="hidden" name="cohortId" value={cohortId} />}
-        <label className="field sm:col-span-2">
-          What needs doing
-          <input name="title" required maxLength={200} className="input" placeholder="e.g. Book the studio for the masterclass" />
-        </label>
+  const form = (
+    <form action={createTaskAction} className={`grid gap-3 sm:grid-cols-2 ${open ? "" : "mt-3"}`}>
+      <input type="hidden" name="back" value={back} />
+      {leadId && <input type="hidden" name="leadId" value={leadId} />}
+      {cohortId && <input type="hidden" name="cohortId" value={cohortId} />}
+      <label className="field sm:col-span-2">
+        What needs doing
+        <input name="title" required maxLength={200} className="input" placeholder="e.g. Book the studio for the masterclass" />
+      </label>
+      <label className="field">
+        Who
+        <select name="assigneeId" defaultValue={me} className="input">
+          <option value="">Nobody yet</option>
+          {people.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
+        Due
+        <input name="due" type="date" className="input" />
+      </label>
+      <label className="field">
+        Priority
+        <select name="priority" defaultValue="normal" className="input">
+          <option value="high">High</option>
+          <option value="normal">Normal</option>
+          <option value="low">Low</option>
+        </select>
+      </label>
+      {batches && !cohortId && (
         <label className="field">
-          Who
-          <select name="assigneeId" defaultValue={me} className="input">
-            <option value="">Nobody yet</option>
-            {people.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
+          Batch (optional)
+          <select name="cohortId" defaultValue="" className="input">
+            <option value="">None</option>
+            {batches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
               </option>
             ))}
           </select>
         </label>
-        <label className="field">
-          Due
-          <input name="due" type="date" className="input" />
-        </label>
-        <label className="field">
-          Priority
-          <select name="priority" defaultValue="normal" className="input">
-            <option value="high">High</option>
-            <option value="normal">Normal</option>
-            <option value="low">Low</option>
-          </select>
-        </label>
-        {batches && !cohortId && (
-          <label className="field">
-            Batch (optional)
-            <select name="cohortId" defaultValue="" className="input">
-              <option value="">None</option>
-              {batches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <label className="field sm:col-span-2">
-          Notes
-          <textarea name="notes" rows={2} maxLength={4000} className="input" />
-        </label>
-        <div className="sm:col-span-2">
-          <button className="btn btn-primary btn-sm">Add task</button>
-        </div>
-      </form>
+      )}
+      <label className="field sm:col-span-2">
+        Notes
+        <textarea name="notes" rows={2} maxLength={4000} className="input" />
+      </label>
+      <div className="sm:col-span-2">
+        <button className="btn btn-primary btn-sm">Add task</button>
+      </div>
+    </form>
+  );
+  // open: the form on its own (the Tasks page); otherwise behind an "Add task" toggle (lead and batch pages)
+  if (open) return form;
+  return (
+    <details className="group">
+      <summary className="btn btn-secondary btn-sm w-fit cursor-pointer list-none">
+        <Icon name="plus" size={14} /> Add task
+      </summary>
+      {form}
     </details>
   );
 }

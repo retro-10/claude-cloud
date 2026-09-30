@@ -99,12 +99,14 @@ export function planBatch(p: PlanInput): PlanResult {
   if (!(p.weeksLeft > 0)) return { ok: false, error: "The enrolment close date has passed: pick a later one" };
   const consults = Math.ceil(p.seatsToFill / p.consultToEnrol);
   const leads = Math.ceil(consults / p.leadToConsult);
+  // under a week left, "a week" is all of it: never a weekly figure larger than the total
+  const weeks = Math.max(1, p.weeksLeft);
   return {
     ok: true,
     consults,
     leads,
-    consultsPerWeek: Math.ceil(consults / p.weeksLeft),
-    leadsPerWeek: Math.ceil(leads / p.weeksLeft),
+    consultsPerWeek: Math.ceil(consults / weeks),
+    leadsPerWeek: Math.ceil(leads / weeks),
     revenueEgp: Math.round(p.seatsToFill * p.avgPriceEgp),
   };
 }

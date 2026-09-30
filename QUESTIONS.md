@@ -25,7 +25,7 @@ Each has a safe default already applied. Answer any and it will be changed.
 21. **Show-up rate** ignores consults that are still to happen or awaiting a result. OK?
 22. **Self-host the fonts?** Inter and Playfair Display currently load from Google Fonts (non-blocking, with fallbacks). Self-hosting removes the only third-party request and works offline; it needs the font files added to the repo. Do you want that?
 23. **Session length.** Sessions last 7 days and end sooner if the password changes or the user is deactivated. Shorter (for example 12 hours)?
-24. **Two-factor sign-in** is not built. With customers' personal data on the public internet, do you want it added?
+24. ~~Two-factor sign-in~~ **Answered: built** (authenticator app, optional per person, owners and finance reminded). Was: is not built. With customers' personal data on the public internet, do you want it added?
 25. **Data retention.** Nothing is ever purged. Do you need a rule (for example anonymise leads inactive for N months) for privacy?
 
 ## Release 1.1 (feature blueprint)
@@ -60,3 +60,15 @@ Each has a safe default already applied. Answer any and it will be changed.
     equity stay in Notion untouched.
 44. **Proof "Used in content".** The Proof bank's link to the Content pieces database is not synced (the CRM has
     no content calendar). Needed?
+
+## OrlaDent OS, Phase 1
+
+34. **Require two-factor?** It is optional for everyone, with a standing reminder for owners and finance. Should
+    it be required for owners and finance (they could not use the app until it is on)?
+35. **Work week.** The weekly review runs Monday to Sunday. Camp's week may start on Saturday or Sunday; which do
+    you want?
+36. **Targets.** Only quarterly targets for five numbers exist (leads, consults held, enrolments, revenue, cash).
+    Do you want monthly targets, or targets per batch or per salesperson?
+37. **Files.** 8 MB each, kept in the database. If you will store many case files or videos, we should move them
+    to object storage (a small monthly cost). How much do you expect?
+38. **Who may delete files?** Now: whoever added it, or an owner. Fine?

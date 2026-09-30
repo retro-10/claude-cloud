@@ -14,9 +14,14 @@ function Codes({ codes }: { codes: string[] }) {
           <li key={c}>{c}</li>
         ))}
       </ul>
-      <button type="button" className="btn btn-secondary btn-sm mt-3" onClick={() => navigator.clipboard?.writeText(codes.join("\n"))}>
-        <Icon name="copy" size={14} /> Copy all
-      </button>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigator.clipboard?.writeText(codes.join("\n"))}>
+          <Icon name="copy" size={14} /> Copy all
+        </button>
+        <a href="/account" className="btn btn-primary btn-sm">
+          <Icon name="check" size={14} /> I&rsquo;ve saved them
+        </a>
+      </div>
     </div>
   );
 }

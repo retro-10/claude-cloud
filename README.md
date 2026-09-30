@@ -42,7 +42,7 @@ See `.env.example`, which explains every value. The important ones:
 | Variable | Meaning |
 | --- | --- |
 | `POSTGRES_PASSWORD`, `DATABASE_URL` | Database password, and the URL the app uses (same password) |
-| `AUTH_SECRET` | 32+ random characters that sign session cookies. Changing it signs everyone out |
+| `AUTH_SECRET` | 32+ random characters that sign session cookies and seal two-factor secrets. Changing it signs everyone out and requires every two-factor to be reset (Settings > Users) |
 | `SEED_PASSWORD` | Initial password of the four seeded accounts |
 | `SEED_DEMO` | `true`: add demo leads on first start into an empty database. Default `false` (real use) |
 | `COOKIE_SECURE` | `true` when served over HTTPS (production compose forces it) |

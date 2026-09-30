@@ -319,3 +319,45 @@ refused the enrolment. Both now name the table explicitly.
 
 The owners asked for clean, readable type: **Inter** everywhere (headings included, semibold with tight
 tracking), with **Noto Sans Arabic** as the fallback for Arabic names. This replaces Bodoni Moda and Archivo.
+
+## OrlaDent OS, Phase 1 (Command centre and foundations)
+
+The plan that turns the CRM into the brand's operating system lives in the shared doc "OrlaDent OS: roadmap from
+CRM to brand mastermind". Phase 1 builds what every later module reports into.
+
+* **Tasks are separate from follow-ups.** A follow-up is the sales cadence on one lead and drives Today, the
+  response clock and the stop rules. A task is any other work, on a lead, a batch or nothing. Merging them would
+  have tangled the sales metrics with team chores. Tasks move with a lead in a merge (and back on undo).
+* **Targets are quarterly, on the Cairo calendar**, and progress is computed live from the same tables as the
+  dashboard (never typed in). Pace compares the actual with an even spread over the quarter; "at risk" is within
+  20% of that. Revenue counts what the quarter's new students owe, with dropped students counting what they
+  paid (the same rule as everywhere since question 10).
+* **The pulse is a rolling 7 days**, not the calendar week, so Monday and Thursday compare like with like. The
+  weekly review uses Monday-to-Sunday weeks and saves that week's numbers with it, so history does not change
+  when data is corrected later.
+* **Alerts are computed, not stored.** Each line is a count with a link to the list behind it, using the same
+  definitions as Today and the smart views. Nothing to dismiss or go stale; money lines only for owners and
+  finance.
+* **Tools are pure functions with unit tests** (`src/lib/tools.ts`), used directly by the browser components.
+  The offer schedule rounds instalments down to 50 EGP and puts the remainder in the last one, so the sum is
+  exact. The batch planner never shows a weekly figure larger than the total.
+* **Two-factor sign-in** follows RFC 6238 (checked against the RFC's test vectors) using `node:crypto`, not a
+  library. The secret is sealed with AES-256-GCM under a key derived from `AUTH_SECRET`; a code works once (the
+  used step is recorded in the same UPDATE that accepts it, so two racing requests cannot both pass); 10 recovery
+  codes are stored as SHA-256. The password step issues only a 5-minute pass scoped to `/login`; session tokens
+  now carry `purpose: session` and any other purpose is refused, so the pass can never act as a session. Tokens
+  signed before this change (no purpose) stay valid, so nobody was signed out. Found and closed during
+  development: without the purpose check the pass would have been accepted as a session.
+* **Files live in Postgres (bytea), 8 MB each.** The existing `pg_dump` backup covers them with no new service,
+  and access control is the same code as the record they belong to. Only an allow-list of types is accepted;
+  only raster images open inline, everything else downloads as `application/octet-stream` with `nosniff` and a
+  sandbox CSP. Deleting a file removes its bytes. If files grow into videos or thousands of case files, move the
+  bytes to S3-compatible storage and keep this table as the index.
+* **New permissions**: `task:write` and `file:write` (owner, sales, finance), `lead:export` (owners). Every new
+  action is in the role matrix test, which calls the real actions once per role.
+
+Verified: lint, types, 350+ unit and integration tests (tasks, targets, pulse and alerts, planner defaults, the
+TOTP vectors, the whole two-factor sign-in against a real database, files and their download headers, the role
+matrix), and the browser suite: accessibility of every new screen in both themes, plus a Phase 1 journey
+(targets, a task from creation to done, the offer builder saving on a lead, a file upload and download, and
+two-factor set up and used in a real browser).

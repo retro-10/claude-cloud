@@ -5,16 +5,69 @@ when the buyer moved, and log everything** so the numbers are true.
 
 ## Finding your way
 
-* **Sidebar** (left; on a phone, **More** at the bottom): Today, Leads, Pipeline, Cohorts, Dashboard, then
-  **Views** with live counts (see below), then Settings for owners.
+* **Sidebar** (left; on a phone, **More** at the bottom): **Command centre** and **Tools** first, then Today,
+  Leads, Pipeline, Tasks, Batches, Dashboard, then **Views** with live counts (see below), then Settings for owners.
 * **Ctrl K** (⌘K on a Mac), or the search box at the top of the sidebar, opens the **command palette**: type part
   of a name or a phone number in any format (`0100 777 66`, `+20 100…`, Arabic spelling variants are matched) to
   jump to a lead, or type a command ("new lead", "pipeline", "dark theme", "sign out").
-* **Keyboard**: `n` new lead · `/` search on the page · `g` then `t` / `l` / `p` / `c` / `d` / `s` goes to Today,
-  Leads, Pipeline, Cohorts, Dashboard, Settings · `?` shows every shortcut · `Esc` closes a dialog.
+* **Keyboard**: `n` new lead · `/` search on the page · `g` then `o` / `t` / `l` / `p` / `k` / `c` / `d` / `s` goes to
+  Command centre, Today, Leads, Pipeline, Tasks, Batches, Dashboard, Settings · `?` shows every shortcut · `Esc`
+  closes a dialog.
 * The **bell** (top right) holds notifications from the workflow rules: a new lead arrived, a follow-up is 24
   hours overdue, nobody has answered an unassigned lead.
 * Sun/moon icon: light or dark theme (remembered per browser).
+
+## Command centre (start here)
+
+The first screen of **OrlaDent OS**. Open it every morning.
+
+* **Pulse**: the last 7 days against the 7 before: new leads, consults held, enrolments, cash collected (owners and
+  finance only) and tasks done. A rolling week, so Monday and Thursday compare the same way.
+* **Needs a person**: one list of everything waiting on someone, urgent first. It includes new leads past the red
+  time, replies waiting on us, overdue follow-ups, decisions due, leads with no next step, overdue tasks, and
+  batches whose enrolment closes within 14 days with seats left. Owners and finance also see overdue instalments
+  and bills past due; owners see Notion sync problems. Click a line to go straight to the list behind it.
+* **Targets**: this quarter's targets with a bar each and pace: *on track* (at or above where an even quarter
+  would be), *at risk* (within 20% of it), *behind*, *reached*, *missed* (quarter over). Owners set them in
+  **Settings > Targets**.
+* **My tasks this week** and the **Weekly review**. Owners write the review after the weekly meeting: wins,
+  misses and why, decisions (who does what by when), and notes. Saving keeps that week's numbers with it, so
+  old reviews read the same later. Use the arrows to look at earlier weeks. Weeks run Monday to Sunday.
+
+## Tasks
+
+Everything the team has to do that is not a follow-up with a lead: prepare a masterclass, chase a certificate,
+edit a reel, pay a supplier. A task has a title, who, a due date, a priority and notes. It can belong to a lead
+(or student), to a batch, or to nothing.
+
+* **Tasks** in the sidebar shows your open tasks (the count turns red when one is overdue). Tabs: Mine, Everyone,
+  Unassigned, Done; filter by due date.
+* A lead's page and a batch's page each have a **Tasks** card with **Add task**.
+* **Done** finishes a task, **x** cancels it (kept for the record), and a finished task can be reopened. Viewers
+  can see tasks but not change them.
+* Tasks move with a lead when two leads are merged.
+
+## Files
+
+A lead's page and a batch's page have a **Files** card: receipts, certificates, IDs, contracts, case files.
+Up to 8 MB each. Accepted: PDF, images (PNG, JPG, WebP, GIF, HEIC), Word, Excel, PowerPoint, CSV, text, ZIP, and
+dental files (STL, PLY, OBJ, DICOM). Share videos by link in a note instead. Photos open in the browser;
+everything else downloads. Every download is recorded in the audit log. The person who added a file, or an
+owner, can delete it; deleting removes the file itself.
+
+Patient cases: only upload what the patient agreed to, and prefer files without names or faces.
+
+## Tools
+
+* **Offer builder**: pick the programme, price, discount and plan (in full, or a deposit then 1 to 6 monthly
+  instalments). You see the schedule (equal parts rounded to 50 EGP; the last one takes the remainder) and a
+  ready WhatsApp message. Open it from a lead (**Offer builder** on the lead's Offer card) to open WhatsApp with
+  the message and **save the offer on the lead**. The message is factual on purpose: no deadlines, incentives or
+  results promises unless Badr approved them.
+* **Batch planner**: pick a batch; it shows how many new leads and held consults you need, in total and per
+  week, to fill the free seats before enrolment closes. The conversion rates and average price start from the
+  last 180 days of your own data (or cautious placeholders while there are fewer than 30 leads); change them to
+  test a plan.
 
 ## The daily routine
 
@@ -236,9 +289,31 @@ leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `ME
 | **viewer** | read leads only (no revenue, no lead export) |
 | **finance** (Mo) | read everything including revenue, Finance (record payments, costs, withdrawals), export revenue; cannot edit or export leads, or change settings |
 
+Tasks and files: owner, sales and finance add and finish them; viewers only look.
+
+## Two-factor sign-in
+
+**My account > Two-factor sign-in** adds a second step after the password: a 6-digit code from an
+authenticator app (Google Authenticator, Microsoft Authenticator, 1Password and similar). Someone who learns
+your password still cannot get in. Owners and finance see a reminder until it is on.
+
+1. Press **Set up two-factor sign-in**, scan the QR code with the app (or type the key), and enter the code
+   the app shows.
+2. You get **10 recovery codes**, shown once. Save them somewhere safe that is not your phone. Each one signs
+   you in once if the phone is lost. You can make new ones later (the old ones stop working).
+3. From then on, signing in asks for the password, then the code. Five wrong codes lock the step for a few
+   minutes.
+
+Lost your phone and your recovery codes? An owner opens **Settings > Users** and presses **Reset two-factor**
+for you; you sign in with your password and set it up again. Turning it off yourself needs a current code.
+If the server's `AUTH_SECRET` is ever changed, everyone's two-factor must be reset this way.
+
 ## Owners: Settings
 
-* **Users**: add people, change roles, deactivate, reset a password. There is always one active owner.
+* **Users**: add people, change roles, deactivate, reset a password, see who has two-factor on and reset it
+  for a lost phone. There is always one active owner.
+* **Targets**: what this quarter and next should deliver (new leads, consults held, enrolments, revenue, cash
+  collected). Empty means no target. Progress shows on the Command centre.
 * **Stages & criteria**: rename and reorder stages, add a stage (a warning past 7 open stages; names that are
   time periods like "Q4 deals" are refused), and switch each stage's checks on or off.
 * **Thresholds & routing**: response-time target, amber and red; working hours (off by default); neglected and

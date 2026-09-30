@@ -62,6 +62,9 @@ describe("batch planner", () => {
       revenueEgp: 225000,
     });
   });
+  it("with under a week left, the weekly figure is the whole amount, never more", () => {
+    expect(planBatch({ seatsToFill: 8, avgPriceEgp: 12000, leadToConsult: 0.2, consultToEnrol: 0.4, weeksLeft: 3 / 7 })).toMatchObject({ leads: 100, leadsPerWeek: 100, consults: 20, consultsPerWeek: 20 });
+  });
   it("refuses impossible inputs", () => {
     expect(planBatch({ seatsToFill: 5, avgPriceEgp: 1, leadToConsult: 0, consultToEnrol: 0.5, weeksLeft: 2 }).ok).toBe(false);
     expect(planBatch({ seatsToFill: 5, avgPriceEgp: 1, leadToConsult: 0.2, consultToEnrol: 0.5, weeksLeft: 0 })).toEqual({ ok: false, error: "The enrolment close date has passed: pick a later one" });
