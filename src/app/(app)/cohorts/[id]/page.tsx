@@ -71,13 +71,16 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
           <EmptyState icon="cohorts" title="Nobody enrolled yet">Enrol leads from the Pipeline or a lead’s stage bar.</EmptyState>
         ) : (
           <div className="overflow-x-auto">
-            <table className="table min-w-[820px]">
+            <table className="table min-w-[1000px]">
               <thead>
                 <tr>
                   <th>Name</th>
                   <th>Tier</th>
                   <th>Plan</th>
                   <th>Status</th>
+                  <th className="text-right">QC</th>
+                  <th className="text-right">Rank</th>
+                  <th>Consent</th>
                   {seeMoney && <th className="w-40">Paid</th>}
                   {seeMoney && <th className="text-right">Remaining</th>}
                   {seeMoney && <th>Next due</th>}
@@ -97,6 +100,13 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
                     </td>
                     <td>
                       <span className={`chip ${s.status === "active" ? "chip-ok" : s.status === "dropped" ? "chip-danger" : "chip-brand"}`}>{STUDENT_STATUS_LABEL[s.status]}</span>
+                    </td>
+                    <td className="num text-right">{s.qcScore ?? "—"}</td>
+                    <td className="num text-right">{s.leaderboardRank ? `#${s.leaderboardRank}` : "—"}</td>
+                    <td>
+                      <Link href={`/leads/${s.leadId}#programme`} className={`chip ${s.contentConsent ? "chip-ok" : ""}`} title={s.contentConsentScope.join(", ") || undefined}>
+                        {s.contentConsent ? "on file" : "none"}
+                      </Link>
                     </td>
                     {seeMoney && (
                       <td>

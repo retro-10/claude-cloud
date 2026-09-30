@@ -9,6 +9,7 @@ import type { Db } from "@/db";
 import { createCohort } from "@/lib/cohorts";
 import { enrolLead } from "@/lib/enrol";
 import { deleteEntry, listCandidates, saveEntry, updateCandidate } from "@/lib/finance";
+import { deleteProof, listProof, listSessions, saveSession, updateProgramme } from "@/lib/programme";
 import { changeStage, createLead } from "@/lib/leads";
 import { NotionHttp, pid, put } from "@/lib/notion/client";
 import { hashFields, notionConfig, runNotionSync, type NotionConfig } from "@/lib/notion/sync";
@@ -24,6 +25,9 @@ const cfg: NotionConfig = {
   candidatesDb: "aaaaaaaa-0000-0000-0000-000000000002",
   ledgerDb: "aaaaaaaa-0000-0000-0000-000000000003",
   parentPage: "aaaaaaaa-0000-0000-0000-000000000004",
+  sessionsDb: "aaaaaaaa-0000-0000-0000-000000000005",
+  proofDb: "aaaaaaaa-0000-0000-0000-000000000006",
+  teamDb: "aaaaaaaa-0000-0000-0000-000000000007",
   leadsDb: null,
   syncLeads: true,
   appUrl: "https://crm.example.com",
@@ -109,7 +113,7 @@ d("Notion two-way sync", () => {
     const before = notion.calls;
     const r = await sync();
     expect(r).toMatchObject({ pushed: 0, pulled: 0, created: 0, conflicts: 0, errors: [] });
-    expect(notion.calls - before).toBe(4); // one query per database
+    expect(notion.calls - before).toBe(7); // one query per database
   });
 
   it("an edit in Notion comes into the CRM; an edit in the CRM goes to Notion", async () => {
@@ -189,10 +193,11 @@ d("Notion two-way sync", () => {
   });
 
   it("an invalid page is reported, not imported", async () => {
-    notion.add(cfg.ledgerDb, { Entry: put.title("Mystery"), "Amount (EGP)": put.number(10) });
+    const mystery = notion.add(cfg.ledgerDb, { Entry: put.title("Mystery"), "Amount (EGP)": put.number(10) });
     const r = await sync();
     expect(r.errors.some((e) => /has no Section/.test(e))).toBe(true);
     expect(await db.select().from(s.ledgerEntries).where(eq(s.ledgerEntries.entry, "Mystery"))).toHaveLength(0);
+    notion.remove(mystery); // tidied up in Notion, so later runs report nothing
   });
 
   it("a lead's stage is the CRM's: a change in Notion is put back, a name change comes in", async () => {
@@ -218,6 +223,88 @@ d("Notion two-way sync", () => {
     expect(lead.notes).toBe("from notion");
     expect(lead.stage).toBe("contacted"); // Notion never moves stages
     expect(notion.prop(l.pageId, "Stage").select!.name).not.toBe("New");
+  });
+
+  it("programme columns go both ways: content consent, scope, QC score, leaderboard rank", async () => {
+    await updateProgramme(db, enrolmentId, { contentConsent: true, contentConsentScope: ["Video", "Name", "Bogus"], qcScore: 87.5, leaderboardRank: 3 }, userId);
+    await sync();
+    const cand = await link("enrolment", enrolmentId);
+    expect(notion.prop(cand.pageId, "Consent on file?").checkbox).toBe(true);
+    expect(notion.prop(cand.pageId, "Consent scope").multi_select!.map((o) => o.name)).toEqual(["Name", "Video"]);
+    expect(notion.prop(cand.pageId, "QC score").number).toBe(87.5);
+    expect(notion.prop(cand.pageId, "Leaderboard rank").number).toBe(3);
+
+    notion.edit(cand.pageId, { "QC score": put.number(91), "Consent scope": put.multi("Name,Patient case,Video") });
+    await sync();
+    const [e] = await db.select().from(s.enrolments).where(eq(s.enrolments.id, enrolmentId));
+    expect(e).toMatchObject({ qcScore: 91, contentConsent: true, leaderboardRank: 3 });
+    expect([...e.contentConsentScope].sort()).toEqual(["Name", "Patient case", "Video"]);
+  });
+
+  it("after an upgrade the first run reads every page, so Notion's values are not overwritten by empty CRM fields", async () => {
+    const cand = await link("enrolment", enrolmentId);
+    // a value typed in Notion long ago (not edited since the last run), then the CRM is upgraded
+    notion.pages.get(pid(cand.pageId))!.props["Leaderboard rank"] = put.number(1);
+    await client.unsafe(`update app_settings set value = jsonb_set(value, '{version}', '1') where key = 'notion_state'`);
+    await sync();
+    const [e] = await db.select().from(s.enrolments).where(eq(s.enrolments.id, enrolmentId));
+    expect(e.leaderboardRank).toBe(1);
+    expect(notion.prop(cand.pageId, "Leaderboard rank").number).toBe(1);
+  });
+
+  it("sessions and proof items: added in Notion, added in the CRM, deleted in the CRM", async () => {
+    const cand = await link("enrolment", enrolmentId);
+    notion.add(cfg.sessionsDb, { Name: put.title("1:1 week 1"), Candidate: put.relation([cand.pageId]), Type: put.select("Production Partner 1:1"), "Recorded?": put.checkbox(true) });
+    const proofPage = notion.add(cfg.proofDb, {
+      Name: put.title("Kero voice note"),
+      Candidate: put.relation([cand.pageId]),
+      Type: put.select("Voice note"),
+      "Consent status": put.select("Granted"),
+      "Usable in": put.multi("Reel,Story"),
+      "Real quote or transcript": put.text("I landed my first client"),
+    });
+    let r = await sync();
+    expect(r.errors).toEqual([]);
+    const [sess] = await listSessions(db, [enrolmentId]);
+    expect(sess).toMatchObject({ name: "1:1 week 1", type: "Production Partner 1:1", recorded: true });
+    const [proof] = await listProof(db, { enrolmentIds: [enrolmentId] });
+    expect(proof.p).toMatchObject({ type: "Voice note", consentStatus: "Granted", quote: "I landed my first client" });
+    expect([...proof.p.usableIn].sort()).toEqual(["Reel", "Story"]);
+
+    const made = await saveSession(db, null, { name: "Q&A 2", enrolmentId, type: "Freelance Ready group Q&A", dayOfWeek: "Monday", time: "8 pm" }, userId);
+    if (!made.ok) throw new Error(made.error);
+    await sync();
+    const page = notion.inDb(cfg.sessionsDb).find((p) => notion.prop(p.id, "Name").title![0].plain_text === "Q&A 2")!;
+    expect(pid(notion.prop(page.id, "Candidate").relation![0].id)).toBe(pid(cand.pageId));
+    expect(notion.prop(page.id, "Day of week").select!.name).toBe("Monday");
+
+    await deleteProof(db, proof.p.id, userId);
+    r = await sync();
+    expect(notion.pages.get(pid(proofPage))!.archived).toBe(true);
+  });
+
+  it("the team is read from Notion only (no pay), and a cost can name who it was paid to", async () => {
+    const t = notion.add(cfg.teamDb, { Name: put.title("Nada"), Role: put.select("Video Editor"), Group: put.select("Staff"), Status: put.select("Active"), "Salary (EGP)": put.number(9000) });
+    notion.add(cfg.ledgerDb, {
+      Entry: put.title("Editing — September"),
+      "Amount (EGP)": put.number(9000),
+      Date: put.date("2026-09-28"),
+      Section: put.select("Fixed costs"),
+      Category: put.select("Salaries"),
+      Status: put.select("Paid"),
+      "Team member": put.relation([t]),
+    });
+    const r = await sync();
+    expect(r.errors).toEqual([]);
+    const [nada] = await db.select().from(s.teamMembers).where(eq(s.teamMembers.name, "Nada"));
+    expect(nada).toMatchObject({ role: "Video Editor", group: "Staff", status: "Active" });
+    expect(Object.keys(nada)).not.toContain("salaryEgp");
+    const [cost] = await db.select().from(s.ledgerEntries).where(eq(s.ledgerEntries.entry, "Editing — September"));
+    expect(cost.teamMemberId).toBe(nada.id);
+    // a change made in the CRM is never written to the Team database
+    await db.update(s.teamMembers).set({ role: "CEO", updatedAt: new Date() }).where(eq(s.teamMembers.id, nada.id));
+    await sync();
+    expect(notion.prop(t, "Role").select!.name).toBe("Video Editor");
   });
 
   it("each run is logged", async () => {

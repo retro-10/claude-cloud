@@ -7,6 +7,7 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  real,
   serial,
   text,
   timestamp,
@@ -282,6 +283,11 @@ export const enrolments = pgTable(
     finalInstalmentAt: ts("final_instalment_at"),
     status: studentStatusEnum("status").notNull().default("active"),
     notes: text("notes"),
+    // programme data kept in the Notion Candidates database
+    contentConsent: boolean("content_consent").notNull().default(false), // "Consent on file?": may we use their work / words in content
+    contentConsentScope: text("content_consent_scope").array().notNull().default(sql`'{}'::text[]`), // Voice, Video, Patient case, Name
+    qcScore: real("qc_score"),
+    leaderboardRank: integer("leaderboard_rank"),
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
@@ -457,6 +463,7 @@ export const ledgerEntries = pgTable(
     notes: text("notes"),
     enrolmentId: integer("enrolment_id").references(() => enrolments.id),
     cohortId: integer("cohort_id").references(() => cohorts.id),
+    teamMemberId: integer("team_member_id").references(() => teamMembers.id), // who a salary / freelance cost was paid to
     createdBy: integer("created_by").references(() => users.id),
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
@@ -465,12 +472,63 @@ export const ledgerEntries = pgTable(
   (t) => [index("ledger_date_idx").on(t.date), index("ledger_enrolment_idx").on(t.enrolmentId)],
 );
 
+// Mirror of the Notion Team database (read-only here): who a cost was paid to. Pay and equity stay in Notion.
+export const teamMembers = pgTable("team_members", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  role: text("role"),
+  group: text("group"), // Board | Staff
+  status: text("status"), // Active | Inactive
+  contact: text("contact"),
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+// Programme sessions (Notion "Sessions"): 1:1s and group Q&As, each for one candidate.
+export const programmeSessions = pgTable(
+  "programme_sessions",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    enrolmentId: integer("enrolment_id").references(() => enrolments.id),
+    type: text("type"), // Production Partner 1:1 | Freelance Ready group Q&A
+    dayOfWeek: text("day_of_week"),
+    time: text("time"),
+    recorded: boolean("recorded").notNull().default(false),
+    driveLink: text("drive_link"),
+    notes: text("notes"),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+    deletedAt: ts("deleted_at"),
+  },
+  (t) => [index("programme_sessions_enrolment_idx").on(t.enrolmentId)],
+);
+
+// Proof & Testimonial Bank: quotes, QC results, screenshots a candidate gave, and whether we may use them.
+export const proofItems = pgTable(
+  "proof_items",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    enrolmentId: integer("enrolment_id").references(() => enrolments.id),
+    type: text("type"), // Voice note | Screenshot | QC result | Leaderboard shot | Video | Message
+    consentStatus: text("consent_status"), // Not asked | Asked | Granted | Declined
+    usableIn: text("usable_in").array().notNull().default(sql`'{}'::text[]`), // Reel, Carousel, Story, YouTube, Text
+    fileOrLink: text("file_or_link"),
+    quote: text("quote"), // the real quote or transcript, word for word
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+    deletedAt: ts("deleted_at"),
+  },
+  (t) => [index("proof_items_enrolment_idx").on(t.enrolmentId)],
+);
+
 // Two-way Notion sync: which Notion page each local row is, and what both sides looked like at the last sync.
 export const notionLinks = pgTable(
   "notion_links",
   {
     id: serial("id").primaryKey(),
-    entity: text("entity").notNull(), // lead | cohort | enrolment | ledger
+    entity: text("entity").notNull(), // lead | cohort | enrolment | ledger | team | session | proof
     localId: integer("local_id").notNull(),
     pageId: text("page_id").notNull().unique(),
     notionEditedAt: ts("notion_edited_at"), // last_edited_time of the page after our last read or write

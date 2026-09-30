@@ -8,6 +8,7 @@ import { Card, EmptyState, Icon, PageHeader } from "@/components/ui";
 import { egp } from "@/lib/cohort-format";
 import { SECTIONS, STATUS_LABEL, listCandidates, listEntries, type Section, type Status } from "@/lib/finance";
 import { getSettings } from "@/lib/app-settings";
+import { listTeam } from "@/lib/programme";
 import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 import { cairoYmd, formatCairo } from "@/lib/time";
@@ -26,10 +27,11 @@ export default async function LedgerPage(props: {
   const section = sp.section && sp.section in SECTIONS ? (sp.section as Section) : undefined;
   const status = sp.status && sp.status in STATUS_LABEL ? (sp.status as Status) : undefined;
   const enrolmentId = Number(sp.candidate) || undefined;
-  const [rows, candidates, settings] = await Promise.all([
+  const [rows, candidates, settings, team] = await Promise.all([
     listEntries(db, { month, section, status, q: sp.q, enrolmentId }, 500),
     listCandidates(db),
     getSettings(db),
+    listTeam(db),
   ]);
   const write = can(user.role, "payment:write");
   const qs = new URLSearchParams(
@@ -50,7 +52,7 @@ export default async function LedgerPage(props: {
         title="Ledger"
         subtitle="Every payment, cost and withdrawal. Expected and owed rows count only once they are received or paid."
         actions={
-          write ? <AddEntry label="New entry" back={here} partners={partners} candidates={opts} variant="btn btn-primary" initial={who ? { section: "income", enrolmentId: who.enrolmentId } : undefined} /> : undefined
+          write ? <AddEntry label="New entry" back={here} partners={partners} candidates={opts} team={team} variant="btn btn-primary" initial={who ? { section: "income", enrolmentId: who.enrolmentId } : undefined} /> : undefined
         }
       />
       <FinanceNav />
@@ -141,7 +143,7 @@ export default async function LedgerPage(props: {
                           {e.entry}
                         </div>
                         <div className="text-xs text-muted" dir="auto">
-                          {[e.partner, e.fromTo, r.cohort, e.reference && `ref ${e.reference}`].filter(Boolean).join(" · ")}
+                          {[e.partner, r.teamMember, e.fromTo, r.cohort, e.reference && `ref ${e.reference}`].filter(Boolean).join(" · ")}
                           {r.candidate && r.leadId && (
                             <>
                               {" "}
@@ -181,6 +183,7 @@ export default async function LedgerPage(props: {
                               back={here}
                               partners={partners}
                               candidates={opts}
+                              team={team}
                               initial={{
                                 id: e.id,
                                 entry: e.entry,
@@ -195,6 +198,7 @@ export default async function LedgerPage(props: {
                                 reference: e.reference,
                                 notes: e.notes,
                                 enrolmentId: e.enrolmentId,
+                                teamMemberId: e.teamMemberId,
                               }}
                             />
                             <form action={deleteEntryAction}>

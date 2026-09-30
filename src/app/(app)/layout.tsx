@@ -26,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/leads", label: "Leads", icon: "leads", section: "Work", keys: "G L" },
     { href: "/pipeline", label: "Pipeline", icon: "pipeline", section: "Work", keys: "G P" },
     { href: "/cohorts", label: "Batches", icon: "cohorts", section: "Programme", keys: "G C" },
+    { href: "/proof", label: "Proof bank", icon: "sparkle", section: "Programme" },
     { href: "/dashboard", label: "Dashboard", icon: "dashboard", section: "Insight", keys: "G D" },
   ];
   if (can(user.role, "finance:read")) nav.push({ href: "/finance", label: "Finance", icon: "trend", section: "Insight", keys: "G F" });

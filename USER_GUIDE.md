@@ -78,6 +78,11 @@ A name alone never warns. A rule creates a **"Reply within 5 minutes"** task and
 * **Payments** (enrolled leads): due after discount, paid, remaining; every payment and expected installment,
   with **Received** to mark one as arrived; record a payment or schedule an installment; change the plan,
   price, discount or student status (Active, Graduated, Dropped).
+* **Programme** (enrolled leads): QC score, leaderboard rank, **content consent** (whether we may use their
+  work and words in content, and for what: voice, video, patient case, name), their **sessions** (1:1s and
+  group Q&As, with the recording link) and **proof & testimonials** (type, consent status, where it may be
+  used, the real quote word for word). All of it is the same data as in Notion. Content consent is separate
+  from contact permission below.
 * **Contact permission**: record how they agreed to WhatsApp contact (they messaged first, form, in chat, on a
   call) or that they refused; **Mark do not contact** hides every send action.
 * **Tags**, **Merge with a duplicate…**, **Undo merge** (7 days), **Delete** (restorable).
@@ -142,6 +147,13 @@ countdown, what the students owe and what has been collected. A batch's page lis
 plan, status, how much is paid and the next installment date. Every deadline anywhere in the CRM and in
 templates comes from these records: templates cannot contain a typed date.
 
+## Proof bank
+
+**Proof bank** (sidebar > Programme) lists every quote, QC result, screenshot and video candidates gave, from
+the Notion Proof & Testimonial Bank. An item says **Ready** only when its consent is Granted and the
+candidate's content consent is on file; use only those in content, word for word, and never as a promise of
+income. Filter by consent, type or batch.
+
 ## Finance (owner and finance)
 
 **Finance** in the sidebar is the camp's books, following the rules on the Notion *Finances* page:
@@ -177,7 +189,11 @@ minute. **Settings > Integrations** shows what is linked, the last runs and any 
 | --- | --- | --- |
 | Batches | Batches | both ways; the Enrolled counts are written by the CRM |
 | Candidates | enrolled students | both ways (tier, plan, status, discount, installment dates, notes, name, Gmail, number). A candidate added in Notion with a Batch and a Tier becomes an enrolled lead in the CRM |
-| Ledger | Finance ledger | both ways; the payment reference stays in the CRM only |
+| Candidates: Consent on file?, Consent scope, QC score, Leaderboard rank | a student's **Programme** card | both ways |
+| Ledger | Finance ledger | both ways; the payment reference stays in the CRM only; **Team member** is linked too |
+| Sessions | Programme card > Sessions | both ways |
+| Proof & Testimonial Bank | Programme card > Proof, and the **Proof bank** page | both ways |
+| Team | the "Paid to" list on costs | Notion to CRM only: name, role, group, status, contact. Pay and equity are never copied |
 | CRM Leads (created by the sync) | leads | CRM to Notion; only name, email and notes come back. Stages are changed in the CRM |
 
 * When the same record was changed on both sides between two syncs, the **newer edit wins** (shown as a

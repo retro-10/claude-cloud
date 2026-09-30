@@ -9,6 +9,7 @@ function read(v: Record<string, unknown>): PropValue {
   if ("rich_text" in v) return { type: "rich_text", rich_text: text(v.rich_text as never) };
   if ("number" in v) return { type: "number", number: v.number as number | null };
   if ("select" in v) return { type: "select", select: v.select as { name: string } | null };
+  if ("multi_select" in v) return { type: "multi_select", multi_select: v.multi_select as { name: string }[] };
   if ("date" in v) return { type: "date", date: v.date as { start: string } | null };
   if ("checkbox" in v) return { type: "checkbox", checkbox: v.checkbox as boolean };
   if ("relation" in v) return { type: "relation", relation: (v.relation as { id: string }[]).map((r) => ({ id: r.id })) };

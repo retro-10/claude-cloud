@@ -50,11 +50,13 @@ Each has a safe default already applied. Answer any and it will be changed.
 38. **Who sees a candidate's payments?** The Payments card on a lead's page (due, paid, installments) is shown
     to everyone who can open the lead, so sales can chase installments; recording money is owner/finance
     only. Hide the amounts from sales and viewers?
-39. **Leads in Notion.** The sync copies every lead (name, phone, email, stage, owner, notes) into a new
-    *CRM Leads* database under the OrlaDent Camp page, so anyone with access to that page sees them. Keep it,
-    or set `NOTION_SYNC_LEADS=false` and sync only batches, candidates and money?
+39. **Leads in Notion.** Answered: yes, `NOTION_SYNC_LEADS=true` (set in `.env.example`).
 40. **Candidates added in Notion.** One with a Batch and a Tier becomes an enrolled lead in the CRM (source
     "Notion"), skipping the pipeline's checks. OK, or should they arrive as leads to be worked first?
-41. **Notion's "Team member" and consent columns** (Consent on file, QC score, Sessions, Proof items) are not
-    synced: they are programme data the CRM does not hold. Should any of them come into the CRM?
+41. **Notion-only columns.** Answered: bring all of them in. Consent on file, consent scope, QC score and leaderboard rank sync both ways; Sessions and the Proof & Testimonial Bank sync both ways; Team comes in read-only (no pay or equity). See DECISIONS.md.
 42. **Fonts.** Bodoni Moda and Archivo load from Google Fonts (see #22 about self-hosting).
+43. **Team from the CRM.** Team members can only be added or edited in Notion (the CRM mirrors names and
+    roles for "Paid to"). Should the CRM be able to add them too? (It would then also need the pay columns,
+    which are deliberately kept out.)
+44. **Proof "Used in content".** The Proof bank's link to the Content pieces database is not synced (the CRM has
+    no content calendar). Needed?

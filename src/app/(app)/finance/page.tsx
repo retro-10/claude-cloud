@@ -7,6 +7,7 @@ import { FinanceNav } from "@/components/finance/FinanceNav";
 import { Card, EmptyState, Icon, PageHeader, Stat } from "@/components/ui";
 import { egp } from "@/lib/cohort-format";
 import { SECTIONS, STATUS_LABEL, financeBoard, listCandidates, shiftMonth, thisMonth } from "@/lib/finance";
+import { listTeam } from "@/lib/programme";
 import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
@@ -34,7 +35,7 @@ export default async function FinancePage(props: { searchParams: Promise<{ month
   const sp = await props.searchParams;
   const user = await requirePageCan("finance:read");
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(sp.month ?? "") ? sp.month! : thisMonth();
-  const [b, candidates] = await Promise.all([financeBoard(db, month), listCandidates(db)]);
+  const [b, candidates, team] = await Promise.all([financeBoard(db, month), listCandidates(db), listTeam(db)]);
   const m = b.month_;
   const prev = b.series[b.series.length - 2] ?? { income: 0, costs: 0, net: 0 };
   const cur = b.series[b.series.length - 1];
@@ -76,7 +77,7 @@ export default async function FinancePage(props: { searchParams: Promise<{ month
         <div className="mb-5 flex flex-wrap gap-2">
           <AddEntry label="Payment" back={here} partners={partners} candidates={opts} variant="btn btn-primary btn-sm" initial={{ section: "income", category: "Candidate payment" }} />
           <AddEntry label="Client work" back={here} partners={partners} candidates={opts} variant="btn btn-secondary btn-sm" initial={{ section: "income", category: "OrlaDent client work" }} />
-          <AddEntry label="Expense" back={here} partners={partners} candidates={opts} variant="btn btn-secondary btn-sm" initial={{ section: "variable_costs", category: "Freelancers & sales" }} />
+          <AddEntry label="Expense" back={here} partners={partners} candidates={opts} team={team} variant="btn btn-secondary btn-sm" initial={{ section: "variable_costs", category: "Freelancers & sales" }} />
           <AddEntry label="Withdrawal" back={here} partners={partners} candidates={opts} variant="btn btn-secondary btn-sm" initial={{ section: "partner_withdrawals", category: "Partner withdrawal" }} />
         </div>
       )}

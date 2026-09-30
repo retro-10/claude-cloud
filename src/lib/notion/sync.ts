@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { appSettings, cohorts, enrolments, ledgerEntries, leads, notionLinks, notionSyncRuns, sources, stages, users } from "@/db/schema";
+import { appSettings, cohorts, enrolments, ledgerEntries, leads, notionLinks, notionSyncRuns, programmeSessions, proofItems, sources, stages, teamMembers, users } from "@/db/schema";
 import { audit } from "../audit";
 import { SECTIONS, saveEntry, type Section, type Status } from "../finance";
 import { normalizePhone } from "../phone";
@@ -29,6 +29,9 @@ export type NotionConfig = {
   candidatesDb: string;
   ledgerDb: string;
   parentPage: string;
+  sessionsDb: string;
+  proofDb: string;
+  teamDb: string;
   leadsDb: string | null; // null: created on the first run under parentPage
   syncLeads: boolean;
   appUrl: string | null;
@@ -43,13 +46,16 @@ export function notionConfig(env: Record<string, string | undefined> = process.e
     candidatesDb: env.NOTION_CANDIDATES_DB || "ed8f45c4-e790-42e4-a0fe-841d14cbbc42",
     ledgerDb: env.NOTION_LEDGER_DB || "117399e6-dbad-4d65-ac2c-96f018aebc7e",
     parentPage: env.NOTION_PARENT_PAGE || "3e45624a-2246-81e5-9dfc-dd61a4550e7c",
+    sessionsDb: env.NOTION_SESSIONS_DB || "1ade3ea7-6c29-4022-9dd7-5d26187b00bf",
+    proofDb: env.NOTION_PROOF_DB || "a4df71c2-181d-46f9-9bbb-83300ed75379",
+    teamDb: env.NOTION_TEAM_DB || "7e7b2eb3-c2f3-44e1-9104-c4cb814c0f70",
     leadsDb: env.NOTION_LEADS_DB || null,
     syncLeads: env.NOTION_SYNC_LEADS !== "false",
     appUrl: env.APP_URL?.replace(/\/$/, "") || (env.DOMAIN ? `https://${env.DOMAIN}` : null),
   };
 }
 
-type Entity = "cohort" | "enrolment" | "ledger" | "lead";
+type Entity = "cohort" | "enrolment" | "team" | "ledger" | "session" | "proof" | "lead";
 type Fields = Record<string, string | number | boolean | null>;
 type Link = { id: number; entity: string; localId: number; pageId: string; hash: string | null; syncedAt: Date; notionEditedAt: Date | null };
 type Local = { f: Fields; updatedAt: Date; deleted: boolean };
@@ -58,7 +64,10 @@ const GONE = "gone"; // link hash for a page that was deleted in Notion: never p
 const MAX_WRITES = 250; // per run, so a first sync of thousands of leads spreads over several runs
 const STATE_KEY = "notion_state";
 
-type State = { leadsDb?: string; cursors?: Partial<Record<Entity, string>> };
+type State = { leadsDb?: string; cursors?: Partial<Record<Entity, string>>; version?: number };
+// Raise when the synced fields change: the next run then reads every page first, so values Notion already
+// has for the new fields come in instead of being overwritten by the CRM's empty defaults.
+const SYNC_VERSION = 2;
 
 export type RunResult = { pushed: number; pulled: number; created: number; conflicts: number; errors: string[]; more: boolean };
 
@@ -149,6 +158,8 @@ type Spec = {
   /** What happens when the page was deleted in Notion. */
   onGone?: (c: Ctx, id: number) => Promise<void>;
   label: (f: Fields) => string;
+  /** Notion is the only writer (the CRM mirrors it): never pushed. */
+  readOnly?: boolean;
 };
 
 // ---------------- Batches ----------------
@@ -283,6 +294,10 @@ const candidateSpec: Spec = {
             final: ymd(e.finalInstalmentAt),
             applied: ymd(l.createdAt),
             notes: e.notes,
+            consent: e.contentConsent,
+            scope: [...e.contentConsentScope].sort().join(","),
+            qc: e.qcScore === null ? null : Math.round(e.qcScore * 100) / 100,
+            rank: e.leaderboardRank,
           },
         },
       ]),
@@ -310,6 +325,13 @@ const candidateSpec: Spec = {
       final: get.date(P["Final installment date"]),
       applied: get.date(P["Date applied"]),
       notes: get.text(P["Notes"]),
+      consent: get.checkbox(P["Consent on file?"]),
+      scope: get.multi(P["Consent scope"]),
+      qc: (() => {
+        const q = get.number(P["QC score"]);
+        return q === null ? null : Math.round(q * 100) / 100;
+      })(),
+      rank: int(get.number(P["Leaderboard rank"])),
     };
   },
   toProps: (c, f) => ({
@@ -325,6 +347,10 @@ const candidateSpec: Spec = {
     "Final installment date": put.date(f.final as string | null),
     "Date applied": put.date(f.applied as string | null),
     Notes: put.text(f.notes as string | null),
+    "Consent on file?": put.checkbox(!!f.consent),
+    "Consent scope": put.multi(f.scope as string),
+    "QC score": put.number(f.qc as number | null),
+    "Leaderboard rank": put.number(f.rank as number | null),
   }),
   apply: async (c, id, f) => {
     const tier = f.tier as keyof typeof LIST_PRICE_EGP;
@@ -354,6 +380,10 @@ const candidateSpec: Spec = {
             firstInstalmentAt: dateFrom(str(f.first), e.firstInstalmentAt),
             finalInstalmentAt: dateFrom(str(f.final), e.finalInstalmentAt),
             notes: str(f.notes),
+            contentConsent: !!f.consent,
+            contentConsentScope: String(f.scope ?? "").split(",").filter(Boolean),
+            qcScore: f.qc as number | null,
+            leaderboardRank: f.rank as number | null,
             updatedAt: now,
           })
           .where(eq(enrolments.id, id));
@@ -406,6 +436,10 @@ const candidateSpec: Spec = {
               firstInstalmentAt: dateFrom(str(f.first), null),
               finalInstalmentAt: dateFrom(str(f.final), null),
               notes: str(f.notes),
+              contentConsent: !!f.consent,
+              contentConsentScope: String(f.scope ?? "").split(",").filter(Boolean),
+              qcScore: f.qc as number | null,
+              leaderboardRank: f.rank as number | null,
               updatedAt: now,
             })
             .returning({ id: enrolments.id });
@@ -481,6 +515,7 @@ const ledgerSpec: Spec = {
             notes: x.notes,
             candidate: x.enrolmentId,
             batch: x.cohortId,
+            team: x.teamMemberId,
           },
         },
       ]),
@@ -501,6 +536,9 @@ const ledgerSpec: Spec = {
     const batchPage = get.relation(P["Batch"])[0];
     const batch = c.localOf("cohort", batchPage);
     if (batchPage && !batch) return "is linked to a batch the CRM does not know yet";
+    const teamPage = get.relation(P["Team member"])[0];
+    const team = c.localOf("team", teamPage);
+    if (teamPage && !team) return "is linked to a team member the CRM does not know yet";
     return {
       entry,
       amount: int(get.number(P["Amount (EGP)"])),
@@ -514,6 +552,7 @@ const ledgerSpec: Spec = {
       notes: get.text(P["Notes"]),
       candidate,
       batch,
+      team,
     };
   },
   toProps: (c, f) => ({
@@ -529,6 +568,7 @@ const ledgerSpec: Spec = {
     Notes: put.text(f.notes as string | null),
     Candidate: put.relation([c.pageOf("enrolment", f.candidate as number | null)]),
     Batch: put.relation([c.pageOf("cohort", f.batch as number | null)]),
+    "Team member": put.relation([c.pageOf("team", f.team as number | null)]),
   }),
   apply: async (c, id, f) => {
     const [old] = id ? await c.db.select().from(ledgerEntries).where(eq(ledgerEntries.id, id)) : [];
@@ -549,6 +589,7 @@ const ledgerSpec: Spec = {
         reference: old?.reference ?? null, // CRM-only
         enrolmentId: (f.candidate as number | null) ?? null,
         cohortId: (f.batch as number | null) ?? null,
+        teamMemberId: (f.team as number | null) ?? null,
       },
       null,
     );
@@ -665,6 +706,200 @@ const leadSpec: Spec = {
   },
 };
 
+// ---------------- Team (read-only mirror; pay and equity are not copied) ----------------
+
+const teamSpec: Spec = {
+  entity: "team",
+  readOnly: true,
+  database: (c) => c.cfg.teamDb,
+  label: (f) => `Team member "${f.name}"`,
+  pending: async () => [],
+  load: async (c, ids) => {
+    if (!ids.length) return new Map();
+    const rows = await c.db.select().from(teamMembers).where(inArray(teamMembers.id, ids));
+    return new Map(rows.map((t) => [t.id, { updatedAt: t.updatedAt, deleted: false, f: { name: t.name, role: t.role, group: t.group, status: t.status, contact: t.contact } }]));
+  },
+  fromPage: (_c, p) => {
+    const P = p.properties;
+    const name = get.text(P["Name"]);
+    if (!name) return "has no name";
+    return { name, role: get.select(P["Role"]), group: get.select(P["Group"]), status: get.select(P["Status"]), contact: get.email(P["Contact"]) };
+  },
+  toProps: () => ({}),
+  apply: async (c, id, f) => {
+    const values = { name: String(f.name).slice(0, 200), role: str(f.role), group: str(f.group), status: str(f.status), contact: str(f.contact), updatedAt: new Date() };
+    if (id) {
+      await c.db.update(teamMembers).set(values).where(eq(teamMembers.id, id));
+      return id;
+    }
+    const [row] = await c.db.insert(teamMembers).values(values).returning({ id: teamMembers.id });
+    return row.id;
+  },
+};
+
+// ---------------- Sessions ----------------
+
+const sessionSpec: Spec = {
+  entity: "session",
+  database: (c) => c.cfg.sessionsDb,
+  label: (f) => `Session "${f.name}"`,
+  pending: async (c) =>
+    (
+      await c.db.execute<{ id: number }>(sql`
+        select x.id from programme_sessions x left join notion_links n on n.entity = 'session' and n.local_id = x.id
+        where (n.id is null and x.deleted_at is null) or (n.id is not null and n.hash is distinct from ${GONE} and x.updated_at > n.synced_at)
+        order by x.id limit 2000`)
+    ).map((r) => Number(r.id)),
+  load: async (c, ids) => {
+    if (!ids.length) return new Map();
+    const rows = await c.db.select().from(programmeSessions).where(inArray(programmeSessions.id, ids));
+    return new Map(
+      rows.map((x) => [
+        x.id,
+        {
+          updatedAt: x.updatedAt,
+          deleted: !!x.deletedAt,
+          f: { name: x.name, candidate: x.enrolmentId, type: x.type, day: x.dayOfWeek, time: x.time, recorded: x.recorded, drive: x.driveLink, notes: x.notes },
+        },
+      ]),
+    );
+  },
+  fromPage: (c, p) => {
+    const P = p.properties;
+    const name = get.text(P["Name"]);
+    if (!name) return "has no name";
+    const candPage = get.relation(P["Candidate"])[0];
+    const candidate = c.localOf("enrolment", candPage);
+    if (candPage && !candidate) return "is linked to a candidate the CRM does not know yet";
+    return {
+      name,
+      candidate,
+      type: get.select(P["Type"]),
+      day: get.select(P["Day of week"]),
+      time: get.text(P["Time"]),
+      recorded: get.checkbox(P["Recorded?"]),
+      drive: (P["Drive link"]?.url as string | null | undefined) ?? null,
+      notes: get.text(P["Notes"]),
+    };
+  },
+  toProps: (c, f) => ({
+    Name: put.title(f.name as string),
+    Candidate: put.relation([c.pageOf("enrolment", f.candidate as number | null)]),
+    Type: put.select(f.type as string | null),
+    "Day of week": put.select(f.day as string | null),
+    Time: put.text(f.time as string | null),
+    "Recorded?": put.checkbox(!!f.recorded),
+    "Drive link": put.url(f.drive as string | null),
+    Notes: put.text(f.notes as string | null),
+  }),
+  apply: async (c, id, f) => {
+    const values = {
+      name: String(f.name).slice(0, 200),
+      enrolmentId: (f.candidate as number | null) ?? null,
+      type: str(f.type),
+      dayOfWeek: str(f.day),
+      time: str(f.time),
+      recorded: !!f.recorded,
+      driveLink: str(f.drive),
+      notes: str(f.notes),
+      updatedAt: new Date(),
+    };
+    if (id) {
+      await c.db.update(programmeSessions).set(values).where(eq(programmeSessions.id, id));
+      return id;
+    }
+    const [row] = await c.db.insert(programmeSessions).values(values).returning({ id: programmeSessions.id });
+    return row.id;
+  },
+  onGone: async (c, id) => {
+    await c.db.update(programmeSessions).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(programmeSessions.id, id));
+  },
+};
+
+// ---------------- Proof & Testimonial Bank ----------------
+
+const proofSpec: Spec = {
+  entity: "proof",
+  database: (c) => c.cfg.proofDb,
+  label: (f) => `Proof item "${f.name}"`,
+  pending: async (c) =>
+    (
+      await c.db.execute<{ id: number }>(sql`
+        select x.id from proof_items x left join notion_links n on n.entity = 'proof' and n.local_id = x.id
+        where (n.id is null and x.deleted_at is null) or (n.id is not null and n.hash is distinct from ${GONE} and x.updated_at > n.synced_at)
+        order by x.id limit 2000`)
+    ).map((r) => Number(r.id)),
+  load: async (c, ids) => {
+    if (!ids.length) return new Map();
+    const rows = await c.db.select().from(proofItems).where(inArray(proofItems.id, ids));
+    return new Map(
+      rows.map((x) => [
+        x.id,
+        {
+          updatedAt: x.updatedAt,
+          deleted: !!x.deletedAt,
+          f: {
+            name: x.name,
+            candidate: x.enrolmentId,
+            type: x.type,
+            consent: x.consentStatus,
+            usable: [...x.usableIn].sort().join(","),
+            file: x.fileOrLink,
+            quote: x.quote,
+          },
+        },
+      ]),
+    );
+  },
+  fromPage: (c, p) => {
+    const P = p.properties;
+    const name = get.text(P["Name"]);
+    if (!name) return "has no name";
+    const candPage = get.relation(P["Candidate"])[0];
+    const candidate = c.localOf("enrolment", candPage);
+    if (candPage && !candidate) return "is linked to a candidate the CRM does not know yet";
+    return {
+      name,
+      candidate,
+      type: get.select(P["Type"]),
+      consent: get.select(P["Consent status"]),
+      usable: get.multi(P["Usable in"]),
+      file: (P["File or link"]?.url as string | null | undefined) ?? null,
+      quote: get.text(P["Real quote or transcript"]),
+    };
+  },
+  toProps: (c, f) => ({
+    Name: put.title(f.name as string),
+    Candidate: put.relation([c.pageOf("enrolment", f.candidate as number | null)]),
+    Type: put.select(f.type as string | null),
+    "Consent status": put.select(f.consent as string | null),
+    "Usable in": put.multi(f.usable as string),
+    "File or link": put.url(f.file as string | null),
+    "Real quote or transcript": put.text(f.quote as string | null),
+  }),
+  apply: async (c, id, f) => {
+    const values = {
+      name: String(f.name).slice(0, 200),
+      enrolmentId: (f.candidate as number | null) ?? null,
+      type: str(f.type),
+      consentStatus: str(f.consent),
+      usableIn: String(f.usable ?? "").split(",").filter(Boolean),
+      fileOrLink: str(f.file),
+      quote: str(f.quote),
+      updatedAt: new Date(),
+    };
+    if (id) {
+      await c.db.update(proofItems).set(values).where(eq(proofItems.id, id));
+      return id;
+    }
+    const [row] = await c.db.insert(proofItems).values(values).returning({ id: proofItems.id });
+    return row.id;
+  },
+  onGone: async (c, id) => {
+    await c.db.update(proofItems).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(proofItems.id, id));
+  },
+};
+
 const LEADS_DB_PROPS = {
   Name: { title: {} },
   Phone: { phone_number: {} },
@@ -739,7 +974,7 @@ async function pull(c: Ctx, spec: Spec, dbId: string, since: Date | null) {
 
 async function pushOne(c: Ctx, spec: Spec, dbId: string, id: number, local: Local) {
   const link = c.byLocal.get(`${spec.entity}:${id}`);
-  if (link?.hash === GONE) return;
+  if (link?.hash === GONE || spec.readOnly) return;
   if (local.deleted) {
     if (link) {
       try {
@@ -804,6 +1039,7 @@ export async function runNotionSync(db: Db, cfg: NotionConfig, api: NotionApi = 
   const [run] = await db.insert(notionSyncRuns).values({ startedAt: started }).returning({ id: notionSyncRuns.id });
   const state = await readState(db);
   state.cursors ??= {};
+  if ((state.version ?? 1) < SYNC_VERSION) state.cursors = {};
   try {
     for (const l of await db.select().from(notionLinks)) {
       c.byLocal.set(`${l.entity}:${l.localId}`, l);
@@ -817,7 +1053,7 @@ export async function runNotionSync(db: Db, cfg: NotionConfig, api: NotionApi = 
       }
       c.cfg.leadsDb = state.leadsDb;
     }
-    const specs = [cohortSpec, candidateSpec, ledgerSpec, ...(cfg.syncLeads ? [leadSpec] : [])];
+    const specs = [cohortSpec, candidateSpec, teamSpec, ledgerSpec, sessionSpec, proofSpec, ...(cfg.syncLeads ? [leadSpec] : [])];
     for (const spec of specs) {
       const dbId = spec.database(c);
       if (!dbId) continue;
@@ -834,6 +1070,7 @@ export async function runNotionSync(db: Db, cfg: NotionConfig, api: NotionApi = 
     }
     // enrolments pulled above change the batch counts: send them in the same run
     if (!c.r.more) await push(c, cohortSpec, cfg.batchesDb).catch((e) => c.error(`cohort: ${(e as Error).message}`));
+    if (!c.r.errors.some((e) => /^[a-z]+: /.test(e))) state.version = SYNC_VERSION;
     await writeState(db, state);
   } catch (e) {
     c.error(e instanceof NotionError ? e.message : (e as Error).message);

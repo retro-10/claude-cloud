@@ -9,6 +9,7 @@ import { LiveWait } from "@/components/crm/LiveWait";
 import { StageStepper } from "@/components/crm/StageStepper";
 import { ConsultsPanel } from "@/components/ConsultsPanel";
 import { CandidateMoney } from "@/components/finance/CandidateMoney";
+import { ProgrammeCard } from "@/components/programme/ProgrammeCard";
 import { Flash } from "@/components/Flash";
 import { LeadForm } from "@/components/LeadForm";
 import { Avatar, Card, EmptyState, Icon, type IconName } from "@/components/ui";
@@ -18,6 +19,7 @@ import { listCandidates } from "@/lib/finance";
 import { CHECKS, evaluate, requiredChecks } from "@/lib/exit-criteria";
 import { undoableMerges } from "@/lib/merge";
 import { TIER_LABEL } from "@/lib/pricing";
+import { listProof, listSessions } from "@/lib/programme";
 import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
 import { formatCairo, toCairoLocalInput } from "@/lib/time";
@@ -62,7 +64,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
     db.select().from(followUps).where(eq(followUps.leadId, id)).orderBy(desc(followUps.dueAt)),
     db.select().from(cadenceTemplates).orderBy(asc(cadenceTemplates.id)),
     db
-      .select({ id: cohorts.id, name: cohorts.name, seatCap: cohorts.seatCap, used: sql<number>`(select count(*)::int from enrolments e where e.cohort_id = ${cohorts.id})` })
+      .select({ id: cohorts.id, name: cohorts.name, seatCap: cohorts.seatCap, used: sql<number>`(select count(*)::int from enrolments e where e.cohort_id = "cohorts"."id")` })
       .from(cohorts)
       .orderBy(asc(cohorts.id)),
     listCandidates(db, { leadId: id }),
@@ -77,6 +79,8 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
         .where(and(inArray(ledgerEntries.enrolmentId, candidates.map((c) => c.enrolmentId)), isNull(ledgerEntries.deletedAt)))
         .orderBy(asc(ledgerEntries.createdAt))
     : [];
+  const enrolmentIds = candidates.map((c) => c.enrolmentId);
+  const [sessions, proof] = await Promise.all([listSessions(db, enrolmentIds), listProof(db, { enrolmentIds })]);
   const openFus = fus.filter((f) => !f.doneAt && !f.cancelledAt).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime());
   const stage = stageList.find((s) => s.key === lead.stage);
   const stageLabel = (k: string | null) => stageList.find((s) => s.key === k)?.label ?? k ?? "";
@@ -469,6 +473,19 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
                 c={c}
                 payments={payments.filter((p) => p.enrolmentId === c.enrolmentId)}
                 canWrite={can(user.role, "payment:write")}
+                back={`/leads/${lead.id}`}
+              />
+            </Card>
+          ))}
+
+          {candidates.map((c) => (
+            <Card key={`p${c.enrolmentId}`} title={`Programme · ${c.cohort}`} icon="target" label="Programme">
+              <div id="programme" className="scroll-mt-24" />
+              <ProgrammeCard
+                c={c}
+                sessions={sessions.filter((x) => x.enrolmentId === c.enrolmentId)}
+                proof={proof.filter((x) => x.p.enrolmentId === c.enrolmentId).map((x) => x.p)}
+                canWrite={canWrite}
                 back={`/leads/${lead.id}`}
               />
             </Card>

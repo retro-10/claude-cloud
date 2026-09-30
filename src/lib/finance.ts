@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
 import type { Db } from "@/db";
-import { cohorts, enrolments, leads, ledgerEntries } from "@/db/schema";
+import { cohorts, enrolments, leads, ledgerEntries, teamMembers } from "@/db/schema";
 import { getSettings, type Settings } from "./app-settings";
 import { audit } from "./audit";
 import { cairoLocalToDate, cairoYmd } from "./time";
@@ -51,6 +51,7 @@ export type EntryInput = {
   notes?: string | null;
   enrolmentId?: number | null;
   cohortId?: number | null;
+  teamMemberId?: number | null;
 };
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -92,6 +93,7 @@ export async function saveEntry(db: Db, id: number | null, e: EntryInput, userId
     notes: clean(e.notes),
     enrolmentId: e.enrolmentId ?? null,
     cohortId,
+    teamMemberId: e.section === "income" ? null : (e.teamMemberId ?? null),
     updatedAt: new Date(),
   };
   return db.transaction(async (tx) => {
@@ -188,6 +190,10 @@ export type CandidateRow = {
   nextDue: Date | null;
   firstInstalmentAt: Date | null;
   finalInstalmentAt: Date | null;
+  contentConsent: boolean;
+  contentConsentScope: string[];
+  qcScore: number | null;
+  leaderboardRank: number | null;
 };
 
 export async function listCandidates(db: Db, opts: { cohortId?: number; enrolmentId?: number; leadId?: number } = {}): Promise<CandidateRow[]> {
@@ -215,6 +221,10 @@ export async function listCandidates(db: Db, opts: { cohortId?: number; enrolmen
       nextDue: nextDueSql,
       firstInstalmentAt: enrolments.firstInstalmentAt,
       finalInstalmentAt: enrolments.finalInstalmentAt,
+      contentConsent: enrolments.contentConsent,
+      contentConsentScope: enrolments.contentConsentScope,
+      qcScore: enrolments.qcScore,
+      leaderboardRank: enrolments.leaderboardRank,
     })
     .from(enrolments)
     .innerJoin(leads, eq(leads.id, enrolments.leadId))
@@ -407,11 +417,12 @@ export async function listEntries(
     where.push(sql`(${ledgerEntries.entry} ilike ${like} or coalesce(${ledgerEntries.fromTo}, '') ilike ${like} or coalesce(${ledgerEntries.notes}, '') ilike ${like})`);
   }
   return db
-    .select({ e: ledgerEntries, candidate: leads.fullName, leadId: leads.id, cohort: cohorts.name })
+    .select({ e: ledgerEntries, candidate: leads.fullName, leadId: leads.id, cohort: cohorts.name, teamMember: teamMembers.name })
     .from(ledgerEntries)
     .leftJoin(enrolments, eq(enrolments.id, ledgerEntries.enrolmentId))
     .leftJoin(leads, eq(leads.id, enrolments.leadId))
     .leftJoin(cohorts, eq(cohorts.id, ledgerEntries.cohortId))
+    .leftJoin(teamMembers, eq(teamMembers.id, ledgerEntries.teamMemberId))
     .where(and(...where))
     .orderBy(sql`${effectiveDate} desc`, desc(ledgerEntries.id))
     .limit(limit);

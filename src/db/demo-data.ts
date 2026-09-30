@@ -186,6 +186,22 @@ export async function insertDemo(
     cost("Studio rent", 4000, 35, "fixed_costs", "Salaries", { status: "owed" }),
   ]);
 
+  // programme data for the first two students (as it would come from Notion), all marked DEMO
+  const firstTwo = await db.select({ id: s.enrolments.id }).from(s.enrolments).orderBy(s.enrolments.id).limit(2);
+  for (const [i, e] of firstTwo.entries()) {
+    await db
+      .update(s.enrolments)
+      .set({ contentConsent: i === 0, contentConsentScope: i === 0 ? ["Name", "Video"] : [], qcScore: i === 0 ? 92 : 78, leaderboardRank: i + 1 })
+      .where(eq(s.enrolments.id, e.id));
+    await db.insert(s.programmeSessions).values({ name: `DEMO 1:1 week ${i + 1}`, enrolmentId: e.id, type: "Production Partner 1:1", dayOfWeek: "Monday", time: "8:00 pm", recorded: true });
+  }
+  if (firstTwo[0]) {
+    await db.insert(s.proofItems).values([
+      { name: "DEMO QC result screenshot", enrolmentId: firstTwo[0].id, type: "QC result", consentStatus: "Granted", usableIn: ["Carousel", "Story"] },
+      { name: "DEMO voice note after week 2", enrolmentId: firstTwo[0].id, type: "Voice note", consentStatus: "Asked", quote: "DEMO — a real quote goes here, word for word." },
+    ]);
+  }
+
   if (opts.withFollowUps && opts.now) {
     // a few open items relative to "now" so the Today screen has something to show
     const now = opts.now;
