@@ -270,3 +270,29 @@ the existing CRM for the same classes of problem. Fixed:
 * The enrol, entry and quick-add dialogs could not scroll on short screens (the Enrol button was unreachable
   on a laptop): they scroll now.
 * Primary buttons failed contrast on hover.
+
+## Programme data from Notion (consent, QC, sessions, proof, team)
+
+The owners asked for every Notion-only column to come into the CRM:
+* **Candidates**: *Consent on file?*, *Consent scope*, *QC score* and *Leaderboard rank* are columns on
+  `enrolments` and sync both ways. The consent here is **content consent** (may we use their work and words),
+  kept apart from the WhatsApp contact permission, which is a different agreement.
+* **Sessions** and the **Proof & Testimonial Bank** are tables of their own (`programme_sessions`,
+  `proof_items`) linked to the enrolment, synced both ways like the ledger (deleted on one side, deleted on
+  the other; soft deletes only). Option lists are Notion's labels, stored as they are, so values round-trip.
+  The quote text is never written to the audit log.
+* **Team** (`team_members`: name, role, group, status, contact, duties) syncs both ways, so a cost can say
+  who it was paid to (the Ledger's *Team member*) and owners can add people in Settings > Team. Salary,
+  equity, payment schedule and compensation notes are never copied: a Notion page update only changes the
+  properties it sends, so those columns keep whatever Notion has. There is no delete: Inactive keeps past
+  costs pointing at the person. (Sync version 3 re-reads Team for the new Duties column.)
+* Adding fields to a synced table would make the next push overwrite Notion's values with the CRM's empty
+  defaults. The sync therefore carries a version: when it rises, the next run reads every page before
+  writing anything (tested: a value set in Notion long ago survives the upgrade).
+* A proof item is **Ready** only when its consent is Granted and the candidate's content consent is not
+  refused; the Proof bank shows the rest as waiting, per the "no income promises, real quotes only" guardrails.
+* `NOTION_SYNC_LEADS=true` is now written in `.env.example` (the owners' decision, QUESTIONS 39).
+
+Found and fixed on the way: the enrol dialog's "seats taken" count on the pipeline and lead pages compared
+the wrong ids (a Drizzle subquery lost its table name), so a full batch could look open until the server
+refused the enrolment. Both now name the table explicitly.

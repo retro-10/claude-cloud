@@ -42,6 +42,7 @@ const entrySchema = z.object({
   reference: z.string().max(200).optional(),
   notes: z.string().max(5000).optional(),
   enrolmentId: optId,
+  teamMemberId: optId,
 });
 
 export async function saveEntryAction(form: FormData) {

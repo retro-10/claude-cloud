@@ -44,7 +44,7 @@ for (const t of ["dark", "light"] as const) {
       "/dashboard?all=1", "/account", "/settings/users", "/settings/pipeline", "/settings/lists", "/settings/cadences", "/settings/audit",
       "/settings/rules", "/settings/workflows", "/settings/templates", "/leads?view=no_next_step", "/leads?view=no_decision_review",
       `/leads/merge?a=${firstLead!.split("/").pop()}`, "/finance", "/finance/ledger", "/finance/candidates", "/settings/finance",
-      "/settings/integrations",
+      "/settings/integrations", "/settings/team", "/proof",
     ];
     for (const path of screens) {
       await page.goto(path);
@@ -59,6 +59,12 @@ for (const t of ["dark", "light"] as const) {
     await page.locator("main a[href^='/cohorts/']").first().click();
     await theme(page, t);
     await scan(page, `cohort detail (${t})`);
+    // an enrolled student's page: payments and the programme card (sessions, proof), with its forms open
+    await page.locator("main tbody a[href^='/leads/']").first().click();
+    await ready(page);
+    await theme(page, t);
+    await page.evaluate(() => document.querySelectorAll("section[aria-label='Programme'] details").forEach((d) => d.setAttribute("open", "")));
+    await scan(page, `student with programme (${t})`);
   });
 
   test(`open dialogs have no accessibility violations (${t})`, async ({ page }) => {

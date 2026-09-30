@@ -33,7 +33,7 @@ d("demo data for a fresh clone", () => {
   });
 
   it("never touches a database that already has leads", async () => {
-    await client.unsafe("delete from consult_objections; delete from consults; delete from ledger_entries; delete from enrolments; delete from activities; delete from stage_events; delete from follow_ups; delete from leads;");
+    await client.unsafe("delete from consult_objections; delete from consults; delete from ledger_entries; delete from programme_sessions; delete from proof_items; delete from enrolments; delete from activities; delete from stage_events; delete from follow_ups; delete from leads;");
     await client`insert into leads (full_name) values ('Real Person')`;
     expect(await seedDemoIfEmpty(url, now)).toBe(false);
     expect((await client`select count(*)::int as n from leads`)[0].n).toBe(1);

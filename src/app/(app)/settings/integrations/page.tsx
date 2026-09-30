@@ -22,6 +22,9 @@ export default async function Integrations(props: { searchParams: Promise<{ noti
         { label: "Batches", id: cfg.batchesDb, n: st.linked.cohort, dir: "both ways" },
         { label: "Candidates", id: cfg.candidatesDb, n: st.linked.enrolment, dir: "both ways" },
         { label: "Ledger", id: cfg.ledgerDb, n: st.linked.ledger, dir: "both ways" },
+        { label: "Sessions", id: cfg.sessionsDb, n: st.linked.session, dir: "both ways" },
+        { label: "Proof & Testimonial Bank", id: cfg.proofDb, n: st.linked.proof, dir: "both ways" },
+        { label: "Team", id: cfg.teamDb, n: st.linked.team, dir: "both ways (pay and equity stay in Notion)" },
         ...(cfg.syncLeads ? [{ label: "CRM Leads", id: leadsDb, n: st.linked.lead, dir: "CRM → Notion; name, email, notes back" }] : []),
       ]
     : [];

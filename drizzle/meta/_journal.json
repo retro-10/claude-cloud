@@ -36,6 +36,20 @@
       "when": 1790734706939,
       "tag": "0004_swift_doctor_faustus",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790766067770,
+      "tag": "0005_programme_data",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790769677447,
+      "tag": "0006_team_duties",
+      "breakpoints": true
     }
   ]
 }

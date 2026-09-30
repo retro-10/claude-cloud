@@ -16,6 +16,7 @@ export type PropValue = {
   rich_text?: { plain_text: string }[];
   number?: number | null;
   select?: { name: string } | null;
+  multi_select?: { name: string }[];
   date?: { start: string } | null;
   checkbox?: boolean;
   relation?: { id: string }[];
@@ -141,6 +142,8 @@ export const put = {
   text: (s: string | null | undefined) => ({ rich_text: chunks(s ?? "") }),
   number: (n: number | null | undefined) => ({ number: n ?? null }),
   select: (s: string | null | undefined) => ({ select: s ? { name: s.replace(/,/g, " ") } : null }),
+  // options are carried as one sorted, comma-joined string (Notion option names cannot contain commas)
+  multi: (joined: string | null | undefined) => ({ multi_select: (joined ? joined.split(",") : []).filter(Boolean).map((name) => ({ name })) }),
   date: (ymd: string | null | undefined) => ({ date: ymd ? { start: ymd } : null }),
   checkbox: (b: boolean) => ({ checkbox: b }),
   relation: (ids: (string | null | undefined)[]) => ({ relation: ids.filter(Boolean).map((id) => ({ id })) }),
@@ -158,6 +161,7 @@ export const get = {
   },
   number: (p: PropValue | undefined): number | null => (typeof p?.number === "number" ? p.number : null),
   select: (p: PropValue | undefined): string | null => p?.select?.name ?? null,
+  multi: (p: PropValue | undefined): string => (p?.multi_select ?? []).map((o) => o.name).sort().join(","),
   date: (p: PropValue | undefined): string | null => p?.date?.start?.slice(0, 10) ?? null,
   checkbox: (p: PropValue | undefined): boolean => !!p?.checkbox,
   relation: (p: PropValue | undefined): string[] => (p?.relation ?? []).map((r) => r.id),

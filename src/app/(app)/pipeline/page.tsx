@@ -21,7 +21,7 @@ export default async function PipelinePage() {
         id: cohorts.id,
         name: cohorts.name,
         seatCap: cohorts.seatCap,
-        used: sql<number>`(select count(*)::int from ${enrolments} e where e.cohort_id = ${cohorts.id})`,
+        used: sql<number>`(select count(*)::int from enrolments e where e.cohort_id = "cohorts"."id")`,
       })
       .from(cohorts)
       .orderBy(asc(cohorts.id)),

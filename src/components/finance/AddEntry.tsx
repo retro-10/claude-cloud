@@ -26,6 +26,7 @@ export type EntryDraft = {
   reference?: string | null;
   notes?: string | null;
   enrolmentId?: number | null;
+  teamMemberId?: number | null;
 };
 
 /** Add or edit one ledger row in a dialog. The form posts to the server action; nothing is saved client-side. */
@@ -35,6 +36,7 @@ export function AddEntry({
   initial,
   partners,
   candidates,
+  team = [],
   back,
   variant = "btn btn-secondary",
 }: {
@@ -43,6 +45,7 @@ export function AddEntry({
   initial?: EntryDraft;
   partners: string[];
   candidates: { id: number; name: string }[];
+  team?: { id: number; name: string; role: string | null }[];
   back: string;
   variant?: string;
 }) {
@@ -158,6 +161,20 @@ export function AddEntry({
                     {candidates.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {(section === "fixed_costs" || section === "variable_costs") && team.length > 0 && (
+                <label className="field col-span-2">
+                  Paid to (team member)
+                  <select name="teamMemberId" defaultValue={initial?.teamMemberId ?? ""} className="input">
+                    <option value="">Not a team member</option>
+                    {team.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                        {t.role ? ` · ${t.role}` : ""}
                       </option>
                     ))}
                   </select>
