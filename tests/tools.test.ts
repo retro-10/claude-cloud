@@ -1,0 +1,69 @@
+import { describe, expect, it } from "vitest";
+import { addMonthsYmd, buildOffer, offerMessage, planBatch, type OfferInput } from "@/lib/tools";
+
+describe("offer builder", () => {
+  const base: OfferInput = { tier: "freelance_ready", priceEgp: 15000, discountEgp: 1000, plan: "installments", depositEgp: 4000, instalments: 3, firstDue: "2026-10-31" };
+
+  it("month steps keep the day, or the month's last day", () => {
+    expect(addMonthsYmd("2026-10-31", 1)).toBe("2026-11-30");
+    expect(addMonthsYmd("2026-12-15", 2)).toBe("2027-02-15");
+    expect(addMonthsYmd("2027-01-31", 1)).toBe("2027-02-28");
+    expect(addMonthsYmd("2028-01-31", 1)).toBe("2028-02-29");
+  });
+
+  it("splits the rest into equal parts rounded to 50 EGP, the last one taking the remainder", () => {
+    const r = buildOffer(base);
+    expect(r).toEqual({
+      ok: true,
+      total: 14000,
+      schedule: [
+        { due: null, amount: 4000, label: "Deposit now" },
+        { due: "2026-10-31", amount: 3300, label: "Instalment 1 of 3" },
+        { due: "2026-11-30", amount: 3300, label: "Instalment 2 of 3" },
+        { due: "2026-12-31", amount: 3400, label: "Instalment 3 of 3" },
+      ],
+    });
+    if (r.ok) expect(r.schedule.reduce((a, s) => a + s.amount, 0)).toBe(14000);
+  });
+
+  it("one-time is a single payment; bad input is refused with a reason", () => {
+    expect(buildOffer({ ...base, plan: "one_time" })).toMatchObject({ ok: true, total: 14000, schedule: [{ amount: 14000 }] });
+    expect(buildOffer({ ...base, discountEgp: 15000 })).toEqual({ ok: false, error: "The discount must be less than the price" });
+    expect(buildOffer({ ...base, depositEgp: 14000 })).toEqual({ ok: false, error: "The deposit must be less than the total" });
+    expect(buildOffer({ ...base, instalments: 9 })).toEqual({ ok: false, error: "Choose 1 to 6 instalments" });
+  });
+
+  it("writes a factual message with the schedule, link and decision date", () => {
+    const o = { ...base, depositEgp: 2000, instalments: 2 };
+    const r = buildOffer(o);
+    if (!r.ok) throw new Error(r.error);
+    expect(offerMessage(o, r, { firstName: "Hana", tierLabel: "Freelance Ready", paymentLink: "https://pay.example/x", decisionBy: "2026-10-20" })).toBe(
+      [
+        "Hi Hana, here is your OrlaDent Camp offer:",
+        "• Programme: Freelance Ready",
+        "• Price: 14,000 EGP (15,000 less 1,000 discount)",
+        "• Payment: 2,000 EGP now, then 2 instalments of 6,000 EGP on 31 Oct 2026, 30 Nov 2026",
+        "• Payment link: https://pay.example/x",
+        "Could you let me know by 20 Oct 2026?",
+        "Any questions, just reply here.",
+      ].join("\n"),
+    );
+  });
+});
+
+describe("batch planner", () => {
+  it("works back from seats to consults to leads, per week", () => {
+    expect(planBatch({ seatsToFill: 20, avgPriceEgp: 11250, leadToConsult: 0.25, consultToEnrol: 0.5, weeksLeft: 4 })).toEqual({
+      ok: true,
+      consults: 40,
+      leads: 160,
+      consultsPerWeek: 10,
+      leadsPerWeek: 40,
+      revenueEgp: 225000,
+    });
+  });
+  it("refuses impossible inputs", () => {
+    expect(planBatch({ seatsToFill: 5, avgPriceEgp: 1, leadToConsult: 0, consultToEnrol: 0.5, weeksLeft: 2 }).ok).toBe(false);
+    expect(planBatch({ seatsToFill: 5, avgPriceEgp: 1, leadToConsult: 0.2, consultToEnrol: 0.5, weeksLeft: 0 })).toEqual({ ok: false, error: "The enrolment close date has passed: pick a later one" });
+  });
+});

@@ -417,7 +417,18 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
         </div>
 
         <aside className="flex min-w-0 flex-col gap-5">
-          <Card title="Offer" icon="target" bodyClass="p-4">
+          <Card
+            title="Offer"
+            icon="target"
+            bodyClass="p-4"
+            actions={
+              canWrite ? (
+                <Link href={`/tools/offer?lead=${lead.id}`} className="btn btn-ghost btn-sm">
+                  <Icon name="template" size={14} /> Offer builder
+                </Link>
+              ) : undefined
+            }
+          >
             {lead.offerAmountEgp || offerTier || lead.decisionDueAt ? (
               <div className="mb-4 grid grid-cols-2 gap-2 text-sm">
                 <div className="well px-3 py-2">

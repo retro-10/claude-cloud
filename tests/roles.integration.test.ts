@@ -123,6 +123,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/tasks/actions")),
       ...(await import("@/app/(app)/settings/targets/actions")),
       ...(await import("@/app/(app)/command/actions")),
+      ...(await import("@/app/(app)/tools/actions")),
     };
   });
   afterAll(async () => {
@@ -163,6 +164,7 @@ d("role rules on the server", () => {
     }],
     ["saveTargetsAction", ["owner"], () => strict(() => A.saveTargetsAction(fd({ period: "2026-Q4", leads: "120", enrolments: "40" })))],
     ["saveReviewAction", ["owner"], () => strict(() => A.saveReviewAction(fd({ week: "2026-10-05", wins: "A good week" })))],
+    ["saveOfferToLeadAction", ["owner", "sales"], () => strict(() => A.saveOfferToLeadAction(fd({ leadId, tier: "foundation", amount: 7000, link: "", decision: "2030-01-10" })))],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 
