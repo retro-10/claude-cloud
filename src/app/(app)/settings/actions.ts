@@ -25,6 +25,7 @@ import {
   type Result,
 } from "@/lib/settings";
 import { requireCan, requireUser } from "@/lib/server-auth";
+import { resetTwoFactor } from "@/lib/two-factor";
 import { eq } from "drizzle-orm";
 import { workflowRules, type RuleAction } from "@/db/schema";
 import { getSettings, saveSettings, type Route } from "@/lib/app-settings";
@@ -65,6 +66,18 @@ export async function resetPasswordAction(form: FormData) {
   const p = z.object({ id, password: z.string().max(200) }).safeParse(Object.fromEntries(form));
   if (!p.success) bad("/settings/users");
   done("/settings/users", await resetPassword(db, p.data!.id, p.data!.password, me.id));
+}
+
+// Lost phone: clears someone's two-factor so they can sign in with the password and set it up again.
+// Not for yourself: turning your own off needs a current code (My account).
+export async function resetTwoFactorAction(form: FormData) {
+  const me = await requireCan("users:manage");
+  const p = z.object({ id }).safeParse(Object.fromEntries(form));
+  if (!p.success) bad("/settings/users");
+  if (p.data!.id === me.id) redirect(`/settings/users?error=${encodeURIComponent("Turn your own two-factor off in My account")}`);
+  await resetTwoFactor(db, p.data!.id, me.id);
+  revalidatePath("/settings/users");
+  redirect(`/settings/users?notice=${encodeURIComponent("Two-factor reset: they sign in with their password and set it up again")}`);
 }
 
 // ---- pipeline stages ----

@@ -11,17 +11,21 @@ import { VIEWS, VIEW_ORDER } from "@/lib/views";
 import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
 import { taskCounts } from "@/lib/tasks";
+import { twoFactorStatus } from "@/lib/two-factor";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const [src, counts, notes, myTasks] = await Promise.all([
+  const [src, counts, notes, myTasks, tf] = await Promise.all([
     db.select().from(sources).orderBy(asc(sources.id)),
     navCounts(db),
     recentNotifications(db, user.id),
     taskCounts(db, user.id),
+    twoFactorStatus(db, user.id),
   ]);
+  // people who see the money get a standing reminder until two-factor is on
+  const nudge2fa = user.passwordChanged && !tf.enabled && can(user.role, "finance:read");
 
   const nav: NavItem[] = [
     { href: "/command", label: "Command centre", icon: "gauge", section: "OrlaDent OS", keys: "G O" },
@@ -61,6 +65,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               Set your own now
             </Link>
             .
+          </div>
+        )}
+        {nudge2fa && (
+          <div role="status" className="border-b border-line bg-raised/60 px-4 py-2 text-center text-sm text-muted">
+            <Icon name="shield" size={14} className="-mt-0.5 mr-1.5 inline" />
+            You can see the money: protect your account with two-factor sign-in.{" "}
+            <Link href="/account#two-factor" className="font-medium text-fg underline underline-offset-2">
+              Set it up (2 minutes)
+            </Link>
           </div>
         )}
         <main id="main" tabIndex={-1} className="mx-auto max-w-[1400px] px-4 pb-28 pt-6 outline-none has-[.board-wide]:max-w-none sm:px-6 sm:pb-12 lg:pt-8">

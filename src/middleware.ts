@@ -55,7 +55,7 @@ export async function middleware(req: NextRequest) {
   if (pathname === "/api/health") return withSecurityHeaders(NextResponse.next());
 
   const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
-  if (!session && pathname !== "/login") {
+  if (!session && pathname !== "/login" && pathname !== "/login/verify") {
     return withSecurityHeaders(NextResponse.redirect(new URL("/login", req.url)));
   }
   return withSecurityHeaders(NextResponse.next());

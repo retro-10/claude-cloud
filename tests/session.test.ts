@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { passwordVersion } from "@/lib/password-version";
 import { rateLimit, resetRateLimit } from "@/lib/rate-limit";
-import { signSession, verifySession } from "@/lib/session";
+import { SignJWT } from "jose";
+import { signPending2fa, signSession, verifyPending2fa, verifySession } from "@/lib/session";
 
 beforeAll(() => {
   process.env.AUTH_SECRET = "x".repeat(48);
@@ -12,6 +13,20 @@ describe("session token", () => {
 
   it("round-trips a signed session, including the password fingerprint", async () => {
     expect(await verifySession(await signSession(user, "pv1"))).toEqual({ ...user, pv: "pv1" });
+  });
+
+  it("keeps sessions and the two-factor pass apart, and still accepts sessions signed before the purpose field", async () => {
+    const pass = await signPending2fa(7, "pv1");
+    expect(await verifySession(pass)).toBeNull();
+    expect(await verifyPending2fa(pass)).toEqual({ id: 7, pv: "pv1" });
+    expect(await verifyPending2fa(await signSession(user, "pv1"))).toBeNull();
+    const legacy = await new SignJWT({ name: user.name, email: user.email, role: user.role, pv: "pv1" })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject("7")
+      .setIssuedAt()
+      .setExpirationTime("1h")
+      .sign(new TextEncoder().encode(process.env.AUTH_SECRET));
+    expect(await verifySession(legacy)).toEqual({ ...user, pv: "pv1" });
   });
 
   it("rejects a tampered token", async () => {

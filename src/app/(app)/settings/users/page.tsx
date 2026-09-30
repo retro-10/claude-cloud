@@ -5,7 +5,7 @@ import { Flash } from "@/components/Flash";
 import { MIN_PASSWORD } from "@/lib/settings";
 import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
-import { createUserAction, resetPasswordAction, updateUserAction } from "../actions";
+import { createUserAction, resetPasswordAction, resetTwoFactorAction, updateUserAction } from "../actions";
 
 export const metadata = { title: "Users · Settings" };
 const box = "input";
@@ -54,7 +54,14 @@ export default async function UsersPage(props: { searchParams: Promise<{ notice?
               <button className="btn btn-primary">Save</button>
               {u.id === me.id && <span className="text-xs text-muted">(you)</span>}
               {!u.passwordChangedAt && <span className="text-xs text-warn">still on the initial password</span>}
+              {u.totpEnabledAt ? <span className="chip chip-ok">two-factor on</span> : <span className="text-xs text-muted">no two-factor</span>}
             </form>
+            {u.totpEnabledAt && u.id !== me.id && (
+              <form action={resetTwoFactorAction} className="mt-2">
+                <input type="hidden" name="id" value={u.id} />
+                <button className="btn btn-ghost btn-sm">Reset two-factor (lost phone)</button>
+              </form>
+            )}
             <details className="mt-2">
               <summary className="cursor-pointer text-xs text-muted hover:text-fg">Reset password</summary>
               <form action={resetPasswordAction} className="mt-2 flex flex-wrap items-end gap-2">

@@ -14,7 +14,8 @@ const files = walk(ROOT);
 const rel = (f: string) => relative(ROOT, f).replace(/\\/g, "/");
 
 // exported functions that are deliberately public (before a session exists)
-const PUBLIC_ACTIONS = new Set(["app/login/actions.ts:login", "app/login/actions.ts:logout"]);
+// verify2fa runs before there is a session: the signed 5-minute pass from the password step is its check
+const PUBLIC_ACTIONS = new Set(["app/login/actions.ts:login", "app/login/actions.ts:logout", "app/login/actions.ts:verify2fa"]);
 const PUBLIC_ROUTES = new Set(["app/api/health/route.ts"]);
 
 function exportedAsyncFunctions(src: string): { name: string; body: string }[] {
@@ -42,7 +43,15 @@ describe("every server action checks the caller on the server", () => {
 
   it("write actions use requireCan with an explicit permission, not just a sign-in check", () => {
     // requireUser alone is only right for read-only or self-service actions
-    const selfService = new Set(["changePasswordAction", "markNotificationsReadAction"]);
+    const selfService = new Set([
+      "changePasswordAction",
+      "markNotificationsReadAction",
+      // your own two-factor: every user, any role
+      "startTwoFactorAction",
+      "confirmTwoFactorAction",
+      "newRecoveryCodesAction",
+      "disableTwoFactorAction",
+    ]);
     for (const f of actionFiles) {
       for (const fn of exportedAsyncFunctions(readFileSync(f, "utf8"))) {
         if (PUBLIC_ACTIONS.has(`${rel(f)}:${fn.name}`) || selfService.has(fn.name)) continue;

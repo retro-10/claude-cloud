@@ -64,6 +64,12 @@ export const users = pgTable("users", {
   // NULL = still on the password it was created/seeded with; the app nags until the user sets their own
   passwordChangedAt: ts("password_changed_at"),
   createdAt: createdAt(),
+  // Two-factor sign-in (authenticator app). The secret is encrypted with a key derived from AUTH_SECRET.
+  // Set but not enabled = setup started, not confirmed with a code yet.
+  totpSecret: text("totp_secret"),
+  totpEnabledAt: ts("totp_enabled_at"),
+  totpLastStep: integer("totp_last_step"), // the last 30-second step used: a code works once
+  recoveryCodes: jsonb("recovery_codes").$type<string[]>().notNull().default([]), // sha256 of each unused code
 });
 
 export const stages = pgTable("stages", {
