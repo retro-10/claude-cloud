@@ -6,7 +6,8 @@ import { runMigrations } from "@/db/migrate";
 import { seedReference } from "@/db/seed";
 import * as s from "@/db/schema";
 import type { Db } from "@/db";
-import { createCohort, getCohort, listCohorts, updateCohort, updateEnrolmentPayment } from "@/lib/cohorts";
+import { createCohort, getCohort, listCohorts, updateCohort } from "@/lib/cohorts";
+import { listCandidates, recordPayment, settleEntry, updateCandidate } from "@/lib/finance";
 import { bookConsult, consultObjectionIds, markConsult, rescheduleConsult } from "@/lib/consults";
 import { enrolLead, seatsUsed } from "@/lib/enrol";
 import { changeStage, createLead } from "@/lib/leads";
@@ -95,7 +96,7 @@ d("consults, cohorts, payments", () => {
     const plan: [string, number, boolean][] = [["foundation", 7500, true], ["freelance_ready", 15000, true], ["freelance_ready", 15000, false], ["production_partner", 42000, true]];
     for (const [tier, amount, paid] of plan) {
       const l = await mk();
-      const r = await enrolLead(db, { leadId: l.id, cohortId: c.id, tier: tier as never, amountEgp: amount, paidAt: paid ? new Date() : null }, userId);
+      const r = await enrolLead(db, { leadId: l.id, cohortId: c.id, tier: tier as never, amountEgp: amount, paymentRef: paid ? "IP-1" : null }, userId);
       expect(r.ok).toBe(true);
     }
     const detail = (await getCohort(db, c.id))!;
@@ -125,21 +126,38 @@ d("consults, cohorts, payments", () => {
     expect(await enrolLead(db, { leadId: x.id, cohortId: c.id, tier: "foundation", amountEgp: 7500 }, userId)).toMatchObject({ ok: true });
   });
 
-  it("payment edits change only payment fields, validate the amount, and are audited without values", async () => {
+  it("payments live in the ledger: installments, settling, plan edits; audited without references", async () => {
     const c = await createCohort(db, { name: "Pay", seatCap: 5 }, userId);
     const l = await mk();
-    await enrolLead(db, { leadId: l.id, cohortId: c.id, tier: "foundation", amountEgp: 7500 }, userId);
-    const [e] = await db.select().from(s.enrolments).where(eq(s.enrolments.leadId, l.id));
+    const r = await enrolLead(
+      db,
+      { leadId: l.id, cohortId: c.id, tier: "freelance_ready", amountEgp: 15000, discountEgp: 1000, paymentPlan: "installments", paidAmountEgp: 4000, paymentRef: "IP-9", finalInstalmentAt: new Date("2026-11-01T10:00:00Z") },
+      userId,
+    );
+    expect(r.ok).toBe(true);
+    let [cand] = await listCandidates(db, { leadId: l.id });
+    expect(cand).toMatchObject({ due: 14000, paid: 4000, expected: 10000, remaining: 10000 });
+    expect(cand.nextDue).toEqual(new Date("2026-11-01T10:00:00Z"));
 
-    expect(await updateEnrolmentPayment(db, e.id, { amountEgp: 0 }, userId)).toMatchObject({ ok: false });
-    expect(await updateEnrolmentPayment(db, 99999, { amountEgp: 100 }, userId)).toMatchObject({ ok: false });
-    const paid = new Date("2026-09-20T12:00:00Z");
-    expect(await updateEnrolmentPayment(db, e.id, { amountEgp: 7000, paidAt: paid, paymentRef: " PM-123 ", gateway: "paymob" }, userId)).toEqual({ ok: true });
-    const [after] = await db.select().from(s.enrolments).where(eq(s.enrolments.id, e.id));
-    expect(after).toMatchObject({ amountEgp: 7000, paymentRef: "PM-123", gateway: "paymob", leadId: l.id, cohortId: c.id });
-    expect(after.paidAt).toEqual(paid);
-    const audits = await db.select().from(s.auditLog).where(eq(s.auditLog.action, "payment_update"));
-    expect(JSON.stringify(audits[0].diff)).not.toContain("PM-123");
+    // paying more than is due is refused at enrolment
+    const m = await mk();
+    expect(await enrolLead(db, { leadId: m.id, cohortId: c.id, tier: "foundation", amountEgp: 7500, paymentPlan: "installments", paidAmountEgp: 9000 }, userId)).toMatchObject({ ok: false, error: "invalid_amount" });
+
+    const [expected] = await db.select().from(s.ledgerEntries).where(eq(s.ledgerEntries.enrolmentId, cand.enrolmentId)).then((x) => x.filter((e) => e.status === "expected"));
+    expect(await settleEntry(db, expected.id, userId)).toEqual({ ok: true });
+    [cand] = await listCandidates(db, { leadId: l.id });
+    expect(cand).toMatchObject({ paid: 14000, expected: 0, remaining: 0 });
+
+    expect(await recordPayment(db, { enrolmentId: cand.enrolmentId, amountEgp: 0 }, userId)).toMatchObject({ ok: false });
+    expect(await recordPayment(db, { enrolmentId: 99999, amountEgp: 100 }, userId)).toMatchObject({ ok: false });
+    expect(await updateCandidate(db, cand.enrolmentId, { discountEgp: -5 }, userId)).toMatchObject({ ok: false });
+    expect(await updateCandidate(db, cand.enrolmentId, { paymentPlan: "free_seat", status: "graduated" }, userId)).toEqual({ ok: true });
+    [cand] = await listCandidates(db, { leadId: l.id });
+    expect(cand).toMatchObject({ due: 0, status: "graduated", remaining: 0 });
+
+    const audits = await db.select().from(s.auditLog).where(eq(s.auditLog.entity, "ledger"));
+    expect(audits.length).toBeGreaterThan(0);
+    expect(JSON.stringify(audits.map((a) => a.diff))).not.toContain("IP-9");
     expect(await stage(l.id)).toBe("enrolled");
   });
 });

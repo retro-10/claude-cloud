@@ -101,7 +101,7 @@ async function runAction(db: Exec, a: RuleAction, rule: Rule, ev: RuleEvent, lea
       return `tag “${a.tag}”`;
     }
     case "set_owner": {
-      await db.update(leads).set({ ownerId: a.userId }).where(eq(leads.id, lead.id));
+      await db.update(leads).set({ ownerId: a.userId, updatedAt: new Date() }).where(eq(leads.id, lead.id));
       return `owner set`;
     }
     case "notify": {

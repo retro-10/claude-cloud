@@ -43,7 +43,8 @@ for (const t of ["dark", "light"] as const) {
       "/", "/?mine=1", "/leads", "/leads?stage=contacted&q=demo", "/leads/import", firstLead!, "/pipeline", firstCohort, "/dashboard",
       "/dashboard?all=1", "/account", "/settings/users", "/settings/pipeline", "/settings/lists", "/settings/cadences", "/settings/audit",
       "/settings/rules", "/settings/workflows", "/settings/templates", "/leads?view=no_next_step", "/leads?view=no_decision_review",
-      `/leads/merge?a=${firstLead!.split("/").pop()}`,
+      `/leads/merge?a=${firstLead!.split("/").pop()}`, "/finance", "/finance/ledger", "/finance/candidates", "/settings/finance",
+      "/settings/integrations",
     ];
     for (const path of screens) {
       await page.goto(path);
@@ -95,6 +96,17 @@ for (const t of ["dark", "light"] as const) {
     await scan(page, `command palette (${t})`);
     await page.keyboard.press("Escape");
 
+    await page.goto("/finance");
+    await ready(page);
+    await theme(page, t);
+    await page.locator("main button:has-text('Withdrawal')").click();
+    await expect(page.locator("[role=dialog]")).toBeVisible();
+    await scan(page, `ledger entry dialog (${t})`);
+    await page.keyboard.press("Escape");
+
+    await page.goto("/");
+    await ready(page);
+    await theme(page, t);
     await page.locator("#queue button:has-text('Reply')").first().click();
     await expect(page.locator("[aria-labelledby=composer-title] button:has-text('First reply')").first()).toBeVisible();
     await scan(page, `message composer (${t})`);

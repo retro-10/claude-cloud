@@ -56,7 +56,7 @@ export function QuickAdd({ sources }: { sources: { id: number; label: string }[]
         <span className="hidden sm:inline">New lead</span>
       </button>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 p-3 pt-[10vh] backdrop-blur-[2px] animate-fade-in" onMouseDown={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/55 p-3 pb-10 pt-[4vh] backdrop-blur-[2px] animate-fade-in sm:pt-[10vh]" onMouseDown={() => setOpen(false)}>
           <form
             action={action}
             onMouseDown={(e) => e.stopPropagation()}

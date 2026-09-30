@@ -14,6 +14,15 @@ export async function register() {
       const tick = () => runScheduledRules(db).catch(() => 0);
       setTimeout(tick, 30_000);
       setInterval(tick, 5 * 60_000).unref?.();
+
+      // Two-way Notion sync (Batches, Candidates, Ledger, CRM Leads), only when NOTION_TOKEN is set.
+      const { notionConfig, syncNow } = await import("./lib/notion/sync");
+      if (notionConfig()) {
+        const every = Math.max(30, Number(process.env.NOTION_SYNC_INTERVAL_SEC) || 60) * 1000;
+        const sync = () => void syncNow(db)?.catch(() => undefined);
+        setTimeout(sync, 45_000);
+        setInterval(sync, every).unref?.();
+      }
     }
   }
 }

@@ -101,7 +101,7 @@
     @apply w-9 px-0;
   }
   .btn-primary {
-    @apply bg-brand text-onbrand shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_1px_2px_rgb(0_0_0/0.3)] hover:bg-brand-soft active:translate-y-px;
+    @apply bg-brand text-onbrand shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_1px_2px_rgb(0_0_0/0.3)] hover:bg-brand-deep active:translate-y-px;
   }
   .btn-secondary {
     @apply border border-line bg-raised text-fg hover:border-brand/60 hover:bg-surface active:translate-y-px;
@@ -113,7 +113,7 @@
     @apply border border-danger/40 text-danger hover:bg-danger/10;
   }
   .btn-wa {
-    @apply bg-brand text-onbrand hover:bg-brand-soft;
+    @apply bg-brand text-onbrand hover:bg-brand-deep;
   }
 
   /* Form controls */

@@ -64,7 +64,7 @@ export function AddEntry({
         {icon === "plus" && label}
       </button>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 p-3 pt-[6vh] backdrop-blur-[2px] animate-fade-in" onMouseDown={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/55 p-3 pb-10 pt-[4vh] backdrop-blur-[2px] animate-fade-in sm:pt-[6vh]" onMouseDown={() => setOpen(false)}>
           <form
             action={saveEntryAction}
             role="dialog"

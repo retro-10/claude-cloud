@@ -22,7 +22,7 @@ export function Modal({ title, icon = "arrowRight", children, onCancel, wide }: 
     return () => window.removeEventListener("keydown", esc);
   }, [onCancel]);
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 p-3 pt-[8vh] backdrop-blur-[2px] animate-fade-in" onMouseDown={onCancel}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/55 p-3 pb-10 pt-[4vh] backdrop-blur-[2px] animate-fade-in sm:pt-[8vh]" onMouseDown={onCancel}>
       <div
         ref={ref}
         role="dialog"

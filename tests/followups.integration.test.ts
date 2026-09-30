@@ -128,7 +128,7 @@ d("follow-ups, cadences, stop rules, today", () => {
   });
 
   it("Today: buckets by Cairo day, excludes done/cancelled/deleted, orders uncontacted oldest first", async () => {
-    await client.unsafe("delete from follow_ups; delete from consults; delete from enrolments; delete from stage_events; delete from activities; delete from leads;");
+    await client.unsafe("delete from follow_ups; delete from consults; delete from ledger_entries; delete from enrolments; delete from stage_events; delete from activities; delete from leads;");
     const now = cairoLocalToDate("2026-09-29T14:00")!;
     const today0 = startOfCairoDay(now);
     const at = (h: number) => new Date(today0.getTime() + h * 3600_000);

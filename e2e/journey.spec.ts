@@ -58,16 +58,24 @@ test("owner takes a lead from first message to enrolment and sees it on the dash
   await expect(page.locator("[role=dialog]", { hasText: "Enrol student" })).toBeVisible();
   await page.locator("[role=dialog] select").first().selectOption({ index: 0 });
   await page.locator("[role=dialog] select").nth(1).selectOption("freelance_ready");
-  await expect(page.locator("[role=dialog] input[inputmode=numeric]")).toHaveValue("15000");
+  await expect(page.getByRole("textbox", { name: "Price (EGP)" })).toHaveValue("15000");
   // exit criterion for Enrolled: no payment reference, no enrolment
   await page.click("[role=dialog] button:text-is('Enrol')");
-  await expect(page.locator("[role=dialog] [role=alert]")).toContainText("Payment confirmed with a reference");
-  await page.fill("[role=dialog] input[placeholder='Paymob transaction id']", "PMB-778899");
+  await expect(page.locator("[role=dialog] [role=alert]")).toContainText("Payment received with a reference");
+  await page.fill("[role=dialog] input[placeholder='e.g. InstaPay or bank transfer reference']", "IP-778899");
   await page.click("[role=dialog] button:text-is('Enrol')");
   await expect(page.locator("[role=dialog]")).toHaveCount(0);
   await expect(page.locator("section[aria-label='Enrolled']", { hasText: "ياسمين فؤاد" })).toBeVisible();
 
-  // 6. the dashboard moved by exactly this lead
+  // 6. the payment is in the books: the candidate is paid in full, and the ledger holds the reference
+  await page.goto("/finance/candidates");
+  await ready(page);
+  await expect(page.locator("tr", { hasText: "ياسمين فؤاد" })).toContainText("15,000 EGP");
+  await page.goto("/finance/ledger?q=%D9%8A%D8%A7%D8%B3%D9%85%D9%8A%D9%86");
+  await ready(page);
+  await expect(page.locator("tbody tr").first()).toContainText("ref IP-778899");
+
+  // 7. the dashboard moved by exactly this lead
   expect(await stat(page, "Leads")).toBe("Leads 21");
   expect(await stat(page, "Revenue")).toContain("75,000 EGP"); // 60,000 + 15,000
   await page.goto("/dashboard?all=1");

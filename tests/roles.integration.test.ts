@@ -107,6 +107,8 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/cohorts/actions")),
       ...(await import("@/app/(app)/settings/actions")),
       ...(await import("@/app/(app)/leads/import/actions")),
+      ...(await import("@/app/(app)/finance/actions")),
+      ...(await import("@/app/(app)/settings/integrations/actions")),
     };
   });
   afterAll(async () => {
@@ -131,7 +133,11 @@ d("role rules on the server", () => {
     ["saveTemplateAction", ["owner"], () => A.saveTemplateAction(fd({ name: `T${++n}`, steps: "0 | whatsapp | Hi" }))],
     ["createUserAction", ["owner"], () => A.createUserAction(fd({ name: "New", email: `new${++n}@roles.local`, role: "viewer", password: "long enough pw" }))],
     ["updateUserAction", ["owner"], async () => A.updateUserAction(fd({ id: (await db.select().from(s.users).where(eq(s.users.email, email("viewer"))))[0].id, role: "viewer", name: "viewer", active: "on" }))],
-    ["updatePaymentAction", ["owner", "finance"], () => A.updatePaymentAction(fd({ enrolmentId, cohortId, tier: "foundation", amountEgp: 7000, paidOn: "", paymentRef: "", gateway: "other" }))],
+    ["recordPaymentAction", ["owner", "finance"], () => A.recordPaymentAction(fd({ enrolmentId, amountEgp: 500, date: "2026-09-01", status: "received", reference: "", back: "/finance" }))],
+    ["saveEntryAction", ["owner", "finance"], () => A.saveEntryAction(fd({ entry: "Ads", amountEgp: 900, date: "", section: "variable_costs", category: "Content creator", status: "paid", back: "/finance" }))],
+    ["updateCandidateAction", ["owner", "finance"], () => A.updateCandidateAction(fd({ enrolmentId, tier: "foundation", amountEgp: 7500, discountEgp: 0, paymentPlan: "one_time", finalInstalmentAt: "", status: "active", back: "/finance" }))],
+    ["saveSplitAction", ["owner"], () => A.saveSplitAction(fd({ partnerName: "Badr", partnerPct: 80, capitalPct: 20, back: "/settings/finance" }))],
+    ["syncNotionAction", ["owner"], () => A.syncNotionAction()],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 

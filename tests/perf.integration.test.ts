@@ -86,10 +86,13 @@ d(`performance with ${N} leads`, () => {
       insert into consult_objections (consult_id, objection_id)
         select c.id, 1 + c.id % 6 from consults c where c.id % 2 = 0;
 
-      insert into enrolments (lead_id, cohort_id, tier, amount_egp, paid_at, created_at)
+      insert into enrolments (lead_id, cohort_id, tier, amount_egp, created_at)
         select id, 1 + id % 3, (array['foundation','freelance_ready','production_partner'])[1 + id % 3]::tier,
-               (array[7500, 15000, 30000])[1 + id % 3], case when id % 2 = 0 then now() end, created_at + interval '10 days'
+               (array[7500, 15000, 30000])[1 + id % 3], created_at + interval '10 days'
         from leads where stage = 'enrolled';
+      -- half of them paid: one received ledger row each
+      insert into ledger_entries (entry, amount_egp, date, section, category, status, enrolment_id, cohort_id)
+        select 'perf payment', amount_egp, now(), 'income', 'Candidate payment', 'received', id, cohort_id from enrolments where id % 2 = 0;
       analyze;
     `);
   }, 120_000);
