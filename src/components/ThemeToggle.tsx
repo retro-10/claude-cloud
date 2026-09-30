@@ -1,29 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Icon } from "./ui/Icon";
+import { currentTheme, setTheme, type Theme } from "./shell/theme";
 
-export function ThemeToggle() {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+export function ThemeToggle({ className = "btn btn-ghost btn-icon" }: { className?: string }) {
+  const [theme, set] = useState<Theme>("dark");
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("theme");
-      if (saved === "light" || saved === "dark") {
-        setTheme(saved);
-        document.documentElement.dataset.theme = saved;
-      }
-    } catch {}
+    set(currentTheme());
+    const on = (e: Event) => set((e as CustomEvent<Theme>).detail);
+    window.addEventListener("crm:theme", on);
+    return () => window.removeEventListener("crm:theme", on);
   }, []);
-  const toggle = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    document.documentElement.dataset.theme = next;
-    try {
-      localStorage.setItem("theme", next);
-    } catch {}
-  };
+  const next = theme === "dark" ? "light" : "dark";
   return (
-    <button onClick={toggle} className="text-sm text-muted hover:text-fg" aria-label="Toggle theme">
-      {theme === "dark" ? "Light" : "Dark"}
+    <button onClick={() => setTheme(next)} className={className} aria-label={`Switch to ${next} theme`} title={`Switch to ${next} theme`}>
+      <Icon name={theme === "dark" ? "sun" : "moon"} />
     </button>
   );
 }

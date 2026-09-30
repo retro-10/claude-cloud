@@ -8,6 +8,7 @@ import * as s from "@/db/schema";
 import type { Db } from "@/db";
 import { changeStage, createLead, logActivity, setDeleted, updateLead } from "@/lib/leads";
 import { listLeads } from "@/lib/lead-list";
+import { withoutRelease11Rules } from "./base-rules";
 
 // Scratch database only: schema is dropped and recreated. Set TEST_DATABASE_URL to run.
 const url = process.env.TEST_DATABASE_URL;
@@ -22,6 +23,7 @@ d("lead service", () => {
     await client.unsafe("drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;");
     await runMigrations(url);
     await seedReference(url, "pw-for-tests");
+    await withoutRelease11Rules(client);
     userId = (await db.select().from(s.users).where(eq(s.users.email, "retro@orladent.local")))[0].id;
   });
   afterAll(() => client.end());
@@ -102,11 +104,11 @@ d("lead service", () => {
   });
 
   it("update blocks a phone that belongs to another lead but allows keeping your own", async () => {
-    const a = await createLead(db, { fullName: "A", phone: "01333333333" }, userId);
-    const b = await createLead(db, { fullName: "B", phone: "01444444444" }, userId);
+    const a = await createLead(db, { fullName: "A", phone: "01033333333" }, userId);
+    const b = await createLead(db, { fullName: "B", phone: "01044444444" }, userId);
     if (!a.ok || !b.ok) throw new Error("setup");
-    expect(await updateLead(db, b.lead.id, { phone: "01333333333" }, userId)).toMatchObject({ ok: false });
-    expect(await updateLead(db, a.lead.id, { phone: "+201333333333", city: "Cairo" }, userId)).toEqual({ ok: true });
+    expect(await updateLead(db, b.lead.id, { phone: "01033333333" }, userId)).toMatchObject({ ok: false });
+    expect(await updateLead(db, a.lead.id, { phone: "+201033333333", city: "Cairo" }, userId)).toEqual({ ok: true });
   });
 
   it("soft delete hides from the list, still flags duplicates, and restores", async () => {
@@ -123,10 +125,10 @@ d("lead service", () => {
   });
 
   it("list search matches name, phone digits and notes; filters and sorting work", async () => {
-    await createLead(db, { fullName: "Searchable Nour", phone: "01666666666", notes: "wants exocad مبتدئ" }, userId);
+    await createLead(db, { fullName: "Searchable Nour", phone: "01066666666", notes: "wants exocad مبتدئ" }, userId);
     expect((await listLeads(db, { q: "nour" })).total).toBe(1);
-    expect((await listLeads(db, { q: "0166 666" })).total).toBe(1); // spaces ignored, digits compared
-    expect((await listLeads(db, { q: "1666666" })).total).toBe(1);
+    expect((await listLeads(db, { q: "0106 666" })).total).toBe(1); // spaces ignored, digits compared
+    expect((await listLeads(db, { q: "1066666" })).total).toBe(1);
     expect((await listLeads(db, { q: "مبتدئ" })).total).toBe(1);
     expect((await listLeads(db, { q: "%" })).total).toBe(0); // LIKE wildcards are escaped
     const asc = await listLeads(db, { sort: "name", dir: "asc" });
@@ -137,7 +139,7 @@ d("lead service", () => {
   });
 
   it("overdue filter finds leads with an open follow-up in the past", async () => {
-    const r = await createLead(db, { fullName: "Overdue Omar", phone: "01777777777" }, userId);
+    const r = await createLead(db, { fullName: "Overdue Omar", phone: "01077777777" }, userId);
     if (!r.ok) throw new Error("setup");
     await db.insert(s.followUps).values({ leadId: r.lead.id, dueAt: new Date(Date.now() - 86_400_000), createdBy: userId });
     const res = await listLeads(db, { overdue: "1" });

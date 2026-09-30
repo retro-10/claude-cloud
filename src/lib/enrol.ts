@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { cohorts, enrolments, leads } from "@/db/schema";
 import { audit } from "./audit";
+import { missingFor, type Missing } from "./exit-criteria";
 import { moveStageTx } from "./leads";
 
 export type EnrolInput = {
@@ -13,12 +14,14 @@ export type EnrolInput = {
   paymentRef?: string | null;
   gateway?: (typeof enrolments.$inferInsert)["gateway"];
   overrideCap?: boolean; // caller must only pass true for users allowed to override
+  overrideCriteria?: string | null; // owner override of unmet exit criteria, with a reason
 };
 
 export type EnrolResult =
   | { ok: true; enrolmentId: number; seatsUsed: number; seatCap: number }
   | { ok: false; error: "cohort_full"; seatsUsed: number; seatCap: number }
-  | { ok: false; error: "not_found" | "already_enrolled" | "invalid_amount" };
+  | { ok: false; error: "not_found" | "already_enrolled" | "invalid_amount" }
+  | { ok: false; error: "criteria"; missing: Missing[] };
 
 export async function seatsUsed(db: Pick<Db, "select">, cohortId: number): Promise<number> {
   const [r] = await db
@@ -44,6 +47,10 @@ export async function enrolLead(db: Db, input: EnrolInput, userId: number | null
       .where(and(eq(enrolments.leadId, input.leadId), eq(enrolments.cohortId, input.cohortId)));
     if (dupe) return { ok: false, error: "already_enrolled" };
 
+    // P1: "Offer sent to Enrolled: payment confirmed with a payment reference"
+    const missing = await missingFor(tx, input.leadId, "enrolled", { paymentRef: input.paymentRef });
+    if (missing.length && !input.overrideCriteria?.trim()) return { ok: false, error: "criteria", missing };
+
     const used = await seatsUsed(tx, cohort.id);
     if (used >= cohort.seatCap && !input.overrideCap) {
       return { ok: false, error: "cohort_full", seatsUsed: used, seatCap: cohort.seatCap };
@@ -62,7 +69,11 @@ export async function enrolLead(db: Db, input: EnrolInput, userId: number | null
       })
       .returning();
 
-    const moved = await moveStageTx(tx, input.leadId, "enrolled", userId, { viaEnrolment: true });
+    const moved = await moveStageTx(tx, input.leadId, "enrolled", userId, {
+      viaEnrolment: true,
+      paymentRef: input.paymentRef,
+      override: input.overrideCriteria,
+    });
     if (!moved.ok) throw new Error(moved.error); // aborts the transaction: no enrolment without the stage move
 
     await audit(tx, {

@@ -10,6 +10,7 @@ import { createCohort, getCohort, listCohorts, updateCohort, updateEnrolmentPaym
 import { bookConsult, consultObjectionIds, markConsult, rescheduleConsult } from "@/lib/consults";
 import { enrolLead, seatsUsed } from "@/lib/enrol";
 import { changeStage, createLead } from "@/lib/leads";
+import { withoutRelease11Rules } from "./base-rules";
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -30,6 +31,7 @@ d("consults, cohorts, payments", () => {
     await client.unsafe("drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;");
     await runMigrations(url);
     await seedReference(url, "pw");
+    await withoutRelease11Rules(client);
     userId = (await db.select().from(s.users).where(eq(s.users.email, "retro@orladent.local")))[0].id;
   });
   afterAll(() => client.end());

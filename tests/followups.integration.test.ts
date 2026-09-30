@@ -12,6 +12,7 @@ import { changeStage, createLead, logActivity } from "@/lib/leads";
 import { cairoYmd, cairoLocalToDate, startOfCairoDay } from "@/lib/time";
 import { getToday } from "@/lib/today";
 import { enrolLead } from "@/lib/enrol";
+import { withoutRelease11Rules } from "./base-rules";
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -32,6 +33,7 @@ d("follow-ups, cadences, stop rules, today", () => {
     await client.unsafe("drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;");
     await runMigrations(url);
     await seedReference(url, "pw");
+    await withoutRelease11Rules(client);
     userId = (await db.select().from(s.users).where(eq(s.users.email, "retro@orladent.local")))[0].id;
     const tpls = await db.select().from(s.cadenceTemplates);
     outreach = tpls.find((t) => t.name.startsWith("Outreach"))!.id;

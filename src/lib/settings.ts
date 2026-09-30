@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { cadenceTemplates, campaigns, followUps, leads, lostReasons, objections, sources, stages, users, consultObjections } from "@/db/schema";
+import { cadenceTemplates, campaigns, followUps, leads, lostReasons, objections, sources, stageExitCriteria, stages, users, consultObjections } from "@/db/schema";
 import type { CadenceStep } from "@/db/schema";
 import { audit } from "./audit";
 import { isUniqueViolation } from "./db-errors";
@@ -98,10 +98,21 @@ export async function changeOwnPassword(db: Db, userId: number, current: string,
   return { ok: true };
 }
 
-// ---------------- stages: label and order only ----------------
+// ---------------- stages ----------------
+
+// P2: a stage is a state the buyer is in, never a time bucket ("Q4 deals", "This week", "October").
+const TIME_WORDS =
+  /\b(q[1-4]|20\d\d|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|monday|tuesday|wednesday|thursday|friday|saturday|sunday|today|tomorrow|yesterday|week|weekly|month|monthly|quarter|year|this|next|last)\b/i;
+export function stageNameProblem(label: string): string | null {
+  const t = label.trim();
+  if (!t || t.length > 60) return "Label must be 1-60 characters";
+  if (TIME_WORDS.test(t)) return "Name the state the buyer is in (for example “Consult held”), not a time period. Time belongs in filters and reports.";
+  return null;
+}
 
 export async function renameStage(db: Db, key: string, label: string, actorId: number | null): Promise<Result> {
-  if (!label.trim() || label.length > 60) return { ok: false, error: "Label must be 1-60 characters" };
+  const bad = stageNameProblem(label);
+  if (bad) return { ok: false, error: bad };
   const rows = await db.update(stages).set({ label: label.trim() }).where(eq(stages.key, key)).returning({ id: stages.id });
   if (!rows.length) return { ok: false, error: "Stage not found" };
   await audit(db, { userId: actorId, entity: "stage", entityId: key, action: "rename" });
@@ -260,5 +271,41 @@ export async function deleteTemplate(db: Db, id: number, actorId: number | null)
   const rows = await db.delete(cadenceTemplates).where(eq(cadenceTemplates.id, id)).returning({ id: cadenceTemplates.id });
   if (!rows.length) return { ok: false, error: "Template not found" };
   await audit(db, { userId: actorId, entity: "cadence", entityId: id, action: "delete" });
+  return { ok: true };
+}
+
+/**
+ * P2: adds an open stage just before the first closed (won/lost/nurture) stage. Returns a warning when
+ * the pipeline grows past the recommended size: every extra stage is one more update per lead.
+ */
+export async function createStage(db: Db, label: string, maxOpen: number, actorId: number | null): Promise<Result<{ key: string; warning?: string }>> {
+  const bad = stageNameProblem(label);
+  if (bad) return { ok: false, error: bad };
+  const base = label.trim().toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40) || "stage";
+  return db.transaction(async (tx): Promise<Result<{ key: string; warning?: string }>> => {
+    const list = await tx.select().from(stages).orderBy(asc(stages.position)).for("update");
+    let key = base;
+    for (let i = 2; list.some((s) => s.key === key); i++) key = `${base}_${i}`;
+    const firstClosed = list.find((s) => s.kind !== "open");
+    const at = firstClosed ? firstClosed.position : list.length + 1;
+    // shift closed stages down one place, then insert (positions stay a strict order)
+    for (const s of [...list].reverse()) if (s.position >= at) await tx.update(stages).set({ position: s.position + 1 }).where(eq(stages.key, s.key));
+    await tx.insert(stages).values({ key, label: label.trim(), position: at, kind: "open" });
+    await audit(tx, { userId: actorId, entity: "stage", entityId: key, action: "create" });
+    const open = list.filter((s) => s.kind === "open").length + 1;
+    const warning =
+      open > maxOpen
+        ? `You now have ${open} open stages. Pipelines with more than ${maxOpen} tend to cause update fatigue: stages stop being moved and the data goes stale.`
+        : undefined;
+    return { ok: true, key, warning };
+  });
+}
+
+export async function setCriterion(db: Db, stageKey: string, checkKey: string, required: boolean, actorId: number | null): Promise<Result> {
+  await db
+    .insert(stageExitCriteria)
+    .values({ stageKey, checkKey, required })
+    .onConflictDoUpdate({ target: [stageExitCriteria.stageKey, stageExitCriteria.checkKey], set: { required } });
+  await audit(db, { userId: actorId, entity: "stage", entityId: stageKey, action: required ? "criterion_on" : "criterion_off", diff: { check: checkKey } });
   return { ok: true };
 }

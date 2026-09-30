@@ -44,6 +44,8 @@ export const consultOutcomeEnum = pgEnum("consult_outcome", [
   "no_show",
 ]);
 export const gatewayEnum = pgEnum("gateway", ["paymob", "other"]);
+// "no_decision" = went silent after the offer, kept apart from an explicit "no" (reported separately)
+export const lostReasonKindEnum = pgEnum("lost_reason_kind", ["explicit", "no_decision"]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -85,6 +87,7 @@ export const objections = pgTable("objections", {
 export const lostReasons = pgTable("lost_reasons", {
   id: serial("id").primaryKey(),
   label: text("label").notNull().unique(),
+  kind: lostReasonKindEnum("kind").notNull().default("explicit"),
 });
 
 export const cohorts = pgTable("cohorts", {
@@ -103,6 +106,7 @@ export const leads = pgTable(
     fullName: text("full_name").notNull(),
     // E.164, e.g. +201001234567. Unique among non-null values (Postgres allows many NULLs).
     phoneWhatsapp: text("phone_whatsapp").unique(),
+    phoneRaw: text("phone_raw"), // exactly what was typed or imported, for traceability
     email: text("email"),
     city: text("city"),
     segment: segmentEnum("segment"),
@@ -122,6 +126,16 @@ export const leads = pgTable(
     firstReplyAt: ts("first_reply_at"),
     closedAt: ts("closed_at"),
     deletedAt: ts("deleted_at"), // soft delete; NULL = live
+    // offer details (exit criteria for Offer sent): what was offered and when they will decide
+    offerTier: tierEnum("offer_tier"),
+    offerAmountEgp: integer("offer_amount_egp"),
+    offerPaymentLink: text("offer_payment_link"),
+    offerSentAt: ts("offer_sent_at"), // payment link sent
+    decisionDueAt: ts("decision_due_at"), // the decision date the lead agreed to
+    doNotContact: boolean("do_not_contact").notNull().default(false),
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    lostReviewedAt: ts("lost_reviewed_at"), // no-decision review: closed without reactivating
+    mergedIntoId: integer("merged_into_id"), // set on the lead that disappeared in a merge
   },
   (t) => [
     index("leads_stage_idx").on(t.stage),
@@ -133,6 +147,7 @@ export const leads = pgTable(
       .on(sql`lower(${t.email})`)
       .where(sql`${t.email} is not null and ${t.deletedAt} is null`),
     index("leads_deleted_at_idx").on(t.deletedAt),
+    index("leads_tags_idx").using("gin", t.tags),
   ],
 );
 
@@ -171,6 +186,7 @@ export const activities = pgTable(
     byUserId: integer("by_user_id").references(() => users.id),
     // room for imported messages later (e.g. a WhatsApp export); null for hand-logged rows
     externalId: text("external_id"),
+    templateId: integer("template_id").references(() => messageTemplates.id), // message sent from a template
   },
   (t) => [index("activities_lead_at_idx").on(t.leadId, t.at)],
 );
@@ -198,6 +214,7 @@ export const followUps = pgTable(
     cancelledAt: ts("cancelled_at"), // set by the cadence stop rule
     createdBy: integer("created_by").references(() => users.id),
     templateId: integer("template_id").references(() => cadenceTemplates.id), // NULL = manual
+    ruleId: integer("rule_id").references(() => workflowRules.id), // created by a workflow rule
     createdAt: createdAt(),
   },
   (t) => [
@@ -217,6 +234,8 @@ export const consults = pgTable(
     held: boolean("held").notNull().default(false),
     outcome: consultOutcomeEnum("outcome"),
     notes: text("notes"),
+    confirmedAt: ts("confirmed_at"), // the lead confirmed the date and time
+    recommendedTier: tierEnum("recommended_tier"),
     createdAt: createdAt(),
   },
   (t) => [index("consults_lead_idx").on(t.leadId), index("consults_scheduled_idx").on(t.scheduledAt)],
@@ -283,3 +302,124 @@ export const auditLog = pgTable(
   },
   (t) => [index("audit_log_at_idx").on(t.at), index("audit_log_entity_idx").on(t.entity, t.entityId)],
 );
+
+// Small key/value store for thresholds and switches edited in Settings (see src/lib/app-settings.ts).
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+  updatedBy: integer("updated_by").references(() => users.id),
+});
+
+// What must be true before a lead may ENTER a stage. check_key names a check in src/lib/exit-criteria.ts.
+export const stageExitCriteria = pgTable(
+  "stage_exit_criteria",
+  {
+    id: serial("id").primaryKey(),
+    stageKey: text("stage_key")
+      .notNull()
+      .references(() => stages.key),
+    checkKey: text("check_key").notNull(),
+    required: boolean("required").notNull().default(true),
+  },
+  (t) => [uniqueIndex("stage_exit_criteria_uq").on(t.stageKey, t.checkKey)],
+);
+
+export const messageTemplates = pgTable("message_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  language: text("language").notNull().default("ar"), // "ar" | "en"
+  body: text("body").notNull(),
+  usageCount: integer("usage_count").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+// Rules create tasks, tags and notifications. They never send a message.
+export const workflowRules = pgTable("workflow_rules", {
+  id: serial("id").primaryKey(),
+  key: text("key").unique(), // set for the built-in rules
+  name: text("name").notNull(),
+  trigger: text("trigger").notNull(),
+  conditions: jsonb("conditions").notNull().$type<Record<string, string>>().default({}),
+  actions: jsonb("actions").notNull().$type<RuleAction[]>(),
+  enabled: boolean("enabled").notNull().default(true),
+  builtin: boolean("builtin").notNull().default(false),
+  position: integer("position").notNull().default(100),
+  createdAt: createdAt(),
+});
+
+export type RuleAction =
+  | { type: "create_follow_up"; kind: string; note: string; dueInMinutes?: number; dueAt?: "decision_date" }
+  | { type: "apply_cadence"; cadence: string }
+  | { type: "cancel_follow_ups" }
+  | { type: "add_tag"; tag: string; ifLostReasons?: string[] }
+  | { type: "set_owner"; userId: number }
+  | { type: "notify"; title: string };
+
+export const workflowRuns = pgTable(
+  "workflow_runs",
+  {
+    id: serial("id").primaryKey(),
+    ruleId: integer("rule_id")
+      .notNull()
+      .references(() => workflowRules.id),
+    leadId: integer("lead_id").references(() => leads.id),
+    firedAt: ts("fired_at").notNull().defaultNow(),
+    result: text("result").notNull(), // short human summary of what the rule did
+    dedupeKey: text("dedupe_key").unique(), // scheduled triggers fire once per thing (e.g. per follow-up)
+  },
+  (t) => [index("workflow_runs_fired_at_idx").on(t.firedAt)],
+);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    leadId: integer("lead_id").references(() => leads.id),
+    createdAt: createdAt(),
+    readAt: ts("read_at"),
+  },
+  (t) => [index("notifications_user_idx").on(t.userId, t.readAt)],
+);
+
+// Contact consent history: the latest row per lead and channel is the current answer.
+export const consentRecords = pgTable(
+  "consent_records",
+  {
+    id: serial("id").primaryKey(),
+    leadId: integer("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    channel: text("channel").notNull().default("whatsapp"),
+    granted: boolean("granted").notNull(),
+    method: text("method").notNull(), // how we know: they messaged first, form tick, told us in chat, …
+    at: ts("at").notNull().defaultNow(),
+    byUserId: integer("by_user_id").references(() => users.id),
+  },
+  (t) => [index("consent_records_lead_idx").on(t.leadId, t.at)],
+);
+
+// A merge can be undone for 7 days: the snapshot and the moved row ids are enough to put things back.
+export const leadMerges = pgTable("lead_merges", {
+  id: serial("id").primaryKey(),
+  survivorId: integer("survivor_id")
+    .notNull()
+    .references(() => leads.id),
+  loserId: integer("loser_id")
+    .notNull()
+    .references(() => leads.id),
+  survivorBefore: jsonb("survivor_before").notNull(),
+  loserBefore: jsonb("loser_before").notNull(),
+  moved: jsonb("moved").notNull().$type<Record<string, number[]>>(),
+  byUserId: integer("by_user_id").references(() => users.id),
+  mergedAt: ts("merged_at").notNull().defaultNow(),
+  undoneAt: ts("undone_at"),
+});

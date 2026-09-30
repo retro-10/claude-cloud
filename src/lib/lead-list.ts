@@ -1,6 +1,9 @@
-import { and, asc, desc, eq, gte, ilike, isNotNull, isNull, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import type { Db } from "@/db";
 import { leads, sources, stages, users } from "@/db/schema";
+import { DEFAULTS, getSettings, type Settings } from "./app-settings";
+import { leadTextMatch } from "./search";
+import { hasOpenFollowUpSql, isViewKey, lastActivitySql, lastStageSql, viewCondition } from "./views";
 import { cairoLocalToDate, startOfCairoDay } from "./time";
 
 export const PAGE_SIZE = 50;
@@ -23,6 +26,8 @@ export type LeadFilters = {
   from?: string; // YYYY-MM-DD, Cairo
   to?: string; // inclusive
   overdue?: string; // "1"
+  view?: string; // smart view key (src/lib/views.ts)
+  tag?: string;
   deleted?: string; // "1" = show soft-deleted only
   sort?: string;
   dir?: string;
@@ -30,30 +35,19 @@ export type LeadFilters = {
 };
 
 // Keys stored in a saved view (everything except paging)
-export const VIEW_KEYS = ["q", "stage", "source", "segment", "tier", "owner", "from", "to", "overdue", "sort", "dir"] as const;
+export const VIEW_KEYS = ["q", "view", "tag", "stage", "source", "segment", "tier", "owner", "from", "to", "overdue", "sort", "dir"] as const;
 
 const SEGMENTS = ["fresh_graduate", "technician", "dentist", "other"];
 const TIERS = ["foundation", "freelance_ready", "production_partner", "unsure"];
 
-const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => "\\" + c);
 const intOrNull = (s?: string) => (s && /^\d+$/.test(s) ? Number(s) : null);
 
-export function buildWhere(f: LeadFilters, now = new Date()): SQL | undefined {
+export function buildWhere(f: LeadFilters, now = new Date(), settings: Settings = DEFAULTS): SQL | undefined {
   const c: (SQL | undefined)[] = [f.deleted === "1" ? isNotNull(leads.deletedAt) : isNull(leads.deletedAt)];
 
-  const q = f.q?.trim();
-  if (q) {
-    const like = `%${escapeLike(q)}%`;
-    const digits = q.replace(/\D/g, "");
-    c.push(
-      or(
-        ilike(leads.fullName, like),
-        ilike(leads.email, like),
-        ilike(leads.notes, like),
-        digits.length >= 3 ? ilike(leads.phoneWhatsapp, `%${digits}%`) : undefined,
-      ),
-    );
-  }
+  if (f.q?.trim()) c.push(leadTextMatch(f.q));
+  if (isViewKey(f.view)) c.push(viewCondition(f.view, settings, now));
+  if (f.tag?.trim()) c.push(sql`${f.tag.trim().slice(0, 60)} = any(${leads.tags})`);
   if (f.stage) c.push(eq(leads.stage, f.stage));
   const source = intOrNull(f.source);
   if (source) c.push(eq(leads.sourceId, source));
@@ -80,7 +74,8 @@ export function buildOrder(f: LeadFilters) {
 }
 
 export async function listLeads(db: Db, f: LeadFilters, now = new Date()) {
-  const where = buildWhere(f, now);
+  const settings = await getSettings(db);
+  const where = buildWhere(f, now, settings);
   const page = Math.max(1, intOrNull(f.page) ?? 1);
   const rows = await db
     .select({
@@ -90,6 +85,13 @@ export async function listLeads(db: Db, f: LeadFilters, now = new Date()) {
       email: leads.email,
       stage: leads.stage,
       stageLabel: stages.label,
+      stageKind: stages.kind,
+      tags: leads.tags,
+      ownerId: leads.ownerId,
+      doNotContact: leads.doNotContact,
+      lastActivityAt: sql<string>`${lastActivitySql}`,
+      lastStageAt: sql<string>`${lastStageSql}`,
+      hasOpenFollowUp: sql<boolean>`${hasOpenFollowUpSql}`,
       segment: leads.segment,
       tierInterest: leads.tierInterest,
       source: sources.label,
@@ -108,5 +110,5 @@ export async function listLeads(db: Db, f: LeadFilters, now = new Date()) {
     .limit(PAGE_SIZE)
     .offset((page - 1) * PAGE_SIZE);
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(leads).where(where);
-  return { rows, total: n, page, pages: Math.max(1, Math.ceil(n / PAGE_SIZE)) };
+  return { rows, total: n, page, pages: Math.max(1, Math.ceil(n / PAGE_SIZE)), settings };
 }

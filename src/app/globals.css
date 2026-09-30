@@ -2,39 +2,196 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Dark is the default; light overrides. Space-separated RGB so Tailwind alpha works. */
+/*
+ * Palette: Charcoal, Warm White, one gold accent (#C9A227).
+ * Dark is the default; light overrides. Space-separated RGB so Tailwind alpha works.
+ * Every text token keeps 4.5:1 contrast on bg, surface and raised (checked by the axe e2e scan).
+ */
 :root,
 [data-theme="dark"] {
-  --bg: 15 15 15; /* near-black #0F0F0F */
-  --surface: 26 26 26; /* charcoal #1A1A1A */
-  --fg: 237 237 237; /* warm white #EDEDED */
-  --muted: 160 160 160;
-  --line: 52 52 52;
-  --accent: 201 162 39; /* Earned Gold #C9A227, as text */
-  --warn: 251 191 36;
-  --danger: 248 113 113;
-  --ok: 52 211 153;
+  color-scheme: dark;
+  --bg: 12 12 11;
+  --surface: 21 21 20;
+  --raised: 30 30 28;
+  --fg: 238 235 228; /* warm white */
+  --muted: 160 155 146;
+  --faint: 92 89 84; /* decoration only, never text */
+  --line: 46 45 42;
+  --accent: 212 175 55; /* gold as text */
+  --warn: 245 190 70;
+  --danger: 248 118 108;
+  --ok: 94 214 160;
+  --glow: 201 162 39;
 }
 [data-theme="light"] {
-  --bg: 237 237 237;
+  color-scheme: light;
+  --bg: 245 243 238; /* warm paper */
   --surface: 255 255 255;
-  --fg: 26 26 26;
-  --muted: 100 100 100;
-  --line: 208 208 208;
-  --accent: 122 92 0; /* gold darkened for text on light backgrounds (5.3:1 on #EDEDED) */
+  --raised: 250 249 246;
+  --fg: 26 25 23;
+  --muted: 94 90 83;
+  --faint: 205 200 190;
+  --line: 226 222 213;
+  --accent: 122 92 0; /* gold darkened for text on light backgrounds */
   --warn: 146 64 14;
-  --danger: 153 27 27; /* red-800: keeps the badge above 4.5:1 on its tinted background */
+  --danger: 153 27 27;
   --ok: 6 95 70;
+  --glow: 201 162 39;
 }
 
-body {
-  @apply bg-bg font-sans text-fg antialiased;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply min-h-screen bg-bg font-sans text-[14px] leading-relaxed text-fg antialiased;
+    font-feature-settings: "cv11", "ss01";
+    background-image: radial-gradient(1100px 520px at 85% -8%, rgb(var(--glow) / 0.07), transparent 60%),
+      radial-gradient(800px 420px at -10% 110%, rgb(var(--glow) / 0.035), transparent 60%);
+    background-attachment: fixed;
+  }
+  [data-theme="light"] body {
+    background-image: radial-gradient(1100px 520px at 85% -8%, rgb(var(--glow) / 0.1), transparent 60%);
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  ::selection {
+    background: rgb(201 162 39 / 0.35);
+  }
+  /* Visible keyboard focus everywhere, in the one accent colour */
+  :focus-visible {
+    outline: 2px solid #c9a227;
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--line)) transparent;
+  }
 }
 
-/* Visible keyboard focus everywhere, in the one accent colour */
-:focus-visible {
-  outline: 2px solid #c9a227;
-  outline-offset: 2px;
+@layer components {
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted;
+  }
+  .page-title {
+    @apply font-display text-[28px] font-semibold leading-tight tracking-tight;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex h-9 shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition duration-150 disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-sm {
+    @apply h-7 gap-1 rounded-md px-2 text-xs;
+  }
+  .btn-icon {
+    @apply w-9 px-0;
+  }
+  .btn-primary {
+    @apply bg-gold text-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_1px_2px_rgb(0_0_0/0.3)] hover:bg-gold-soft active:translate-y-px;
+  }
+  .btn-secondary {
+    @apply border border-line bg-raised text-fg hover:border-gold/60 hover:bg-surface active:translate-y-px;
+  }
+  .btn-ghost {
+    @apply text-muted hover:bg-raised hover:text-fg;
+  }
+  .btn-danger {
+    @apply border border-danger/40 text-danger hover:bg-danger/10;
+  }
+  .btn-wa {
+    @apply bg-gold text-ink hover:bg-gold-soft;
+  }
+
+  /* Form controls */
+  .input {
+    @apply h-9 w-full min-w-0 rounded-lg border border-line bg-bg px-3 text-sm text-fg shadow-[inset_0_1px_2px_rgb(0_0_0/0.12)] transition placeholder:text-muted hover:border-faint focus:border-gold/70 focus:outline-none focus:ring-2 focus:ring-gold/25 disabled:cursor-not-allowed disabled:opacity-70;
+  }
+  textarea.input {
+    @apply h-auto py-2 leading-relaxed;
+  }
+  select.input {
+    @apply appearance-none bg-no-repeat pr-8;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23A09B92' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.55rem center;
+  }
+  .input-sm {
+    @apply h-7 rounded-md px-2 text-xs;
+  }
+  select.input-sm {
+    @apply pr-7;
+  }
+  .field {
+    @apply flex min-w-0 flex-col gap-1.5 text-xs font-medium text-muted;
+  }
+  .check {
+    @apply h-4 w-4 cursor-pointer rounded border-line accent-[#C9A227];
+  }
+
+  /* Surfaces */
+  .card {
+    @apply rounded-xl border border-line bg-surface shadow-soft;
+  }
+  .card-head {
+    @apply flex items-center justify-between gap-3 border-b border-line px-4 py-3;
+  }
+  .card-title {
+    @apply text-sm font-semibold text-fg;
+  }
+  .well {
+    @apply rounded-lg border border-line bg-bg/60;
+  }
+
+  /* Chips and badges */
+  .chip {
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-line bg-raised px-2 py-0.5 text-[11px] font-medium leading-4 text-muted;
+  }
+  .chip-gold {
+    @apply border-gold/40 bg-gold/10 text-accent;
+  }
+  .chip-ok {
+    @apply border-ok/40 bg-ok/10 text-ok;
+  }
+  .chip-warn {
+    @apply border-warn/40 bg-warn/10 text-warn;
+  }
+  .chip-danger {
+    @apply border-danger/40 bg-danger/10 text-danger;
+  }
+  .count {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-raised px-1.5 text-[11px] font-semibold tabular-nums text-muted;
+  }
+  .kbd {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded border border-line bg-raised px-1 font-sans text-[10px] font-semibold text-muted shadow-[0_1px_0_rgb(var(--line))];
+  }
+
+  /* Tables */
+  .table {
+    @apply w-full text-left text-sm;
+  }
+  .table thead th {
+    @apply sticky top-0 z-[1] border-b border-line bg-surface px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted;
+  }
+  .table tbody td {
+    @apply border-b border-line/70 px-3 py-2.5 align-middle;
+  }
+  .table tbody tr {
+    @apply transition-colors hover:bg-raised/70;
+  }
+  .table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .link {
+    @apply text-accent underline-offset-4 hover:underline;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

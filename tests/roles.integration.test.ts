@@ -11,6 +11,7 @@ import { passwordVersion } from "@/lib/password-version";
 import { signSession } from "@/lib/session";
 import { createUser, resetPassword, updateUser } from "@/lib/settings";
 import { createLead } from "@/lib/leads";
+import { withoutRelease11Rules } from "./base-rules";
 
 // The role rules are enforced on the server. These tests call the REAL server actions and route handlers
 // with a real signed session cookie against a real database, once per role, and check both sides:
@@ -89,6 +90,7 @@ d("role rules on the server", () => {
     await client.unsafe("drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;");
     await runMigrations(url);
     await seedReference(url, "pw");
+    await withoutRelease11Rules(client);
     for (const r of ROLES) await createUser(db, { name: r, email: email(r), role: r, password: "long enough pw" }, null);
     leadId = await freshLead();
     [cohortId] = (await db.insert(s.cohorts).values({ name: "Roles", seatCap: 50 }).returning()).map((c) => c.id);

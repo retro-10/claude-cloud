@@ -5,7 +5,19 @@ import postgres from "postgres";
 import { addDaysYmd, cairoYmd } from "../lib/time";
 import { insertDemo } from "./demo-data";
 import * as s from "./schema";
-import { CADENCES, DEMO_USERS, LOST_REASONS, OBJECTIONS, REMOVED_USERS, SOURCES, STAGES } from "./seed-data";
+import {
+  BUILTIN_RULES,
+  CADENCES,
+  DEFAULT_CRITERIA,
+  DEMO_USERS,
+  LOST_REASONS,
+  LOST_REASONS_1_1,
+  OBJECTIONS,
+  REMOVED_USERS,
+  SOURCES,
+  STAGES,
+  TEMPLATES,
+} from "./seed-data";
 
 // Idempotent: safe to run on every container start. Existing rows are left untouched.
 export async function seedReference(url = process.env.DATABASE_URL, password = process.env.SEED_PASSWORD) {
@@ -19,6 +31,7 @@ export async function seedReference(url = process.env.DATABASE_URL, password = p
     await db.insert(s.objections).values(OBJECTIONS.map((label) => ({ label }))).onConflictDoNothing();
     await db.insert(s.lostReasons).values(LOST_REASONS.map((label) => ({ label }))).onConflictDoNothing();
     await db.insert(s.cadenceTemplates).values(CADENCES).onConflictDoNothing();
+    await seedRelease11(db);
 
     // placeholder so the enrolment prompt works out of the box; rename or replace it in Cohorts
     const existing = await db.select({ id: s.cohorts.id }).from(s.cohorts).limit(1);
@@ -72,4 +85,28 @@ export async function seedDemoIfEmpty(url = process.env.DATABASE_URL, now = new 
   } finally {
     await client.end();
   }
+}
+
+/**
+ * Release 1.1 defaults. Idempotent, and never overwrites what the owner changed: criteria, rules and
+ * templates are inserted once; a marker row in app_settings records that the one-time parts ran.
+ */
+async function seedRelease11(db: ReturnType<typeof drizzle>) {
+  await db.insert(s.lostReasons).values(LOST_REASONS_1_1).onConflictDoNothing();
+
+  const [marker] = await db.select().from(s.appSettings).where(eq(s.appSettings.key, "seeded_1_1"));
+  if (marker) return;
+
+  const stageKeys = new Set((await db.select({ key: s.stages.key }).from(s.stages)).map((r) => r.key));
+  const criteria = Object.entries(DEFAULT_CRITERIA).flatMap(([stageKey, checks]) =>
+    stageKeys.has(stageKey) ? checks.map((checkKey) => ({ stageKey, checkKey, required: true })) : [],
+  );
+  if (criteria.length) await db.insert(s.stageExitCriteria).values(criteria).onConflictDoNothing();
+  await db
+    .insert(s.workflowRules)
+    .values(BUILTIN_RULES.map((r) => ({ ...r, builtin: true, enabled: true })))
+    .onConflictDoNothing();
+  const anyTemplate = await db.select({ id: s.messageTemplates.id }).from(s.messageTemplates).limit(1);
+  if (!anyTemplate.length) await db.insert(s.messageTemplates).values(TEMPLATES);
+  await db.insert(s.appSettings).values({ key: "seeded_1_1", value: true }).onConflictDoNothing();
 }

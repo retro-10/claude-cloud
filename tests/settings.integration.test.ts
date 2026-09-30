@@ -14,6 +14,7 @@ import {
   addCampaign, addListItem, changeOwnPassword, createUser, deleteCampaign, deleteListItem, deleteTemplate,
   moveStage, parseSteps, renameListItem, renameStage, resetPassword, saveTemplate, stepsToText, updateUser,
 } from "@/lib/settings";
+import { withoutRelease11Rules } from "./base-rules";
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -53,6 +54,7 @@ d("settings and admin", () => {
     await client.unsafe("drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;");
     await runMigrations(url);
     await seedReference(url, "seeded-password");
+    await withoutRelease11Rules(client);
     owner = (await db.select().from(s.users).where(eq(s.users.email, "retro@orladent.local")))[0].id;
   });
   afterAll(() => client.end());

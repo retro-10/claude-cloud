@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Db } from "@/db";
 import { leads, sources, stages, users } from "@/db/schema";
 import { toCsv } from "./csv";
+import { getSettings } from "./app-settings";
 import { buildOrder, buildWhere, type LeadFilters } from "./lead-list";
 
 export const EXPORT_HEADERS = [
@@ -40,7 +41,7 @@ export async function exportLeadsCsv(db: Db, f: LeadFilters): Promise<{ csv: str
     .leftJoin(stages, eq(stages.key, leads.stage))
     .leftJoin(sources, eq(sources.id, leads.sourceId))
     .leftJoin(users, eq(users.id, leads.ownerId))
-    .where(buildWhere(f))
+    .where(buildWhere(f, new Date(), await getSettings(db)))
     .orderBy(...buildOrder(f));
   const data = rows.map((r) => [
     r.name,

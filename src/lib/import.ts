@@ -125,6 +125,7 @@ export async function importLeads(
           .values({
             fullName,
             phoneWhatsapp: phone,
+            phoneRaw,
             email,
             city: clean("city"),
             segment,

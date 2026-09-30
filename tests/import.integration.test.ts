@@ -10,6 +10,7 @@ import { parseCsv } from "@/lib/csv";
 import { exportLeadsCsv } from "@/lib/export";
 import { guessMapping, importLeads, parseDate, type ImportField, type ImportRow } from "@/lib/import";
 import { createLead } from "@/lib/leads";
+import { withoutRelease11Rules } from "./base-rules";
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -44,6 +45,7 @@ d("csv import / export", () => {
     await client.unsafe("drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;");
     await runMigrations(url);
     await seedReference(url, "pw");
+    await withoutRelease11Rules(client);
     userId = (await db.select().from(s.users).where(eq(s.users.email, "retro@orladent.local")))[0].id;
   });
   afterAll(() => client.end());
@@ -108,9 +110,9 @@ d("csv import / export", () => {
   });
 
   it("refuses a row whose phone and email belong to two different leads", async () => {
-    await createLead(db, { fullName: "P", phone: "01666000111" }, userId);
+    await createLead(db, { fullName: "P", phone: "01066000111" }, userId);
     await createLead(db, { fullName: "E", email: "e2@example.com" }, userId);
-    const rep = await importLeads(db, [{ phone: "01666000111", email: "e2@example.com" }], { updateExisting: true, dryRun: false }, userId);
+    const rep = await importLeads(db, [{ phone: "01066000111", email: "e2@example.com" }], { updateExisting: true, dryRun: false }, userId);
     expect(rep.skipped).toBe(1);
     expect(rep.errors[0].message).toMatch(/two different/);
   });
@@ -118,22 +120,22 @@ d("csv import / export", () => {
   it("rolls the whole import back if a row fails hard", async () => {
     const before = await count();
     await expect(
-      importLeads(db, [{ fullName: "Fine", phone: "01777000111" }, { fullName: "x".repeat(2) , source: "Instagram", createdAt: "31/02/2026" }, null as unknown as ImportRow], { updateExisting: false, dryRun: false }, userId),
+      importLeads(db, [{ fullName: "Fine", phone: "01077000111" }, { fullName: "x".repeat(2) , source: "Instagram", createdAt: "31/02/2026" }, null as unknown as ImportRow], { updateExisting: false, dryRun: false }, userId),
     ).rejects.toThrow();
     expect(await count()).toBe(before);
   });
 
   it("export then re-import round-trips Arabic names, notes and formula-like text", async () => {
-    await createLead(db, { fullName: "ليلى عبد الله", phone: "01888000111", notes: 'قال "مرحبا"\nسطر ثان، وفاصلة' }, userId);
+    await createLead(db, { fullName: "ليلى عبد الله", phone: "01088000111", notes: 'قال "مرحبا"\nسطر ثان، وفاصلة' }, userId);
     const { csv, count: n } = await exportLeadsCsv(db, { q: "ليلى" });
     expect(n).toBe(1);
 
     // hard-delete then import the exported file into the emptied slot
-    await client`delete from stage_events where lead_id in (select id from leads where phone_whatsapp = '+201888000111')`;
-    await client`delete from leads where phone_whatsapp = '+201888000111'`;
+    await client`delete from stage_events where lead_id in (select id from leads where phone_whatsapp = '+201088000111')`;
+    await client`delete from leads where phone_whatsapp = '+201088000111'`;
     const rep = await importLeads(db, toRows(csv), { updateExisting: false, dryRun: false }, userId);
     expect(rep.created).toBe(1);
-    const [back] = await db.select().from(s.leads).where(eq(s.leads.phoneWhatsapp, "+201888000111"));
+    const [back] = await db.select().from(s.leads).where(eq(s.leads.phoneWhatsapp, "+201088000111"));
     expect(back.fullName).toBe("ليلى عبد الله");
     expect(back.notes).toBe('قال "مرحبا"\nسطر ثان، وفاصلة');
 

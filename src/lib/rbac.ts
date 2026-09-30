@@ -8,7 +8,8 @@ export type Action =
   | "users:manage"
   | "payment:write" // edit payment details on an existing enrolment
   | "revenue:export"
-  | "audit:read";
+  | "audit:read"
+  | "stage:override"; // move a lead although the stage's exit criteria are not met (with a reason)
 
 const MATRIX: Record<Role, ReadonlySet<Action>> = {
   owner: new Set<Action>([
@@ -20,6 +21,7 @@ const MATRIX: Record<Role, ReadonlySet<Action>> = {
     "payment:write",
     "revenue:export",
     "audit:read",
+    "stage:override",
   ]),
   sales: new Set<Action>(["lead:read", "lead:write"]),
   viewer: new Set<Action>(["lead:read"]),

@@ -3,24 +3,26 @@ import type { Db } from "@/db";
 import { activities, consultObjections, consults, leads, stages } from "@/db/schema";
 import { audit } from "./audit";
 import { moveStageTx, type Tx } from "./leads";
+import { fireRules } from "./workflows";
 
 type Consult = typeof consults.$inferSelect;
 export type Outcome = NonNullable<Consult["outcome"]>;
 export const HELD_OUTCOMES = ["enrolled", "thinking", "not_fit"] as const;
 
-// Moves the lead forward to `toKey` only if it is in an open stage that comes earlier in the pipeline.
-// Never moves backwards, and leaves won, lost and nurture leads where they are.
+// Moves the lead forward to `toKey` only if it is in an open stage that comes earlier in the pipeline
+// and the stage's exit criteria are met (P1). Never moves backwards, and leaves won, lost and nurture
+// leads where they are. When criteria are not met yet, the lead simply stays put.
 async function advanceStage(tx: Tx, leadId: number, toKey: string, userId: number | null) {
   const [lead] = await tx.select({ stage: leads.stage }).from(leads).where(eq(leads.id, leadId));
   const list = await tx.select().from(stages);
   const cur = list.find((s) => s.key === lead?.stage);
   const target = list.find((s) => s.key === toKey);
-  if (cur && target && cur.kind === "open" && cur.position < target.position) await moveStageTx(tx, leadId, toKey, userId);
+  if (cur && target && cur.kind === "open" && cur.position < target.position) await moveStageTx(tx, leadId, toKey, userId, { onlyIfReady: true });
 }
 
 export async function bookConsult(
   db: Db,
-  input: { leadId: number; scheduledAt: Date; notes?: string | null },
+  input: { leadId: number; scheduledAt: Date; notes?: string | null; confirmed?: boolean },
   userId: number | null,
 ): Promise<Consult | null> {
   return db.transaction(async (tx) => {
@@ -28,7 +30,7 @@ export async function bookConsult(
     if (!lead || lead.deletedAt) return null;
     const [row] = await tx
       .insert(consults)
-      .values({ leadId: input.leadId, scheduledAt: input.scheduledAt, notes: input.notes?.trim() || null })
+      .values({ leadId: input.leadId, scheduledAt: input.scheduledAt, notes: input.notes?.trim() || null, confirmedAt: input.confirmed ? new Date() : null })
       .returning();
     await advanceStage(tx, input.leadId, "consult_booked", userId);
     await audit(tx, { userId, entity: "consult", entityId: row.id, action: "book" });
@@ -42,6 +44,7 @@ export type MarkInput = {
   outcome?: Outcome | null; // required when held
   objectionIds?: number[];
   notes?: string | null;
+  recommendedTier?: Consult["recommendedTier"];
 };
 export type MarkResult = { ok: true } | { ok: false; error: string };
 
@@ -60,6 +63,7 @@ export async function markConsult(db: Db, input: MarkInput, userId: number | nul
         held,
         outcome: held ? input.outcome! : "no_show",
         notes: input.notes === undefined ? c.notes : input.notes?.trim() || null,
+        recommendedTier: held ? (input.recommendedTier === undefined ? c.recommendedTier : input.recommendedTier) : c.recommendedTier,
       })
       .where(eq(consults.id, c.id));
 
@@ -78,6 +82,7 @@ export async function markConsult(db: Db, input: MarkInput, userId: number | nul
       byUserId: userId,
     });
     if (held) await advanceStage(tx, c.leadId, "consult_held", userId);
+    await fireRules(tx as never, { trigger: "consult_outcome", leadId: c.leadId, result: input.result, outcome: held ? input.outcome : "no_show" }, userId);
     await audit(tx, { userId, entity: "consult", entityId: c.id, action: held ? "held" : "no_show", diff: { outcome: held ? input.outcome : "no_show" } });
     return { ok: true };
   });
@@ -99,4 +104,19 @@ export async function rescheduleConsult(db: Db, consultId: number, scheduledAt: 
     .returning({ id: consults.id });
   if (rows.length) await audit(db, { userId, entity: "consult", entityId: consultId, action: "reschedule" });
   return rows.length > 0;
+}
+
+/** The lead confirmed the consult date and time (exit criterion for Consult booked). */
+export async function confirmConsult(db: Db, consultId: number, confirmed: boolean, userId: number | null) {
+  return db.transaction(async (tx) => {
+    const [c] = await tx
+      .update(consults)
+      .set({ confirmedAt: confirmed ? new Date() : null })
+      .where(and(eq(consults.id, consultId), eq(consults.held, false)))
+      .returning();
+    if (!c) return false;
+    if (confirmed) await advanceStage(tx, c.leadId, "consult_booked", userId);
+    await audit(tx, { userId, entity: "consult", entityId: consultId, action: confirmed ? "confirm" : "unconfirm" });
+    return true;
+  });
 }
