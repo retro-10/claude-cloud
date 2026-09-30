@@ -7,6 +7,10 @@ import { signIn } from "./helpers";
 // the keyboard and screen-reader notes in USER_GUIDE.md / DECISIONS.md cover the rest.
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
+// Cards and dialogs fade in; scanned mid-fade their text is partly transparent and fails contrast.
+// Check the settled state: with reduced motion the app's CSS turns the animations off.
+test.use({ contextOptions: { reducedMotion: "reduce" } });
+
 async function scan(page: Page, label: string) {
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   const summary = violations.map((v) => `${v.id} (${v.impact}): ${v.help}\n   ${v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join("\n   ")}`);
