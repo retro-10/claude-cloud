@@ -55,8 +55,8 @@ Each has a safe default already applied. Answer any and it will be changed.
     "Notion"), skipping the pipeline's checks. OK, or should they arrive as leads to be worked first?
 41. **Notion-only columns.** Answered: bring all of them in. Consent on file, consent scope, QC score and leaderboard rank sync both ways; Sessions and the Proof & Testimonial Bank sync both ways; Team comes in read-only (no pay or equity). See DECISIONS.md.
 42. **Fonts.** Bodoni Moda and Archivo load from Google Fonts (see #22 about self-hosting).
-43. **Team from the CRM.** Team members can only be added or edited in Notion (the CRM mirrors names and
-    roles for "Paid to"). Should the CRM be able to add them too? (It would then also need the pay columns,
-    which are deliberately kept out.)
+43. **Team from the CRM.** Answered: yes. Owners add and edit team members in Settings > Team and it syncs to
+    Notion. Pay columns turned out not to be needed: the sync writes only the columns it knows, so salary and
+    equity stay in Notion untouched.
 44. **Proof "Used in content".** The Proof bank's link to the Content pieces database is not synced (the CRM has
     no content calendar). Needed?

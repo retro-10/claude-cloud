@@ -472,7 +472,8 @@ export const ledgerEntries = pgTable(
   (t) => [index("ledger_date_idx").on(t.date), index("ledger_enrolment_idx").on(t.enrolmentId)],
 );
 
-// Mirror of the Notion Team database (read-only here): who a cost was paid to. Pay and equity stay in Notion.
+// The Notion Team database, synced both ways: who a cost was paid to. Pay, equity and compensation notes
+// stay in Notion only (the sync never reads or writes those columns).
 export const teamMembers = pgTable("team_members", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -480,6 +481,7 @@ export const teamMembers = pgTable("team_members", {
   group: text("group"), // Board | Staff
   status: text("status"), // Active | Inactive
   contact: text("contact"),
+  duties: text("duties"),
   createdAt: createdAt(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });

@@ -67,7 +67,7 @@ const STATE_KEY = "notion_state";
 type State = { leadsDb?: string; cursors?: Partial<Record<Entity, string>>; version?: number };
 // Raise when the synced fields change: the next run then reads every page first, so values Notion already
 // has for the new fields come in instead of being overwritten by the CRM's empty defaults.
-const SYNC_VERSION = 2;
+const SYNC_VERSION = 3;
 
 export type RunResult = { pushed: number; pulled: number; created: number; conflicts: number; errors: string[]; more: boolean };
 
@@ -706,28 +706,62 @@ const leadSpec: Spec = {
   },
 };
 
-// ---------------- Team (read-only mirror; pay and equity are not copied) ----------------
+// ---------------- Team (both ways; pay, equity and compensation notes are never read or written) ----------------
 
 const teamSpec: Spec = {
   entity: "team",
-  readOnly: true,
   database: (c) => c.cfg.teamDb,
   label: (f) => `Team member "${f.name}"`,
-  pending: async () => [],
+  pending: async (c) =>
+    (
+      await c.db.execute<{ id: number }>(sql`
+        select x.id from team_members x left join notion_links n on n.entity = 'team' and n.local_id = x.id
+        where n.id is null or (n.hash is distinct from ${GONE} and x.updated_at > n.synced_at)
+        order by x.id limit 500`)
+    ).map((r) => Number(r.id)),
   load: async (c, ids) => {
     if (!ids.length) return new Map();
     const rows = await c.db.select().from(teamMembers).where(inArray(teamMembers.id, ids));
-    return new Map(rows.map((t) => [t.id, { updatedAt: t.updatedAt, deleted: false, f: { name: t.name, role: t.role, group: t.group, status: t.status, contact: t.contact } }]));
+    return new Map(
+      rows.map((t) => [t.id, { updatedAt: t.updatedAt, deleted: false, f: { name: t.name, role: t.role, group: t.group, status: t.status, contact: t.contact, duties: t.duties } }]),
+    );
   },
   fromPage: (_c, p) => {
     const P = p.properties;
     const name = get.text(P["Name"]);
     if (!name) return "has no name";
-    return { name, role: get.select(P["Role"]), group: get.select(P["Group"]), status: get.select(P["Status"]), contact: get.email(P["Contact"]) };
+    return {
+      name,
+      role: get.select(P["Role"]),
+      group: get.select(P["Group"]),
+      status: get.select(P["Status"]),
+      contact: get.email(P["Contact"]),
+      duties: get.text(P["Duties"]),
+    };
   },
-  toProps: () => ({}),
+  // only these columns are written: Salary, Equity %, Payment schedule and Compensation notes are left as they are
+  toProps: (_c, f) => ({
+    Name: put.title(f.name as string),
+    Role: put.select(f.role as string | null),
+    Group: put.select(f.group as string | null),
+    Status: put.select(f.status as string | null),
+    Contact: put.email(f.contact as string | null),
+    Duties: put.text(f.duties as string | null),
+  }),
+  match: async (c, f) => {
+    const [row] = await c.db.select({ id: teamMembers.id }).from(teamMembers).where(sql`lower(${teamMembers.name}) = lower(${String(f.name)})`);
+    return row?.id ?? null;
+  },
   apply: async (c, id, f) => {
-    const values = { name: String(f.name).slice(0, 200), role: str(f.role), group: str(f.group), status: str(f.status), contact: str(f.contact), updatedAt: new Date() };
+    const values = {
+      name: String(f.name).slice(0, 200),
+      role: str(f.role),
+      group: str(f.group),
+      status: str(f.status),
+      contact: str(f.contact),
+      duties: str(f.duties),
+      updatedAt: new Date(),
+    };
     if (id) {
       await c.db.update(teamMembers).set(values).where(eq(teamMembers.id, id));
       return id;

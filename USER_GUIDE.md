@@ -193,7 +193,7 @@ minute. **Settings > Integrations** shows what is linked, the last runs and any 
 | Ledger | Finance ledger | both ways; the payment reference stays in the CRM only; **Team member** is linked too |
 | Sessions | Programme card > Sessions | both ways |
 | Proof & Testimonial Bank | Programme card > Proof, and the **Proof bank** page | both ways |
-| Team | the "Paid to" list on costs | Notion to CRM only: name, role, group, status, contact. Pay and equity are never copied |
+| Team | Settings > Team, and the "Paid to" list on costs | both ways: name, role, group, status, contact, duties. Salary, equity, payment schedule and compensation notes stay in Notion only and are never overwritten |
 | CRM Leads (created by the sync) | leads | CRM to Notion; only name, email and notes come back. Stages are changed in the CRM |
 
 * When the same record was changed on both sides between two syncs, the **newer edit wins** (shown as a

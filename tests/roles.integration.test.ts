@@ -110,6 +110,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/finance/actions")),
       ...(await import("@/app/(app)/settings/integrations/actions")),
       ...(await import("@/app/(app)/programme/actions")),
+      ...(await import("@/app/(app)/settings/team/actions")),
     };
   });
   afterAll(async () => {
@@ -139,6 +140,7 @@ d("role rules on the server", () => {
     ["updateCandidateAction", ["owner", "finance"], () => A.updateCandidateAction(fd({ enrolmentId, tier: "foundation", amountEgp: 7500, discountEgp: 0, paymentPlan: "one_time", finalInstalmentAt: "", status: "active", back: "/finance" }))],
     ["saveSplitAction", ["owner"], () => A.saveSplitAction(fd({ partnerName: "Badr", partnerPct: 80, capitalPct: 20, back: "/settings/finance" }))],
     ["syncNotionAction", ["owner"], () => A.syncNotionAction()],
+    ["saveTeamMemberAction", ["owner"], () => A.saveTeamMemberAction(fd({ name: `T${++n}`, role: "Video Editor", status: "Active" }))],
     ["updateProgrammeAction", ["owner", "sales"], () => A.updateProgrammeAction(fd({ enrolmentId, qcScore: "80", leaderboardRank: "", contentConsent: "on", contentConsentScope: "Video", back: "/proof" }))],
     ["saveSessionAction", ["owner", "sales"], () => A.saveSessionAction(fd({ enrolmentId, name: `S${++n}`, type: "Production Partner 1:1", back: "/proof" }))],
     ["saveProofAction", ["owner", "sales"], () => A.saveProofAction(fd({ enrolmentId, name: `P${++n}`, consentStatus: "Asked", back: "/proof" }))],

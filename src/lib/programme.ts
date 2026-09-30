@@ -160,7 +160,41 @@ export async function listProof(db: Db, f: { enrolmentIds?: number[]; consent?: 
 /** Proof is safe to publish only when the item's consent is Granted (and the candidate's consent is on file). */
 export const publishable = (p: { consentStatus: string | null }, candidateConsent: boolean | null) => p.consentStatus === "Granted" && candidateConsent !== false;
 
-// ---------------- team (read-only mirror of Notion) ----------------
+// ---------------- team (synced both ways with Notion; pay stays in Notion) ----------------
+
+export const TEAM_ROLES = ["CEO", "CFO", "CSO & CRO", "COO", "Content Creator", "Video Editor", "Marketing / Script / PM"] as const;
+export const TEAM_GROUPS = ["Board", "Staff"] as const;
+export const TEAM_STATUS = ["Active", "Inactive"] as const;
 
 export const listTeam = (db: Db) =>
   db.select({ id: teamMembers.id, name: teamMembers.name, role: teamMembers.role, status: teamMembers.status }).from(teamMembers).orderBy(asc(teamMembers.name));
+
+export const listTeamFull = (db: Db) => db.select().from(teamMembers).orderBy(asc(teamMembers.status), asc(teamMembers.name));
+
+export type TeamInput = { name: string; role?: string | null; group?: string | null; status?: string | null; contact?: string | null; duties?: string | null };
+
+/** Add or edit a team member. There is no delete: mark them Inactive (their costs keep pointing at them). */
+export async function saveTeamMember(db: Db, id: number | null, t: TeamInput, userId: number | null): Promise<Result<{ id: number }>> {
+  if (!t.name.trim() || t.name.length > 200) return { ok: false, error: "Give their name" };
+  const contact = clean(t.contact);
+  if (contact && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)) return { ok: false, error: "Contact must be an email address" };
+  const values = {
+    name: t.name.trim(),
+    role: oneOf(TEAM_ROLES, t.role),
+    group: oneOf(TEAM_GROUPS, t.group),
+    status: oneOf(TEAM_STATUS, t.status) ?? "Active",
+    contact,
+    duties: clean(t.duties),
+    updatedAt: new Date(),
+  };
+  let rowId = id;
+  if (id) {
+    const r = await db.update(teamMembers).set(values).where(eq(teamMembers.id, id)).returning({ id: teamMembers.id });
+    if (!r.length) return { ok: false, error: "Team member not found" };
+  } else {
+    const [r] = await db.insert(teamMembers).values(values).returning({ id: teamMembers.id });
+    rowId = r.id;
+  }
+  await audit(db, { userId, entity: "team", entityId: rowId!, action: id ? "update" : "create" });
+  return { ok: true, id: rowId! };
+}

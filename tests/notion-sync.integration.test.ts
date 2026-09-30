@@ -9,7 +9,7 @@ import type { Db } from "@/db";
 import { createCohort } from "@/lib/cohorts";
 import { enrolLead } from "@/lib/enrol";
 import { deleteEntry, listCandidates, saveEntry, updateCandidate } from "@/lib/finance";
-import { deleteProof, listProof, listSessions, saveSession, updateProgramme } from "@/lib/programme";
+import { deleteProof, listProof, listSessions, saveSession, saveTeamMember, updateProgramme } from "@/lib/programme";
 import { changeStage, createLead } from "@/lib/leads";
 import { NotionHttp, pid, put } from "@/lib/notion/client";
 import { hashFields, notionConfig, runNotionSync, type NotionConfig } from "@/lib/notion/sync";
@@ -283,7 +283,7 @@ d("Notion two-way sync", () => {
     expect(notion.pages.get(pid(proofPage))!.archived).toBe(true);
   });
 
-  it("the team is read from Notion only (no pay), and a cost can name who it was paid to", async () => {
+  it("the team syncs both ways without ever touching pay, and a cost can name who it was paid to", async () => {
     const t = notion.add(cfg.teamDb, { Name: put.title("Nada"), Role: put.select("Video Editor"), Group: put.select("Staff"), Status: put.select("Active"), "Salary (EGP)": put.number(9000) });
     notion.add(cfg.ledgerDb, {
       Entry: put.title("Editing — September"),
@@ -301,10 +301,20 @@ d("Notion two-way sync", () => {
     expect(Object.keys(nada)).not.toContain("salaryEgp");
     const [cost] = await db.select().from(s.ledgerEntries).where(eq(s.ledgerEntries.entry, "Editing — September"));
     expect(cost.teamMemberId).toBe(nada.id);
-    // a change made in the CRM is never written to the Team database
-    await db.update(s.teamMembers).set({ role: "CEO", updatedAt: new Date() }).where(eq(s.teamMembers.id, nada.id));
+    // edited in the CRM: the change reaches Notion, and the pay column is left exactly as it was
+    expect((await saveTeamMember(db, nada.id, { name: "Nada", role: "Content Creator", group: "Staff", status: "Active", duties: "Reels" }, userId)).ok).toBe(true);
     await sync();
-    expect(notion.prop(t, "Role").select!.name).toBe("Video Editor");
+    expect(notion.prop(t, "Role").select!.name).toBe("Content Creator");
+    expect(notion.prop(t, "Duties").rich_text![0].plain_text).toBe("Reels");
+    expect(notion.prop(t, "Salary (EGP)").number).toBe(9000);
+    // added in the CRM: created in Notion (pay filled in there)
+    const added = await saveTeamMember(db, null, { name: "Omar", role: "Video Editor", group: "Staff", contact: "omar@example.com" }, userId);
+    if (!added.ok) throw new Error(added.error);
+    await sync();
+    const omar = notion.inDb(cfg.teamDb).find((p) => notion.prop(p.id, "Name").title![0].plain_text === "Omar")!;
+    expect(notion.prop(omar.id, "Contact").email).toBe("omar@example.com");
+    expect(Object.keys(omar.props)).not.toContain("Salary (EGP)");
+    expect((await saveTeamMember(db, null, { name: "X", contact: "not-an-email" }, userId)).ok).toBe(false);
   });
 
   it("each run is logged", async () => {

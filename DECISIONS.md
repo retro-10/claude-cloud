@@ -281,8 +281,11 @@ The owners asked for every Notion-only column to come into the CRM:
   `proof_items`) linked to the enrolment, synced both ways like the ledger (deleted on one side, deleted on
   the other; soft deletes only). Option lists are Notion's labels, stored as they are, so values round-trip.
   The quote text is never written to the audit log.
-* **Team** is mirrored read-only (`team_members`: name, role, group, status, contact) so a cost can say who it
-  was paid to (the Ledger's *Team member*). Salary, equity and compensation notes are deliberately not copied.
+* **Team** (`team_members`: name, role, group, status, contact, duties) syncs both ways, so a cost can say
+  who it was paid to (the Ledger's *Team member*) and owners can add people in Settings > Team. Salary,
+  equity, payment schedule and compensation notes are never copied: a Notion page update only changes the
+  properties it sends, so those columns keep whatever Notion has. There is no delete: Inactive keeps past
+  costs pointing at the person. (Sync version 3 re-reads Team for the new Duties column.)
 * Adding fields to a synced table would make the next push overwrite Notion's values with the CRM's empty
   defaults. The sync therefore carries a version: when it rises, the next run reads every page before
   writing anything (tested: a value set in Notion long ago survives the upgrade).
