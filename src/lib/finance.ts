@@ -164,7 +164,8 @@ const paidSql = sql<number>`coalesce((select sum(case when x.category = 'Refund'
   where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'received'), 0)::int`;
 const expectedSql = sql<number>`coalesce((select sum(x.amount_egp) from ledger_entries x
   where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'expected'), 0)::int`;
-const nextDueSql = sql<string | null>`(select min(coalesce(x.date, x.created_at)) from ledger_entries x
+// an Expected payment without a date is still owed but has no due date (it never shows as overdue)
+const nextDueSql = sql<string | null>`(select min(x.date) from ledger_entries x
   where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'expected')`;
 
 export type CandidateRow = {
@@ -326,7 +327,7 @@ export type Board = {
   candidates: { count: number; due: number; paid: number; expected: number; remaining: number };
 };
 
-export async function financeBoard(db: Db, month = thisMonth(), now = new Date()): Promise<Board> {
+export async function financeBoard(db: Db, month = thisMonth()): Promise<Board> {
   const s = await getSettings(db);
   const [start, end] = monthRange(month);
   const inMonth = sql`${effectiveDate} >= ${start.toISOString()}::timestamptz and ${effectiveDate} < ${end.toISOString()}::timestamptz`;
@@ -369,7 +370,6 @@ export async function financeBoard(db: Db, month = thisMonth(), now = new Date()
     const costs = Number(r?.costs ?? 0);
     return { month: m, income, costs, net: income - costs };
   });
-  void now;
   return {
     month,
     split: s.financeSplit,

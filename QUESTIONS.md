@@ -11,10 +11,10 @@ Each has a safe default already applied. Answer any and it will be changed.
 7. **Objection tag "Other" and lost reason "Other"** both exist. Fine, or merge?
 8. **Auto-advance stage on first contact?** Now: logging the first outbound WhatsApp does not move `new` to `contacted`; the stage is moved by hand. Should it move automatically? (Default: no.)
 9. **Bulk actions** (change stage, assign owner, add to cadence) from 4.1 are not in Phase 2's scope table; planned with the pipeline (Phase 4) and cadences (Phase 5). Say if you want them sooner.
-10. **Cancelling an enrolment / refunds.** Enrolled leads cannot currently be moved back or un-enrolled. Do you need a cancel/refund flow? (Default: no, until asked; it must also update revenue.)
+10. **Cancelling an enrolment / refunds.** A refund is now a ledger row (Income > Refund) and a student can be marked Dropped, but a dropped student still counts as owing their price. Should Dropped stop the balance (and remove them from revenue)?
 11. **Date format in imports.** `05/09/2026` is read as 5 September (day first). Is your ClickUp export month-first? (Default: day-first; ISO dates and ClickUp epoch timestamps are unambiguous.)
 12. **Over-cap override** is owner-only (Retro, Badr). OK, or should sales be allowed too?
-13. **Demo cohort.** The seed adds a placeholder "Demo cohort" (30 seats). Replace it with the real next intake (dates, seat cap) in Phase 6.
+13. **Demo cohort.** The seed adds a placeholder "Demo cohort" (now 40 seats, the camp cap). Replace it with the real next intake (dates, seat cap) in Phase 6.
 14. **Reply stops the post-consult cadence too.** The brief's stop rule cancels any open cadence follow-ups on an inbound reply, which includes the post-consult sequence (a reply to your voice-note recap would cancel the day-2/5/7 messages). Done as written. Should the post-consult cadence be exempt?
 15. **Follow-up time of day.** Cadence and date-only follow-ups are due 09:00 Cairo. Change?
 16. **Who may export the lead list?** Any signed-in user who can read leads (including viewer and finance) can currently download the lead CSV (names, phones, emails). Revenue exports are owner/finance only. Should the lead export be restricted to owners?
@@ -40,3 +40,21 @@ Each has a safe default already applied. Answer any and it will be changed.
 33. **"No response" vs "No decision".** Both lost reasons exist: No response = never replied; No decision = went silent after the offer (reported separately on the dashboard). Keep both?
 34. **Course prerequisites** (computer, Exocad access) for the fit scoring in Release 1.2: what exactly should count?
 35. **Consent wording.** The CRM records how each lead agreed to WhatsApp contact. Is there wording you want on forms, and has a lawyer confirmed the obligations under Law 151 of 2020?
+
+## Finance and Notion
+
+36. **Changing the split.** The split is one rule applied to every month, so changing it recomputes past
+    months too. If a new split should only apply from a date on, say so and the setting will carry a start date.
+37. **Paying more than is due.** A payment larger than the remaining balance is accepted (it shows as fully
+    paid). Refuse it instead, or record the extra as client work?
+38. **Who sees a candidate's payments?** The Payments card on a lead's page (due, paid, installments) is shown
+    to everyone who can open the lead, so sales can chase installments; recording money is owner/finance
+    only. Hide the amounts from sales and viewers?
+39. **Leads in Notion.** The sync copies every lead (name, phone, email, stage, owner, notes) into a new
+    *CRM Leads* database under the OrlaDent Camp page, so anyone with access to that page sees them. Keep it,
+    or set `NOTION_SYNC_LEADS=false` and sync only batches, candidates and money?
+40. **Candidates added in Notion.** One with a Batch and a Tier becomes an enrolled lead in the CRM (source
+    "Notion"), skipping the pipeline's checks. OK, or should they arrive as leads to be worked first?
+41. **Notion's "Team member" and consent columns** (Consent on file, QC score, Sessions, Proof items) are not
+    synced: they are programme data the CRM does not hold. Should any of them come into the CRM?
+42. **Fonts.** Bodoni Moda and Archivo load from Google Fonts (see #22 about self-hosting).

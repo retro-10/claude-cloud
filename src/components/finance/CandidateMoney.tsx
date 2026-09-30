@@ -2,6 +2,7 @@ import Link from "next/link";
 import { deleteEntryAction, recordPaymentAction, settleEntryAction, updateCandidateAction } from "@/app/(app)/finance/actions";
 import { PAYMENT_PLAN_LABEL, STATUS_LABEL, STUDENT_STATUS_LABEL, type CandidateRow, type Entry } from "@/lib/finance";
 import { formatCairo, toCairoLocalInput } from "@/lib/time";
+import { ConfirmButton } from "../ConfirmButton";
 import { Icon } from "../ui";
 
 const egp = (n: number) => `${new Intl.NumberFormat("en-US").format(Math.round(n))} EGP`;
@@ -70,9 +71,9 @@ export function CandidateMoney({ c, payments, canWrite, back }: { c: CandidateRo
                 <form action={deleteEntryAction}>
                   <input type="hidden" name="id" value={p.id} />
                   <input type="hidden" name="back" value={back} />
-                  <button className="btn btn-ghost btn-sm w-7 px-0 hover:text-danger" aria-label="Delete payment" title="Delete">
+                  <ConfirmButton message="Delete this payment? It is removed from the books (and from Notion)." className="btn btn-ghost btn-sm w-7 px-0 hover:text-danger" aria-label="Delete payment" title="Delete">
                     <Icon name="x" size={12} />
-                  </button>
+                  </ConfirmButton>
                 </form>
               </span>
             )}

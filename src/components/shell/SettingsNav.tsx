@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "../ui/Icon";
@@ -19,8 +20,14 @@ const TABS: { href: string; label: string; icon: IconName }[] = [
 
 export function SettingsNav() {
   const path = usePathname();
+  const nav = useRef<HTMLElement>(null);
+  // ten tabs overflow a laptop screen: keep the current one in view
+  useEffect(() => {
+    const el = nav.current?.querySelector<HTMLElement>("[aria-current=page]");
+    if (el && nav.current) nav.current.scrollLeft = Math.max(0, el.offsetLeft - nav.current.clientWidth / 2 + el.clientWidth / 2);
+  }, [path]);
   return (
-    <nav aria-label="Settings sections" className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
+    <nav ref={nav} aria-label="Settings sections" className="relative mb-6 flex gap-1 overflow-x-auto border-b border-line">
       {TABS.map((t) => {
         const active = path === t.href;
         return (

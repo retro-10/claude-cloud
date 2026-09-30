@@ -21,7 +21,7 @@
 - Amounts are integer EGP (no fractions).
 
 ## Fonts
-Inter and Playfair Display load from Google Fonts in the browser. The app runs without them (falls back to system fonts), so nothing needs the network to start. To self-host later, drop the font files in `public/` and replace the `@import` in `globals.css`.
+(Superseded by the Camp brand below: now Archivo and Bodoni Moda.) Inter and Playfair Display load from Google Fonts in the browser. The app runs without them (falls back to system fonts), so nothing needs the network to start. To self-host later, drop the font files in `public/` and replace the `@import` in `globals.css`.
 
 ## Seed users
 The seed creates Retro, Badr and Sayed (all `owner`) and Mo (`finance`) with emails `@orladent.local` and one shared password from `SEED_PASSWORD`. Badr has "final say", so he is an owner. "Admin" (Sayed) is mapped to `owner`, the role that can do everything. Replace emails and passwords before real use (see `QUESTIONS.md`).
@@ -197,3 +197,76 @@ with `merged_into_id` and a snapshot is kept for a 7-day undo. Stage events stay
 **Not built in 1.1** (later releases per the blueprint): scoring (S1-S3), events, onboarding, referrals, proof
 library, the extended reports (R1-R6), capture form and UTM (A1, A2, A4), daily digest and push (N2, N3),
 booking page (B1), integrations (2.0). A minimal notification centre (N1) was needed for the built-in rules.
+
+## Finance and Notion
+
+### Camp brand replaces the blueprint's gold
+The Notion *Brand Guardrails* page is Camp's source of truth: Ground #0B0B10, Card #16151D, one accent
+**Indigo #5E50FF** (soft #8B7FFF), Ink #F4F3F8, Bodoni Moda for headlines and Archivo for text. It overrides
+the blueprint's "one gold accent". The light theme keeps the same indigo, darkened for text so contrast stays
+at 4.5:1. White on indigo buttons hovers to the deeper indigo (the lighter one would fail contrast).
+"Cohort" is called **Batch** in the interface, as in Notion; the code and database keep `cohort`.
+
+### Payments moved into a ledger
+An enrolment used to hold one amount, a paid date, a reference and a gateway (Paymob). Camp has no payment
+gateway (candidates pay OrlaDent directly), offers installments and free seats, and tracks money in the Notion
+Ledger. So:
+* `enrolments` keeps the agreed **price** (before discount), the **discount**, the **payment plan**
+  (one-time, installments, free seat), installment dates, the student **status** (active, graduated, dropped)
+  and notes.
+* Every movement of money is a `ledger_entries` row with the same shape as the Notion Ledger (section,
+  category, status, partner, from/to, notes, date, "date approximate"), plus a CRM-only **reference**.
+* Migration 0004 turned every paid enrolment into one Received ledger row (with its reference and date) and
+  kept an unpaid enrolment's reference in its notes. Tested in `finance.integration.test.ts`.
+* Enrolling records what was paid now (Received, with its reference) and the rest as one Expected payment due
+  on the final installment date. The Enrolled exit criterion is "payment received with a reference" or a free
+  seat.
+* Revenue on the dashboard is what students owe (price − discount), collected is what the ledger received.
+
+### The finance board
+Built from the Finances page rules (METRICS.md > Finance), inspired by the shared *Finance Board* artifact
+and extended: month navigation, month-over-month deltas, partner cards with running balances and a
+withdrawn bar, Capital left, 12 months of received vs costs with a table view, category breakdown, "Coming
+up" with one-click settle, candidate collection, and a full ledger with search and filters. The split is a
+setting (it must total 100), applied to every month: a change is a new rule, not a record, so past months
+are recomputed with it (QUESTIONS 36). Only owner and finance see Finance; only they write money
+(`payment:write`); only owners change the split.
+
+### Notion as the shared backend: two-way sync
+Chosen with the owners ("Two-way sync"): Postgres stays the CRM's database (transactions, fast queries,
+tests, backups) and a sync keeps Notion's Batches, Candidates and Ledger in step, plus a **CRM Leads**
+database it creates. Design (`src/lib/notion/`):
+* No SDK: a small REST client, one request queue spaced 340 ms (Notion's ~3 requests/second), retries on 429
+  and 5xx with Retry-After. The token only comes from `NOTION_TOKEN`.
+* `notion_links` maps each row to its page with the hash of the field values both sides agreed on and the
+  local `updated_at` at that moment. A run pulls pages edited since the last run (2 minutes of overlap:
+  Notion edit times are to the minute), then pushes rows changed since. Same hash = nothing to do, which also
+  ignores our own writes coming back.
+* Both sides changed: the newer edit wins; counted as a conflict in the run log.
+* Some values are the CRM's (lead stage, owner, batch counts, a normalised phone): after a pull, anything that
+  differs is written back, so Notion shows the CRM's truth.
+* First run: rows that already exist on both sides are matched, not duplicated.
+* Deletion: a ledger page archived in Notion soft-deletes the entry; a row deleted in the CRM archives its
+  page; other pages deleted in Notion are unlinked and reported (a batch or a student is never deleted from
+  Notion's side). Nothing is hard-deleted.
+* At most 250 writes per run, so a first sync of thousands of leads spreads over several minutes without
+  hitting the rate limit. Runs never overlap (single flight; "Sync now" joins a running sync).
+* Tested against an in-memory Notion with the API's shapes (`tests/fake-notion.ts`,
+  `notion-sync.integration.test.ts`): first push with relations, idle run makes no writes, both directions,
+  Notion-created candidates and ledger rows, deletions both ways, invalid pages, read-only stage, conflicts,
+  retry on 429. It has not been run against the live workspace from here (no token in this environment): do
+  the first sync with **Sync now** and check the run log.
+
+### Audit (this release)
+Reviewed every new server action, route and page for role checks, input validation and data exposure, plus
+the existing CRM for the same classes of problem. Fixed:
+* `back` fields accepted `/\host`, which browsers treat as another site: now `safePath()` (tested).
+* "1.5" EGP was read as 15: amounts must be whole numbers; "1,500" and "1 500 EGP" still work.
+* An installment without a due date showed as overdue.
+* Deleting a payment or ledger row took one click: it now asks first.
+* Owner changes by workflow rules did not bump `updated_at`, so they would not have synced.
+* A Notion ledger row linked to a candidate the CRM had not linked yet would have dropped the link: it now
+  waits.
+* The enrol, entry and quick-add dialogs could not scroll on short screens (the Enrol button was unreachable
+  on a laptop): they scroll now.
+* Primary buttons failed contrast on hover.

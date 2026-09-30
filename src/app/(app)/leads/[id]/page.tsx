@@ -17,6 +17,7 @@ import { CONSENT_METHODS, currentConsent } from "@/lib/consent";
 import { listCandidates } from "@/lib/finance";
 import { CHECKS, evaluate, requiredChecks } from "@/lib/exit-criteria";
 import { undoableMerges } from "@/lib/merge";
+import { TIER_LABEL } from "@/lib/pricing";
 import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
 import { formatCairo, toCairoLocalInput } from "@/lib/time";
@@ -462,7 +463,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
           <ConsultsPanel leadId={lead.id} canWrite={canWrite} />
 
           {candidates.map((c) => (
-            <Card key={c.enrolmentId} title={`${c.cohort} · ${c.tier.replace(/_/g, " ")}`} icon="cohorts" label="Payments">
+            <Card key={c.enrolmentId} title={`${c.cohort} · ${TIER_LABEL[c.tier] ?? c.tier}`} icon="cohorts" label="Payments">
               <div id="money" className="scroll-mt-24" />
               <CandidateMoney
                 c={c}

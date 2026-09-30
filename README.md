@@ -47,6 +47,8 @@ See `.env.example`, which explains every value. The important ones:
 | `SEED_DEMO` | `true`: add demo leads on first start into an empty database. `false` for real use |
 | `COOKIE_SECURE` | `true` when served over HTTPS (production compose forces it) |
 | `DOMAIN` | Production only: the domain Caddy gets a certificate for |
+| `NOTION_TOKEN` | Optional. Switches on the two-way Notion sync (Batches, Candidates, Ledger, CRM Leads). Setup: User guide > Notion |
+| `NOTION_*_DB`, `NOTION_SYNC_LEADS`, `NOTION_SYNC_INTERVAL_SEC`, `APP_URL` | Optional Notion settings, explained in `.env.example` |
 
 Secrets live only in `.env`, which is git-ignored.
 
@@ -145,4 +147,8 @@ the proxy's header for the login rate limit); keep Postgres unpublished; `COOKIE
   strict Content-Security-Policy, `X-Frame-Options: DENY` and HSTS.
 * Server logs never contain lead data: database errors are scrubbed before they are logged, and the audit log
   records who did what to which record, never names, numbers or message text.
+* Notion: when `NOTION_TOKEN` is set, batches, candidates, the ledger and leads (name, phone, email, stage,
+  notes) are copied to the camp's Notion workspace, so everyone with access to those Notion pages sees them.
+  Set `NOTION_SYNC_LEADS=false` to keep leads out. The token stays on the server; payment references never
+  leave the CRM.
 * Dependencies: `npm audit --omit=dev` reports no known vulnerabilities. Re-run it (and update) periodically.

@@ -18,7 +18,7 @@ cohort = enrolled in it). Every figure below is computed over those leads and th
 | Show-up rate | held / (held + no-show); consults still to happen are ignored |
 | Consult to enrolment | leads with a held consult who enrolled / leads with a held consult |
 | Sales cycle | median days from creation to the first event into Enrolled |
-| Revenue / collected | sum of enrolment amounts / of those with a paid date |
+| Revenue / collected | what the enrolled students owe (price − discount; a free seat owes 0) / what they have paid (Received candidate payments in the ledger, minus refunds) |
 | Lost: said no vs no decision | lost leads by the kind of their lost reason (`lost_reasons.kind`: `explicit` or `no_decision`) |
 | Top lost reasons, top objections | counts, ties alphabetical, top 5 |
 | Source / campaign quality | leads, enrolled, enrolled / leads |
@@ -62,3 +62,25 @@ response queue, not in these lists. Up to 50 rows per section; the badge is alwa
 
 At 10,000 leads every screen's queries run well under 1 second (`tests/perf.integration.test.ts` prints the
 timings): for example the sidebar counts about 65 ms, Today about 90 ms, a smart view 25-150 ms.
+
+## Finance (`src/lib/finance.ts`)
+
+Rules from the Notion *Finances* page. Every figure reads the ledger (`ledger_entries`, soft-deleted rows excluded).
+
+| Figure | Definition |
+| --- | --- |
+| Month of a row | the Cairo month of its date; a row without a date counts in the month it was added |
+| Received | income rows with status Received, except refunds |
+| Refunds | income rows in category Refund with status Received |
+| Net income | received − refunds; this is what is split |
+| Partner share | net × the partner's % (Settings > Finance split; default Badr 30, Sayyed 20, Retro 15, Mo 15) |
+| Capital | net × Capital % (default 20) |
+| Costs | fixed + variable cost rows with status Paid |
+| Capital left | Capital − costs. On the Overview card: all months up to the end of the month shown |
+| Withdrawn | partner-withdrawal rows with status Paid for that partner |
+| Partner balance | all shares up to the end of the month shown − all withdrawals up to then |
+| Coming up | rows still Expected (income) or Owed (costs, withdrawals), oldest first |
+| Candidate due | price − discount (0 for a free seat) |
+| Candidate paid | that candidate's Received payments − refunds |
+| Candidate expected | that candidate's Expected payments |
+| Remaining | due − paid (never below 0); overdue when an Expected payment's date has passed |

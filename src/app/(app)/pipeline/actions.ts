@@ -63,7 +63,7 @@ export type EnrolActionResult =
 export async function enrolAction(input: unknown): Promise<EnrolActionResult> {
   const user = await requireCan("lead:write");
   const p = enrolSchema.safeParse(input);
-  if (!p.success) return { ok: false, error: "Check tier, amount and cohort." };
+  if (!p.success) return { ok: false, error: "Check tier, amount and batch." };
 
   // only owners may exceed the seat cap or skip exit criteria; the flags are ignored for anyone else
   const overrideCap = p.data.overrideCap === true && user.role === "owner";
@@ -98,16 +98,16 @@ export async function enrolAction(input: unknown): Promise<EnrolActionResult> {
         cohortFull: true,
         error:
           user.role === "owner"
-            ? `Cohort is full (${r.seatsUsed}/${r.seatCap}). Tick "override" to add a seat anyway.`
-            : `Cohort is full (${r.seatsUsed}/${r.seatCap}). Ask an owner to override.`,
+            ? `Batch is full (${r.seatsUsed}/${r.seatCap}). Tick "override" to add a seat anyway.`
+            : `Batch is full (${r.seatsUsed}/${r.seatCap}). Ask an owner to override.`,
       };
     case "criteria":
       return { ok: false, error: "Record the payment received and its reference (or choose a free seat) before enrolling.", missing: r.missing, canOverride };
     case "already_enrolled":
-      return { ok: false, error: "This lead is already enrolled in that cohort." };
+      return { ok: false, error: "This lead is already enrolled in that batch." };
     case "invalid_amount":
       return { ok: false, error: "Check the amounts: price above zero, discount and payment not more than the price." };
     default:
-      return { ok: false, error: "Lead or cohort not found." };
+      return { ok: false, error: "Lead or batch not found." };
   }
 }

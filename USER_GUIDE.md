@@ -65,15 +65,19 @@ A name alone never warns. A rule creates a **"Reply within 5 minutes"** task and
   tags, contact details, owner.
 * **Stage bar**: the pipeline as steps. Click a stage to move there. Moves are **earned**: each stage has
   checks that must be true first (below). Lost needs a reason; Nurture needs a next contact date; Enrolled asks
-  for the cohort, tier, amount and the **payment reference**.
+  for the batch, tier, price, payment plan, discount, what was **paid now** and its **transfer or receipt
+  reference** (or a free seat).
 * **Ready for …?**: before you even try, the checklist for the next stage shows what is done and what is missing.
 * **Next steps**: open follow-ups (Done with next step, move, cancel), add one, or start a cadence (a scripted
   sequence that stops by itself when the lead replies or is won or lost).
-* **Activity**: log calls, messages and notes; the timeline shows everything, their replies highlighted in gold.
+* **Activity**: log calls, messages and notes; the timeline shows everything, their replies highlighted in indigo.
 * **Offer**: tier, price, payment link, "link sent" and the **decision date** they agreed. These are what the
   Offer sent stage checks, and the decision date creates the decision-day follow-up.
 * **Consults**: book (tick "The lead confirmed" when they confirm), then **Record result**: held or no-show, the
   outcome, the tier you recommended, the objections raised.
+* **Payments** (enrolled leads): due after discount, paid, remaining; every payment and expected installment,
+  with **Received** to mark one as arrived; record a payment or schedule an installment; change the plan,
+  price, discount or student status (Active, Graduated, Dropped).
 * **Contact permission**: record how they agreed to WhatsApp contact (they messaged first, form, in chat, on a
   call) or that they refused; **Mark do not contact** hides every send action.
 * **Tags**, **Merge with a duplicate…**, **Undo merge** (7 days), **Delete** (restorable).
@@ -131,16 +135,71 @@ keep. The lead further along the pipeline keeps its record and stage; every acti
 payment and consent record of the other moves over, so the combined timeline has everything exactly once. The
 other lead is kept (hidden) and the merge can be **undone for 7 days** from the lead page.
 
-## Cohorts
+## Batches
 
-Cards show seats taken against the real cap, the close-date countdown and revenue. Every deadline anywhere in
-the CRM and in templates comes from these records: templates cannot contain a typed date.
+Cards show seats taken against the real cap (40 per batch is the camp's only scarcity), the close-date
+countdown, what the students owe and what has been collected. A batch's page lists its students with their
+plan, status, how much is paid and the next installment date. Every deadline anywhere in the CRM and in
+templates comes from these records: templates cannot contain a typed date.
+
+## Finance (owner and finance)
+
+**Finance** in the sidebar is the camp's books, following the rules on the Notion *Finances* page:
+
+* **Net income** = money received (candidate payments and OrlaDent client work) − refunds.
+* It is split **Badr 30% · Sayyed 20% · Retro 15% · Mo 15% · Capital 20%** (owners change this in
+  Settings > Finance split; it must add up to 100).
+* **Costs** (fixed and variable, once paid) come out of **Capital**. "Capital left" = Capital's share − costs.
+* A **partner withdrawal** is an advance on that partner's share. Each partner card shows this month's share,
+  what they have withdrawn and the **balance** they can still take (all shares to date − all withdrawals).
+* **Expected** and **Owed** rows do not count until they are marked Received or Paid. Cancelled never counts.
+* A row belongs to the month of its date (Cairo time); a row without a date to the month it was added.
+
+Three tabs:
+
+* **Overview**: pick a month; received, costs, net, Capital left; the partner cards; 12 months of received vs
+  costs (with a table view); where the money went; **Coming up** (expected installments and unpaid bills, with
+  one click to mark them done); how much of what candidates owe has been collected.
+* **Candidates**: every enrolled student's due, paid, remaining and next installment; filter by batch, still
+  owing, overdue, paid in full.
+* **Ledger**: every row, searchable and filtered by month, kind and status; add, edit, mark done, delete (it
+  asks first). **+ Payment / Client work / Expense / Withdrawal** buttons add the common rows in one step.
+
+Money is never moved by the CRM: it only records what happened. Candidates pay OrlaDent directly (InstaPay or
+bank transfer); keep the transfer or receipt reference on the payment.
+
+## Notion
+
+When the server has a Notion token (set up once, below), the CRM and the camp's Notion stay in step every
+minute. **Settings > Integrations** shows what is linked, the last runs and any problems, and has **Sync now**.
+
+| Notion | CRM | Direction |
+| --- | --- | --- |
+| Batches | Batches | both ways; the Enrolled counts are written by the CRM |
+| Candidates | enrolled students | both ways (tier, plan, status, discount, installment dates, notes, name, Gmail, number). A candidate added in Notion with a Batch and a Tier becomes an enrolled lead in the CRM |
+| Ledger | Finance ledger | both ways; the payment reference stays in the CRM only |
+| CRM Leads (created by the sync) | leads | CRM to Notion; only name, email and notes come back. Stages are changed in the CRM |
+
+* When the same record was changed on both sides between two syncs, the **newer edit wins** (shown as a
+  conflict in the run log).
+* Deleting a ledger row in Notion deletes it in the CRM (and the other way round). Other pages deleted in
+  Notion stay in the CRM and are no longer synced (the run log says so).
+* Notion's formulas (Tier price, Amount paid, the partner columns) keep working: the sync fills the same
+  columns you fill by hand. A tier changed in Notion takes the list price (7,500 / 15,000 / 30,000 EGP).
+* Rows Notion cannot map (a ledger row without a Section, a candidate without a Batch or Tier) are listed as
+  problems and left alone.
+
+**Setting it up (once, by whoever runs the server):** create an internal integration at
+notion.so/my-integrations (read, update and insert content), copy its token, then in Notion open the
+*OrlaDent Camp* page > ⋯ > Connections and add the integration. Put the token in `.env` as `NOTION_TOKEN` and
+restart. The first sync links rows that already exist on both sides (same batch name; same candidate phone,
+email or name in the same batch; same ledger amount, date and category) instead of copying them twice.
 
 ## Dashboard
 
-Date presets (30 days, 90 days, all time) or a range, plus source, campaign, segment, owner, cohort. Revenue,
+Date presets (30 days, 90 days, all time) or a range, plus source, campaign, segment, owner, batch. Revenue,
 leads, enrolments, median first contact; the funnel; speed to lead; **lost: said no vs no decision**; weekly
-trend (three small charts, with a table view); consults and sales cycle; revenue by tier, cohort and source;
+trend (three small charts, with a table view); consults and sales cycle; revenue by tier, batch and source;
 source quality; top objections. Hover or Tab onto a bar for its exact value. **Anything based on fewer than 5
 leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `METRICS.md`.
 
@@ -148,10 +207,10 @@ leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `ME
 
 | Role | Can |
 | --- | --- |
-| **owner** (Retro, Badr, Sayed) | everything: leads, settings, users, audit log, override a full cohort, override exit criteria |
+| **owner** (Retro, Badr, Sayed) | everything: leads, settings, users, audit log, Finance, override a full batch, override exit criteria |
 | **sales** | create and edit leads, activities, follow-ups, consults and enrolments; cannot delete, change settings or manage users |
 | **viewer** | read only |
-| **finance** (Mo) | read everything, edit payment details, export revenue; cannot edit leads or settings |
+| **finance** (Mo) | read everything, Finance (record payments, costs, withdrawals), export revenue; cannot edit leads or settings |
 
 ## Owners: Settings
 
@@ -167,6 +226,8 @@ leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `ME
   red → alert owners. **Rules never send messages.**
 * **Message templates**: add, edit, archive; see how often each is used. Prices, incentives and claims need
   Badr's approval before they go into a template.
+* **Finance split**: the partners and percentages that net income is split by (with Capital, 100% in total).
+* **Integrations**: the Notion sync status, the run log and **Sync now**.
 * **Sources & reasons**, **Cadences**, **Audit log** as before.
 
 ## Good habits

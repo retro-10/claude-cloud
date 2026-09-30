@@ -226,6 +226,14 @@ d("Notion two-way sync", () => {
     expect(runs.every((r) => r.finishedAt)).toBe(true);
   });
 
+  it("a phone typed in Notion without the country code is read as Egyptian", async () => {
+    const batch = await link("cohort", cohortId);
+    notion.add(cfg.candidatesDb, { Name: put.title("Local Number"), Tier: put.select("Foundation"), Number: put.number(1098765432), Batch: put.relation([batch.pageId]) });
+    await sync();
+    const [lead] = await db.select().from(s.leads).where(eq(s.leads.fullName, "Local Number"));
+    expect(lead.phoneWhatsapp).toBe("+201098765432");
+  });
+
   it("hashes ignore key order", () => {
     expect(hashFields({ a: 1, b: "x" })).toBe(hashFields({ b: "x", a: 1 }));
   });

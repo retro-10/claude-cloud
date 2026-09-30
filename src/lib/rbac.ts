@@ -6,11 +6,11 @@ export type Action =
   | "lead:delete"
   | "settings:write"
   | "users:manage"
-  | "payment:write" // edit payment details on an existing enrolment
+  | "payment:write" // record payments and edit ledger rows, candidate plans and discounts
   | "revenue:export"
   | "audit:read"
-  | "stage:override"
-  | "finance:read"; // the Finance board: ledger, costs, partner shares (owner and finance only) // move a lead although the stage's exit criteria are not met (with a reason)
+  | "stage:override" // move a lead although the stage's exit criteria are not met (with a reason)
+  | "finance:read"; // the Finance board: ledger, costs, partner shares (owner and finance only)
 
 const MATRIX: Record<Role, ReadonlySet<Action>> = {
   owner: new Set<Action>([

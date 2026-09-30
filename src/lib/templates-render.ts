@@ -11,9 +11,9 @@ export const PLACEHOLDERS = {
   payment_link: "Payment link saved on the lead's offer",
   decision_date: "Decision date the lead agreed to",
   consult_time: "Next consult date and time (Cairo)",
-  cohort_name: "Name of the next cohort still open for enrolment",
-  cohort_close_date: "That cohort's enrolment close date",
-  masterclass_date: "That cohort's masterclass date",
+  cohort_name: "Name of the next batch still open for enrolment",
+  cohort_close_date: "That batch's enrolment close date",
+  masterclass_date: "That batch's masterclass date",
 } as const;
 export type Placeholder = keyof typeof PLACEHOLDERS;
 

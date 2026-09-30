@@ -127,7 +127,12 @@ const TIERS = TIER_LABEL as Record<keyof typeof LIST_PRICE_EGP, string>;
 
 /** Phone as Notion's "Number" column holds it: the E.164 digits without the plus. */
 const phoneNumber = (e164: string | null) => (e164 ? Number(e164.replace(/\D/g, "")) : null);
-const phoneFrom = (n: number | null) => (n ? normalizePhone(`+${Math.round(n)}`) : null);
+// A number column drops the leading 0 and the +: 201012345678 (with country code) or 1012345678 (Egyptian, typed locally)
+const phoneFrom = (n: number | null) => {
+  if (!n) return null;
+  const d = String(Math.round(n));
+  return normalizePhone(d.startsWith("20") && d.length === 12 ? `+${d}` : d);
+};
 
 type Spec = {
   entity: Entity;
@@ -489,7 +494,13 @@ const ledgerSpec: Spec = {
     if (!section) return "has no Section";
     const status = invert(STATUS)[get.select(P["Status"]) ?? ""];
     if (!status) return "has no Status";
-    const candidate = c.localOf("enrolment", get.relation(P["Candidate"])[0]);
+    // a relation to a page the CRM has not linked yet would silently drop the link: skip until it is known
+    const candPage = get.relation(P["Candidate"])[0];
+    const candidate = c.localOf("enrolment", candPage);
+    if (candPage && !candidate) return "is linked to a candidate the CRM does not know yet";
+    const batchPage = get.relation(P["Batch"])[0];
+    const batch = c.localOf("cohort", batchPage);
+    if (batchPage && !batch) return "is linked to a batch the CRM does not know yet";
     return {
       entry,
       amount: int(get.number(P["Amount (EGP)"])),
@@ -502,7 +513,7 @@ const ledgerSpec: Spec = {
       fromTo: get.text(P["From / to"]),
       notes: get.text(P["Notes"]),
       candidate,
-      batch: c.localOf("cohort", get.relation(P["Batch"])[0]),
+      batch,
     };
   },
   toProps: (c, f) => ({

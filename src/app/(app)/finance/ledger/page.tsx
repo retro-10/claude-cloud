@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/db";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { Flash } from "@/components/Flash";
 import { AddEntry } from "@/components/finance/AddEntry";
 import { FinanceNav } from "@/components/finance/FinanceNav";
@@ -199,9 +200,14 @@ export default async function LedgerPage(props: {
                             <form action={deleteEntryAction}>
                               <input type="hidden" name="id" value={e.id} />
                               <input type="hidden" name="back" value={here} />
-                              <button className="btn btn-ghost btn-icon btn-sm text-muted hover:text-danger" aria-label={`Delete ${e.entry}`} title="Delete">
+                              <ConfirmButton
+                                message={`Delete “${e.entry}”? It is removed from the books (and from Notion).`}
+                                className="btn btn-ghost btn-icon btn-sm text-muted hover:text-danger"
+                                aria-label={`Delete ${e.entry}`}
+                                title="Delete"
+                              >
                                 <Icon name="trash" size={14} />
-                              </button>
+                              </ConfirmButton>
                             </form>
                           </div>
                         </td>

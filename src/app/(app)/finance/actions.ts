@@ -7,18 +7,23 @@ import { db } from "@/db";
 import { saveSettings } from "@/lib/app-settings";
 import { SECTIONS, deleteEntry, recordPayment, saveEntry, settleEntry, updateCandidate, type Section, type Status } from "@/lib/finance";
 import { requireCan } from "@/lib/server-auth";
+import { safePath } from "@/lib/safe-path";
 import { cairoLocalToDate } from "@/lib/time";
 
 const id = z.coerce.number().int().positive();
 const optId = z.preprocess((v) => (v === "" || v == null ? null : v), z.coerce.number().int().positive().nullable());
 const ymd = z.preprocess((v) => (v === "" || v == null ? null : v), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable());
-const egpInt = z.preprocess((v) => (typeof v === "string" ? Number(v.replace(/[^\d]/g, "")) : v), z.number().int());
+// whole EGP: "1,500" and "1 500 EGP" are fine; "1.5", "-3" or "" are refused
+const egpInt = z.preprocess((v) => {
+  if (typeof v !== "string") return v;
+  const t = v.replace(/[,\s]|EGP/gi, "");
+  return /^\d{1,9}$/.test(t) ? Number(t) : NaN;
+}, z.number().int().nonnegative());
 const day = (d: string | null) => (d ? cairoLocalToDate(`${d}T12:00`) : null);
 
 // Back to where the form was, with a notice or an error. Only same-site paths.
 function back(form: FormData, r: { ok: boolean; error?: string }, ok = "Saved"): never {
-  const to = String(form.get("back") ?? "/finance");
-  const path = to.startsWith("/") && !to.startsWith("//") ? to : "/finance";
+  const path = safePath(form.get("back"), "/finance");
   const sep = path.includes("?") ? "&" : "?";
   revalidatePath("/finance");
   revalidatePath("/cohorts", "layout");

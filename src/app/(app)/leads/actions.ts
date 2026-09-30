@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { leads, messageTemplates, savedViews } from "@/db/schema";
 import { recordConsent, setDoNotContact, CONSENT_METHODS, type ConsentMethod } from "@/lib/consent";
 import { requireCan, requireUser } from "@/lib/server-auth";
+import { safePath } from "@/lib/safe-path";
 import {
   changeStage,
   closeLostReview,
@@ -266,8 +267,7 @@ export async function closeReviewAction(form: FormData) {
   const id = z.coerce.number().int().positive().parse(form.get("id"));
   await closeLostReview(db, id, user.id);
   revalidatePath("/", "layout");
-  const to = String(form.get("back") ?? "");
-  redirect(to.startsWith("/") && !to.startsWith("//") ? to : "/leads?view=no_decision_review");
+  redirect(safePath(form.get("back"), "/leads?view=no_decision_review"));
 }
 
 export async function reactivateAction(form: FormData) {
