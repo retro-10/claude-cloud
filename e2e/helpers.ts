@@ -16,3 +16,8 @@ export async function stat(page: Page, label: string) {
   await page.goto("/dashboard?all=1");
   return (await page.locator(`[data-stat="${label}"]`).first().innerText()).replace(/\s+/g, " ").trim();
 }
+
+/** Waits until the app's scripts are running, so keyboard shortcuts (n, /, Ctrl+K, g …) are live. */
+export async function ready(page: Page) {
+  await page.locator("html[data-ready=true]").waitFor({ state: "attached" });
+}

@@ -130,6 +130,10 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
   useEffect(() => setDrawer(false), [pathname]);
+  // Marks the page as interactive (keyboard shortcuts work from here on). Browser tests wait for it.
+  useEffect(() => {
+    document.documentElement.dataset.ready = "true";
+  }, []);
   useEffect(() => {
     if (!drawer) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDrawer(false);

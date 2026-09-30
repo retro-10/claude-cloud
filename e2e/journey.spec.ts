@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signIn, stat } from "./helpers";
+import { ready, signIn, stat } from "./helpers";
 
 test("owner takes a lead from first message to enrolment and sees it on the dashboard", async ({ page }) => {
   await signIn(page, "retro@orladent.local");
@@ -11,7 +11,8 @@ test("owner takes a lead from first message to enrolment and sees it on the dash
 
   // 1. add a lead (keyboard shortcut) with an Arabic name
   await page.goto("/leads");
-  await page.keyboard.press("n");
+  await ready(page);
+    await page.keyboard.press("n");
   await page.fill("input[name=fullName]", "ياسمين فؤاد");
   await page.fill("input[name=phone]", "0100 777 6655");
   await page.click("[role=dialog] button:has-text('Add lead')");
@@ -20,7 +21,8 @@ test("owner takes a lead from first message to enrolment and sees it on the dash
 
   // 2. a duplicate of the same number (different format) is refused with a link back
   await page.goto("/leads");
-  await page.keyboard.press("n");
+  await ready(page);
+    await page.keyboard.press("n");
   await page.fill("input[name=fullName]", "Someone else");
   await page.fill("input[name=phone]", "+20 100 777 6655");
   await page.click("[role=dialog] button:has-text('Add lead')");
@@ -51,6 +53,7 @@ test("owner takes a lead from first message to enrolment and sees it on the dash
 
   // 5. enrol from the pipeline (Freelance Ready, list price pre-filled)
   await page.goto("/pipeline");
+  await ready(page);
   await page.locator("li", { hasText: "ياسمين فؤاد" }).locator("select").selectOption({ label: "Enrolled" });
   await expect(page.locator("[role=dialog]", { hasText: "Enrol student" })).toBeVisible();
   await page.locator("[role=dialog] select").first().selectOption({ index: 0 });
@@ -68,12 +71,14 @@ test("owner takes a lead from first message to enrolment and sees it on the dash
   expect(await stat(page, "Leads")).toBe("Leads 21");
   expect(await stat(page, "Revenue")).toContain("75,000 EGP"); // 60,000 + 15,000
   await page.goto("/dashboard?all=1");
+  await ready(page);
   await expect(page.locator("section[aria-label='Funnel'] li", { hasText: "Enrolled" })).toContainText("6");
 });
 
 test("a new user is nagged to set a password, changes it, is signed out, and the old password stops working", async ({ page }) => {
   await signIn(page, "sayed@orladent.local"); // an owner
   await page.goto("/settings/users");
+  await ready(page);
   const form = page.locator("form:has(h2:has-text('Add a user'))");
   await form.locator("input[name=name]").fill("Nada Sales");
   await form.locator("input[name=email]").fill("nada@orladent.local");
@@ -87,10 +92,12 @@ test("a new user is nagged to set a password, changes it, is signed out, and the
   await signIn(page, "nada@orladent.local", "first password 1");
   await expect(page.locator("[role=status]", { hasText: "initial password" })).toBeVisible();
   await expect(page.locator("nav a:has-text('Settings')")).toHaveCount(0); // sales: no settings link
-  await page.goto("/settings/users");
+  await page.goto("/settings/users"); // the not-found page has no app shell: nothing to wait for
   await expect(page.locator("h1", { hasText: "Not found" })).toBeVisible(); // no error page, no data
 
   await page.goto("/account");
+
+  await ready(page);
   await page.fill("input[name=current]", "first password 1");
   await page.fill("input[name=next]", "second password 2");
   await page.fill("input[name=confirm]", "second password 2");
@@ -111,7 +118,8 @@ test("release 1.1: command palette, template message with confirm, exit criteria
 
   // Ctrl+K finds a lead by a local-format phone number and opens it
   await page.goto("/");
-  // the shortcut only works once the page's scripts have loaded: retry until the palette opens
+  await ready(page);
+    // the shortcut only works once the page's scripts have loaded: retry until the palette opens
   await expect(async () => {
     if (!(await page.locator("[role=dialog][aria-label='Command palette']").isVisible())) await page.keyboard.press("Control+k");
     await expect(page.locator("[role=dialog][aria-label='Command palette']")).toBeVisible({ timeout: 1000 });
@@ -144,6 +152,7 @@ test("release 1.1: command palette, template message with confirm, exit criteria
 
   // board: Consult held -> Offer sent lists what is missing; owner can override with a reason
   await page.goto("/pipeline");
+  await ready(page);
   await page.locator("li", { hasText: "Demo Lead 12" }).locator("select").selectOption({ label: "Offer sent" });
   const dialog = page.locator("[role=dialog]");
   await expect(dialog).toContainText(/Not ready|Next step/);
@@ -156,6 +165,7 @@ test("release 1.1: command palette, template message with confirm, exit criteria
 
   // Today: "Done" asks for the next step in the same click
   await page.goto("/");
+  await ready(page);
   const before = await page.locator("#overdue li").count();
   expect(before).toBeGreaterThan(0);
   const row = page.locator("#overdue li").first();

@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { signIn } from "./helpers";
+import { ready, signIn } from "./helpers";
 
 // Automated WCAG 2.1 A/AA checks (axe-core) on every screen, in both themes, as an owner so that
 // every screen is reachable. Automated checks catch roughly a third of accessibility problems:
@@ -36,6 +36,7 @@ for (const t of ["dark", "light"] as const) {
   test(`every signed-in screen has no accessibility violations (${t})`, async ({ page }) => {
     await signIn(page, "retro@orladent.local");
     await page.goto("/leads");
+    await ready(page);
     const firstLead = await page.locator("tbody a[href^='/leads/']").first().getAttribute("href");
     const firstCohort = "/cohorts";
     const screens = [
@@ -46,12 +47,14 @@ for (const t of ["dark", "light"] as const) {
     ];
     for (const path of screens) {
       await page.goto(path);
+      await ready(page);
       await theme(page, t);
       await expect(page.locator("h1").first()).toBeVisible();
       await scan(page, `${path} (${t})`);
     }
     // the cohort detail page too
     await page.goto("/cohorts");
+    await ready(page);
     await page.locator("main a[href^='/cohorts/']").first().click();
     await theme(page, t);
     await scan(page, `cohort detail (${t})`);
@@ -60,13 +63,17 @@ for (const t of ["dark", "light"] as const) {
   test(`open dialogs have no accessibility violations (${t})`, async ({ page }) => {
     await signIn(page, "retro@orladent.local");
     await page.goto("/leads");
+    await ready(page);
     await theme(page, t);
+    await ready(page);
     await page.keyboard.press("n");
     await expect(page.locator("[role=dialog]")).toBeVisible();
     await scan(page, `quick add (${t})`);
     await page.keyboard.press("Escape");
 
     await page.goto("/pipeline");
+
+    await ready(page);
     await theme(page, t);
     await page.locator("li", { hasText: "Demo Lead 14" }).locator("select").selectOption({ label: "Lost" });
     await expect(page.locator("[role=dialog]")).toBeVisible();
@@ -74,7 +81,10 @@ for (const t of ["dark", "light"] as const) {
     await page.keyboard.press("Escape");
 
     await page.goto("/");
+
+    await ready(page);
     await theme(page, t);
+    await ready(page);
     // the shortcut only works once the page's scripts have loaded: retry until the palette opens
     await expect(async () => {
       if (!(await page.locator("[role=dialog][aria-label='Command palette']").isVisible())) await page.keyboard.press("Control+k");
@@ -94,15 +104,18 @@ for (const t of ["dark", "light"] as const) {
 test("the whole app can be used from the keyboard: skip link, shortcuts, focus indicator", async ({ page }) => {
   await signIn(page, "retro@orladent.local");
   await page.goto("/leads");
+  await ready(page);
   // first Tab stop is the skip link and it works
   await page.keyboard.press("Tab");
   await expect(page.locator("a:has-text('Skip to content')")).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("main")).toBeFocused();
   // "/" focuses the search box, "n" opens quick add, Escape closes it
+  await ready(page);
   await page.keyboard.press("/");
   await expect(page.locator("#search")).toBeFocused();
   await page.locator("#search").blur();
+  await ready(page);
   await page.keyboard.press("n");
   await expect(page.locator("[role=dialog]")).toBeVisible();
   await expect(page.locator("[role=dialog] input[name=fullName]")).toBeFocused();
