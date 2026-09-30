@@ -111,8 +111,11 @@ test("release 1.1: command palette, template message with confirm, exit criteria
 
   // Ctrl+K finds a lead by a local-format phone number and opens it
   await page.goto("/");
-  await page.keyboard.press("Control+k");
-  await expect(page.locator("[role=dialog][aria-label='Command palette']")).toBeVisible();
+  // the shortcut only works once the page's scripts have loaded: retry until the palette opens
+  await expect(async () => {
+    if (!(await page.locator("[role=dialog][aria-label='Command palette']").isVisible())) await page.keyboard.press("Control+k");
+    await expect(page.locator("[role=dialog][aria-label='Command palette']")).toBeVisible({ timeout: 1000 });
+  }).toPass();
   await page.keyboard.type("0108 000 0016");
   await expect(page.locator("[role=option]", { hasText: "Demo Lead 16" })).toBeVisible();
   await page.keyboard.press("Enter");

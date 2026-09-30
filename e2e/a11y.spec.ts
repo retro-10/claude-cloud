@@ -71,7 +71,11 @@ for (const t of ["dark", "light"] as const) {
 
     await page.goto("/");
     await theme(page, t);
-    await page.keyboard.press("Control+k");
+    // the shortcut only works once the page's scripts have loaded: retry until the palette opens
+    await expect(async () => {
+      if (!(await page.locator("[role=dialog][aria-label='Command palette']").isVisible())) await page.keyboard.press("Control+k");
+      await expect(page.locator("[role=dialog][aria-label='Command palette']")).toBeVisible({ timeout: 1000 });
+    }).toPass();
     await page.keyboard.type("demo");
     await expect(page.locator("[role=option]").first()).toBeVisible();
     await scan(page, `command palette (${t})`);

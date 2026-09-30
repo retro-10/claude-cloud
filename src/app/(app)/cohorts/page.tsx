@@ -35,7 +35,7 @@ export default async function CohortsPage(props: { searchParams: Promise<{ error
               key={c.id}
               href={`/cohorts/${c.id}`}
               style={{ animationDelay: `${i * 40}ms` }}
-              className={`card group relative flex flex-col gap-4 overflow-hidden p-5 transition hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-lift animate-rise-in ${open ? "" : "opacity-80"}`}
+              className={`card group relative flex flex-col gap-4 overflow-hidden p-5 transition hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-lift animate-rise-in`}
             >
               {open && <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold to-transparent" />}
               <div className="flex items-start justify-between gap-2">
