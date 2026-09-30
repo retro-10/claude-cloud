@@ -596,3 +596,18 @@ export const targets = pgTable(
   },
   (t) => [uniqueIndex("targets_metric_period_uq").on(t.metric, t.period)],
 );
+
+// The owners' weekly review: what went well, what missed, what was decided. The numbers of that week are
+// saved with it (snapshot) so the history reads the same after data changes.
+export const weeklyReviews = pgTable("weekly_reviews", {
+  id: serial("id").primaryKey(),
+  weekStart: text("week_start").notNull().unique(), // YYYY-MM-DD, the Monday (Cairo calendar)
+  wins: text("wins"),
+  misses: text("misses"),
+  decisions: text("decisions"),
+  notes: text("notes"),
+  snapshot: jsonb("snapshot").$type<Record<string, number>>().notNull().default({}),
+  updatedBy: integer("updated_by").references(() => users.id),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+  createdAt: createdAt(),
+});

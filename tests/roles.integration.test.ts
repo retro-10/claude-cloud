@@ -122,6 +122,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/settings/team/actions")),
       ...(await import("@/app/(app)/tasks/actions")),
       ...(await import("@/app/(app)/settings/targets/actions")),
+      ...(await import("@/app/(app)/command/actions")),
     };
   });
   afterAll(async () => {
@@ -161,6 +162,7 @@ d("role rules on the server", () => {
       return strict(() => A.taskStateAction(fd({ id: t.id, state: "done", back: "/tasks" })));
     }],
     ["saveTargetsAction", ["owner"], () => strict(() => A.saveTargetsAction(fd({ period: "2026-Q4", leads: "120", enrolments: "40" })))],
+    ["saveReviewAction", ["owner"], () => strict(() => A.saveReviewAction(fd({ week: "2026-10-05", wins: "A good week" })))],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 
