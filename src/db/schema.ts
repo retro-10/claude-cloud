@@ -550,3 +550,35 @@ export const notionSyncRuns = pgTable("notion_sync_runs", {
   conflicts: integer("conflicts").notNull().default(0),
   errors: jsonb("errors").$type<string[]>().notNull().default([]),
 });
+
+// ---------------- OrlaDent OS · Phase 1 ----------------
+
+export const taskPriorityEnum = pgEnum("task_priority", ["low", "normal", "high"]);
+
+// Team tasks: anything someone must do, optionally tied to a lead (or student) or a batch. Follow-ups stay the
+// sales cadence on a lead; a task is the rest of the work (prepare a masterclass, chase a certificate, edit a reel).
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    notes: text("notes"),
+    priority: taskPriorityEnum("priority").notNull().default("normal"),
+    assigneeId: integer("assignee_id").references(() => users.id),
+    dueAt: ts("due_at"), // 09:00 Cairo on the chosen day, like follow-ups
+    leadId: integer("lead_id").references(() => leads.id),
+    cohortId: integer("cohort_id").references(() => cohorts.id),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+    doneAt: ts("done_at"),
+    doneBy: integer("done_by").references(() => users.id),
+    cancelledAt: ts("cancelled_at"),
+  },
+  (t) => [
+    index("tasks_assignee_open_idx").on(t.assigneeId).where(sql`${t.doneAt} is null and ${t.cancelledAt} is null`),
+    index("tasks_due_idx").on(t.dueAt),
+    index("tasks_lead_idx").on(t.leadId),
+    index("tasks_cohort_idx").on(t.cohortId),
+  ],
+);

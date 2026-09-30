@@ -10,21 +10,24 @@ import { recentNotifications } from "@/lib/notifications";
 import { VIEWS, VIEW_ORDER } from "@/lib/views";
 import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
+import { taskCounts } from "@/lib/tasks";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const [src, counts, notes] = await Promise.all([
+  const [src, counts, notes, myTasks] = await Promise.all([
     db.select().from(sources).orderBy(asc(sources.id)),
     navCounts(db),
     recentNotifications(db, user.id),
+    taskCounts(db, user.id),
   ]);
 
   const nav: NavItem[] = [
     { href: "/", label: "Today", icon: "today", section: "Work", count: counts.today, alert: counts.overdue > 0, keys: "G T", exact: true },
     { href: "/leads", label: "Leads", icon: "leads", section: "Work", keys: "G L" },
     { href: "/pipeline", label: "Pipeline", icon: "pipeline", section: "Work", keys: "G P" },
+    { href: "/tasks", label: "Tasks", icon: "list", section: "Work", count: myTasks.mine, alert: myTasks.mineOverdue > 0, keys: "G K" },
     { href: "/cohorts", label: "Batches", icon: "cohorts", section: "Programme", keys: "G C" },
     { href: "/proof", label: "Proof bank", icon: "sparkle", section: "Programme" },
     { href: "/dashboard", label: "Dashboard", icon: "dashboard", section: "Insight", keys: "G D" },

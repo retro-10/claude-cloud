@@ -44,7 +44,7 @@ for (const t of ["dark", "light"] as const) {
       "/dashboard?all=1", "/account", "/settings/users", "/settings/pipeline", "/settings/lists", "/settings/cadences", "/settings/audit",
       "/settings/rules", "/settings/workflows", "/settings/templates", "/leads?view=no_next_step", "/leads?view=no_decision_review",
       `/leads/merge?a=${firstLead!.split("/").pop()}`, "/finance", "/finance/ledger", "/finance/candidates", "/settings/finance",
-      "/settings/integrations", "/settings/team", "/proof",
+      "/settings/integrations", "/settings/team", "/proof", "/tasks", "/tasks?who=done",
     ];
     for (const path of screens) {
       await page.goto(path);
@@ -63,7 +63,7 @@ for (const t of ["dark", "light"] as const) {
     await page.locator("main tbody a[href^='/leads/']").first().click();
     await ready(page);
     await theme(page, t);
-    await page.evaluate(() => document.querySelectorAll("section[aria-label='Programme'] details").forEach((d) => d.setAttribute("open", "")));
+    await page.evaluate(() => document.querySelectorAll("section[aria-label='Programme'] details, section[aria-label='Tasks'] details").forEach((d) => d.setAttribute("open", "")));
     await scan(page, `student with programme (${t})`);
   });
 

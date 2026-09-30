@@ -47,6 +47,15 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+// a redirect back with ?error= means the action ran but failed: for these entries that is not "worked"
+async function strict(fn: () => unknown) {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof Redirect && e.url.includes("error=")) throw new Error(`failed: ${decodeURIComponent(e.url)}`);
+    throw e;
+  }
+}
 type Outcome = { kind: "ok"; value: unknown } | { kind: "redirect"; url: string } | { kind: "forbidden" } | { kind: "error"; message: string };
 async function attempt(fn: () => unknown): Promise<Outcome> {
   try {
@@ -111,6 +120,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/settings/integrations/actions")),
       ...(await import("@/app/(app)/programme/actions")),
       ...(await import("@/app/(app)/settings/team/actions")),
+      ...(await import("@/app/(app)/tasks/actions")),
     };
   });
   afterAll(async () => {
@@ -144,6 +154,11 @@ d("role rules on the server", () => {
     ["updateProgrammeAction", ["owner", "sales"], () => A.updateProgrammeAction(fd({ enrolmentId, qcScore: "80", leaderboardRank: "", contentConsent: "on", contentConsentScope: "Video", back: "/proof" }))],
     ["saveSessionAction", ["owner", "sales"], () => A.saveSessionAction(fd({ enrolmentId, name: `S${++n}`, type: "Production Partner 1:1", back: "/proof" }))],
     ["saveProofAction", ["owner", "sales"], () => A.saveProofAction(fd({ enrolmentId, name: `P${++n}`, consentStatus: "Asked", back: "/proof" }))],
+    ["createTaskAction", ["owner", "sales", "finance"], () => strict(() => A.createTaskAction(fd({ title: `Task ${++n}`, leadId, due: "2030-01-01", back: "/tasks" })))],
+    ["taskStateAction", ["owner", "sales", "finance"], async () => {
+      const [t] = await db.insert(s.tasks).values({ title: `Task ${++n}` }).returning();
+      return strict(() => A.taskStateAction(fd({ id: t.id, state: "done", back: "/tasks" })));
+    }],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 
@@ -176,7 +191,10 @@ d("role rules on the server", () => {
     const victim = await freshLead();
     const before = { act: await count("activities"), users: await count("users"), cohorts: await count("cohorts"), stageEv: await count("stage_events") };
 
+    const tasksBefore = await count("tasks");
     await signInAs(email("viewer"));
+    await attempt(() => A.createTaskAction(fd({ title: "Nope", back: "/tasks" })));
+    expect(await count("tasks")).toBe(tasksBefore);
     await attempt(() => A.addActivity(fd({ id: victim, type: "note", direction: "internal", body: "x" })));
     await attempt(() => A.moveLead({ leadId: victim, stage: "contacted" }));
     await signInAs(email("finance"));

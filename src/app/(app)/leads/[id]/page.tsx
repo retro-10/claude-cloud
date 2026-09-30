@@ -9,6 +9,8 @@ import { LiveWait } from "@/components/crm/LiveWait";
 import { StageStepper } from "@/components/crm/StageStepper";
 import { ConsultsPanel } from "@/components/ConsultsPanel";
 import { CandidateMoney } from "@/components/finance/CandidateMoney";
+import { TaskForm, TaskList } from "@/components/tasks/TaskPanel";
+import { listTasks } from "@/lib/tasks";
 import { ProgrammeCard } from "@/components/programme/ProgrammeCard";
 import { Flash } from "@/components/Flash";
 import { LeadForm } from "@/components/LeadForm";
@@ -80,7 +82,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
         .orderBy(asc(ledgerEntries.createdAt))
     : [];
   const enrolmentIds = candidates.map((c) => c.enrolmentId);
-  const [sessions, proof] = await Promise.all([listSessions(db, enrolmentIds), listProof(db, { enrolmentIds })]);
+  const [sessions, proof, leadTasks] = await Promise.all([listSessions(db, enrolmentIds), listProof(db, { enrolmentIds }), listTasks(db, { leadId: id, status: "all" })]);
   const openFus = fus.filter((f) => !f.doneAt && !f.cancelledAt).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime());
   const stage = stageList.find((s) => s.key === lead.stage);
   const stageLabel = (k: string | null) => stageList.find((s) => s.key === k)?.label ?? k ?? "";
@@ -465,6 +467,15 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
           </Card>
 
           <ConsultsPanel leadId={lead.id} canWrite={canWrite} />
+
+          <Card title="Tasks" icon="list" label="Tasks">
+            <TaskList rows={leadTasks} back={`/leads/${lead.id}`} canWrite={can(user.role, "task:write")} showLinks={false} empty="No tasks on this lead." />
+            {can(user.role, "task:write") && !lead.deletedAt && (
+              <div className="mt-3">
+                <TaskForm people={ownerList} back={`/leads/${lead.id}`} leadId={lead.id} me={user.id} />
+              </div>
+            )}
+          </Card>
 
           {can(user.role, "finance:read") && candidates.map((c) => (
             <Card key={c.enrolmentId} title={`${c.cohort} · ${TIER_LABEL[c.tier] ?? c.tier}`} icon="cohorts" label="Payments">

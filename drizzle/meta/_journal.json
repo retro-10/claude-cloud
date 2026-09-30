@@ -50,6 +50,13 @@
       "when": 1790769677447,
       "tag": "0006_team_duties",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790793857811,
+      "tag": "0007_tasks",
+      "breakpoints": true
     }
   ]
 }

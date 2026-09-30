@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { activities, consentRecords, consults, enrolments, followUps, leadMerges, leads } from "@/db/schema";
+import { activities, consentRecords, consults, enrolments, followUps, leadMerges, leads, tasks } from "@/db/schema";
 import { audit } from "./audit";
 
 /**
@@ -47,7 +47,7 @@ export type MergeResult = { ok: true; mergeId: number } | { ok: false; error: st
 
 // Children that move with the person. stage_events stay on their own lead: the funnel counts each lead's
 // own history, and the merged-away lead is excluded from metrics once deleted.
-const CHILDREN = { activities, followUps, consults, enrolments, consentRecords } as const;
+const CHILDREN = { activities, followUps, consults, enrolments, consentRecords, tasks } as const;
 type ChildKey = keyof typeof CHILDREN;
 
 const minDate = (a: Date | null, b: Date | null) => (a && b ? (a < b ? a : b) : (a ?? b));

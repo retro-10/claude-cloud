@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
+import { users } from "@/db/schema";
+import { TaskForm, TaskList } from "@/components/tasks/TaskPanel";
+import { listTasks } from "@/lib/tasks";
 import { Flash } from "@/components/Flash";
 import { PaidBar } from "@/components/finance/CandidateMoney";
 import { Card, EmptyState, Icon, PageHeader, Stat, pretty } from "@/components/ui";
@@ -20,7 +24,11 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
   const user = await requireUser();
   const id = Number(params.id);
   if (!Number.isInteger(id)) notFound();
-  const data = await getCohort(db, id);
+  const [data, batchTasks, people] = await Promise.all([
+    getCohort(db, id),
+    listTasks(db, { cohortId: id, status: "open" }),
+    db.select({ id: users.id, name: users.name }).from(users).where(eq(users.active, true)).orderBy(asc(users.name)),
+  ]);
   if (!data) notFound();
   const { summary: c, students, byTier } = data;
   const pct = Math.min(100, Math.round((c.seatsUsed / c.seatCap) * 100));
@@ -65,6 +73,15 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
           </span>
         ))}
       </div>
+
+      <Card title={`Tasks for this batch (${batchTasks.length})`} icon="list" className="mb-6">
+        <TaskList rows={batchTasks} back={`/cohorts/${c.id}`} canWrite={can(user.role, "task:write")} showLinks={false} empty="No open tasks for this batch." />
+        {can(user.role, "task:write") && (
+          <div className="mt-3">
+            <TaskForm people={people} back={`/cohorts/${c.id}`} cohortId={c.id} me={user.id} />
+          </div>
+        )}
+      </Card>
 
       <Card title={`Students (${students.length})`} icon="leads" bodyClass="p-0" className="mb-6">
         {students.length === 0 ? (
