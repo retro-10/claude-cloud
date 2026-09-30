@@ -582,3 +582,17 @@ export const tasks = pgTable(
     index("tasks_cohort_idx").on(t.cohortId),
   ],
 );
+
+// Quarterly targets the owners set ("2026-Q4": 60 enrolments). Progress is computed live from the CRM's own data.
+export const targets = pgTable(
+  "targets",
+  {
+    id: serial("id").primaryKey(),
+    metric: text("metric").notNull(), // leads | consults_held | enrolments | revenue_egp | cash_egp
+    period: text("period").notNull(), // YYYY-Qn, Cairo calendar quarters
+    value: integer("value").notNull(),
+    updatedBy: integer("updated_by").references(() => users.id),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("targets_metric_period_uq").on(t.metric, t.period)],
+);

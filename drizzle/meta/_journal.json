@@ -57,6 +57,13 @@
       "when": 1790793857811,
       "tag": "0007_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790794113310,
+      "tag": "0008_targets",
+      "breakpoints": true
     }
   ]
 }
