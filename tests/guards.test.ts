@@ -42,7 +42,7 @@ describe("every server action checks the caller on the server", () => {
 
   it("write actions use requireCan with an explicit permission, not just a sign-in check", () => {
     // requireUser alone is only right for read-only or self-service actions
-    const selfService = new Set(["changePasswordAction"]);
+    const selfService = new Set(["changePasswordAction", "markNotificationsReadAction"]);
     for (const f of actionFiles) {
       for (const fn of exportedAsyncFunctions(readFileSync(f, "utf8"))) {
         if (PUBLIC_ACTIONS.has(`${rel(f)}:${fn.name}`) || selfService.has(fn.name)) continue;

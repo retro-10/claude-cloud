@@ -83,7 +83,7 @@ export const BUILTIN_RULES: {
     trigger: "inbound_logged",
     conditions: {},
     actions: [
-      { type: "cancel_follow_ups" },
+      { type: "cancel_cadence" },
       { type: "create_follow_up", kind: "reply", note: "They replied: answer them", dueInMinutes: 0 },
     ],
     position: 2,

@@ -8,14 +8,22 @@ import { bulkAssign, bulkCadence, bulkChangeStage, BULK_MAX } from "@/lib/bulk";
 import { applyCadence, cancelFollowUp, completeFollowUp, createFollowUp, rescheduleFollowUp } from "@/lib/followups";
 import { logActivity } from "@/lib/leads";
 import { requireCan } from "@/lib/server-auth";
-import { followUpDue } from "@/lib/time";
+import { addDaysYmd, cairoYmd, followUpDue } from "@/lib/time";
+
+// A date picked in the form, or a quick choice ("+1", "+3", "+7" days from today, Cairo calendar).
+function pickDate(form: FormData): Date | null {
+  const days = form.get("days");
+  if (typeof days === "string" && /^\d{1,3}$/.test(days)) return followUpDue(addDaysYmd(cairoYmd(new Date()), Number(days)));
+  const date = form.get("date");
+  return typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) ? followUpDue(date) : null;
+}
 
 const id = z.coerce.number().int().positive();
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const kinds = z.enum(["whatsapp", "call", "instagram", "linkedin", "email", "other"]);
 
 function refresh(leadId?: number) {
-  revalidatePath("/");
+  revalidatePath("/", "layout"); // sidebar counts change too
   if (leadId) revalidatePath(`/leads/${leadId}`);
 }
 
@@ -30,19 +38,34 @@ export async function addFollowUpAction(form: FormData) {
   refresh(p.id);
 }
 
+// P6: finishing a follow-up asks for the next one in the same click ("Done, next in 3 days").
 export async function completeFollowUpAction(form: FormData) {
   const user = await requireCan("lead:write");
-  const p = z.object({ id, leadId: id }).parse(Object.fromEntries(form));
-  await completeFollowUp(db, p.id, user.id);
+  const p = z.object({ id, leadId: id }).parse({ id: form.get("id"), leadId: form.get("leadId") });
+  const done = await completeFollowUp(db, p.id, user.id);
+  const next = pickDate(form);
+  if (done && next) {
+    const note = z.string().max(2000).optional().parse(form.get("note") ?? undefined);
+    await createFollowUp(db, { leadId: p.leadId, dueAt: next, kind: "whatsapp", note: note || "Next step" }, user.id);
+  }
   refresh(p.leadId);
 }
 
 export async function rescheduleFollowUpAction(form: FormData) {
   const user = await requireCan("lead:write");
-  const p = z.object({ id, leadId: id, date: ymd }).parse(Object.fromEntries(form));
-  const due = followUpDue(p.date);
+  const p = z.object({ id, leadId: id }).parse({ id: form.get("id"), leadId: form.get("leadId") });
+  const due = pickDate(form);
   if (due) await rescheduleFollowUp(db, p.id, due, user.id);
   refresh(p.leadId);
+}
+
+// P6 on Today: give a lead with no next step a dated follow-up in one click.
+export async function setNextStepAction(form: FormData) {
+  const user = await requireCan("lead:write");
+  const leadId = id.parse(form.get("leadId"));
+  const due = pickDate(form);
+  if (due) await createFollowUp(db, { leadId, dueAt: due, kind: "whatsapp", note: "Next step" }, user.id);
+  refresh(leadId);
 }
 
 export async function cancelFollowUpAction(form: FormData) {

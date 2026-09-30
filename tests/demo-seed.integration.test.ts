@@ -52,7 +52,7 @@ d("demo data for a fresh clone", () => {
     expect(t.overdue.length).toBeGreaterThan(0);
     expect(t.dueToday.length).toBeGreaterThan(0);
     expect(t.consultsToday).toHaveLength(1);
-    expect(t.uncontacted.length).toBe(2); // demo leads 16 and 17
+    expect(t.queue.filter((q) => q.reason === "new").length).toBe(2); // demo leads 16 and 17
     expect(t.decisionsDue.map((l) => l.fullName)).toEqual(["Demo Lead 13"]);
   });
 });

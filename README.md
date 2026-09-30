@@ -7,6 +7,7 @@ always know who to contact today, and see where the funnel leaks. Next.js 15 + P
 * How to use it day to day: [`USER_GUIDE.md`](USER_GUIDE.md)
 * Why it is built the way it is (and what was and was not verified): [`DECISIONS.md`](DECISIONS.md)
 * Open questions for the owner: [`QUESTIONS.md`](QUESTIONS.md)
+* What every number means: [`METRICS.md`](METRICS.md)
 
 ## Run it locally (about 5 minutes)
 

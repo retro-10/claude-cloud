@@ -6,84 +6,92 @@ import { requireUser } from "@/lib/server-auth";
 import { closeLabel, egp } from "@/lib/cohort-format";
 import { formatCairo } from "@/lib/time";
 import { createCohortAction } from "./actions";
+import { Flash } from "@/components/Flash";
+import { EmptyState, PageHeader } from "@/components/ui";
 
-const box = "rounded border border-line bg-bg px-2 py-1.5 text-sm";
+const box = "input";
 
 export default async function CohortsPage(props: { searchParams: Promise<{ error?: string }> }) {
   const searchParams = await props.searchParams;
   const user = await requireUser();
   const list = await listCohorts(db);
+  const now = new Date();
   return (
     <>
-      <h1 className="mb-3 font-display text-2xl">Cohorts</h1>
-      {searchParams.error && (
-        <p role="alert" className="mb-3 text-sm text-danger">
-          {searchParams.error}
-        </p>
+      <PageHeader eyebrow="Programme" title="Cohorts" subtitle="Seats are real QC capacity. Every deadline in the CRM and in templates comes from these records." />
+      <Flash error={searchParams.error} />
+      {list.length === 0 && (
+        <div className="card">
+          <EmptyState icon="cohorts" title="No cohorts yet" />
+        </div>
       )}
-      <div className="overflow-x-auto rounded border border-line">
-        <table className="w-full min-w-[640px] text-left text-sm">
-          <thead className="bg-surface text-xs uppercase text-muted">
-            <tr>
-              <th className="px-3 py-2">Cohort</th>
-              <th className="px-3 py-2">Masterclass</th>
-              <th className="px-3 py-2">Enrolment</th>
-              <th className="px-3 py-2">Seats</th>
-              <th className="px-3 py-2">Revenue</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((c) => (
-              <tr key={c.id} className="border-t border-line hover:bg-surface/60">
-                <td className="px-3 py-2">
-                  <Link href={`/cohorts/${c.id}`} className="font-medium hover:text-accent" dir="auto">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {list.map((c, i) => {
+          const pct = c.seatCap ? Math.min(100, Math.round((c.seatsUsed / c.seatCap) * 100)) : 0;
+          const full = c.seatsUsed >= c.seatCap;
+          const open = c.enrolmentCloseAt ? c.enrolmentCloseAt > now : true;
+          return (
+            <Link
+              key={c.id}
+              href={`/cohorts/${c.id}`}
+              style={{ animationDelay: `${i * 40}ms` }}
+              className={`card group relative flex flex-col gap-4 overflow-hidden p-5 transition hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-lift animate-rise-in ${open ? "" : "opacity-80"}`}
+            >
+              {open && <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold to-transparent" />}
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h2 className="font-display text-xl font-semibold group-hover:text-accent" dir="auto">
                     {c.name}
-                  </Link>
-                </td>
-                <td className="px-3 py-2 text-muted">{formatCairo(c.masterclassAt, false) || "—"}</td>
-                <td className="px-3 py-2">{closeLabel(c.enrolmentCloseAt)}</td>
-                <td className={`px-3 py-2 ${c.seatsUsed >= c.seatCap ? "text-warn" : ""}`}>
-                  {c.seatsUsed}/{c.seatCap}
-                </td>
-                <td className="px-3 py-2">{egp(c.revenueEgp)}</td>
-              </tr>
-            ))}
-            {list.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-muted">
-                  No cohorts yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                  </h2>
+                  <p className="mt-0.5 text-xs text-muted">Masterclass {formatCairo(c.masterclassAt, false) || "not set"}</p>
+                </div>
+                <span className={`chip ${open ? (full ? "chip-warn" : "chip-gold") : ""}`}>{closeLabel(c.enrolmentCloseAt)}</span>
+              </div>
+              <div>
+                <div className="mb-1.5 flex items-baseline justify-between text-sm">
+                  <span className="text-muted">Seats</span>
+                  <span className="num font-medium">
+                    {c.seatsUsed} / {c.seatCap}
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-raised" role="progressbar" aria-label={`${c.name} seats taken`} aria-valuenow={c.seatsUsed} aria-valuemin={0} aria-valuemax={c.seatCap}>
+                  <div className={`h-full rounded-full ${full ? "bg-warn" : "bg-gradient-to-r from-gold-deep to-gold"}`} style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+              <div className="flex items-baseline justify-between border-t border-line pt-3">
+                <span className="text-xs text-muted">Revenue</span>
+                <span className="num font-display text-lg font-semibold">{egp(c.revenueEgp)}</span>
+              </div>
+            </Link>
+          );
+        })}
       </div>
 
       {can(user.role, "settings:write") && (
-        <form action={createCohortAction} className="mt-6 grid max-w-2xl grid-cols-1 gap-3 rounded border border-line bg-surface p-3 sm:grid-cols-2">
-          <h2 className="font-display text-lg sm:col-span-2">New cohort</h2>
-          <label className="flex flex-col gap-1 text-xs text-muted">
+        <form action={createCohortAction} className="card mt-6 grid max-w-2xl grid-cols-1 gap-3 p-5 sm:grid-cols-2">
+          <h2 className="font-display text-lg font-semibold sm:col-span-2">New cohort</h2>
+          <label className="field">
             Name
             <input name="name" required dir="auto" className={box} />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
+          <label className="field">
             Seat cap (real QC capacity)
             <input name="seatCap" type="number" min={1} required className={box} />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
+          <label className="field">
             Masterclass (Cairo time)
             <input name="masterclassAt" type="datetime-local" className={box} />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
+          <label className="field">
             Enrolment closes (Cairo time)
             <input name="enrolmentCloseAt" type="datetime-local" className={box} />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
+          <label className="field">
             Course starts
             <input name="startAt" type="datetime-local" className={box} />
           </label>
           <div className="flex items-end">
-            <button className="rounded bg-gold px-3 py-1.5 text-sm font-medium text-ink">Create cohort</button>
+            <button className="btn btn-primary">Create cohort</button>
           </div>
         </form>
       )}

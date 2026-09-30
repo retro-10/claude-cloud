@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { activities, consentRecords, consults, enrolments, followUps, leadMerges, leads } from "@/db/schema";
 import { audit } from "./audit";
@@ -139,4 +139,17 @@ export async function undoableMerges(db: Pick<Db, "select">, leadId: number, now
     .where(and(eq(leadMerges.survivorId, leadId), isNull(leadMerges.undoneAt)))
     .orderBy(desc(leadMerges.mergedAt));
   return rows.filter((r) => now.getTime() - r.mergedAt.getTime() <= UNDO_DAYS * 86_400_000);
+}
+
+/** Likely duplicates of a lead, for the merge picker: same name (Arabic variants folded), same email, or same last 8 phone digits. */
+export async function duplicateCandidates(db: Db, leadId: number, limit = 8) {
+  const rows = (await db.execute(sql`
+    select c.id, c.full_name, c.phone_whatsapp, c.email, c.city, c.stage
+    from leads l join leads c on c.id <> l.id and c.deleted_at is null
+    where l.id = ${leadId} and (
+      translate(lower(c.full_name), 'أإآٱىة', 'اااايه') = translate(lower(l.full_name), 'أإآٱىة', 'اااايه')
+      or (l.email is not null and lower(c.email) = lower(l.email))
+      or (l.phone_whatsapp is not null and right(c.phone_whatsapp, 8) = right(l.phone_whatsapp, 8)))
+    order by c.updated_at desc limit ${limit}`)) as unknown as { id: number; full_name: string; phone_whatsapp: string | null; email: string | null; city: string | null; stage: string }[];
+  return rows.map((r) => ({ id: r.id, fullName: r.full_name, phone: r.phone_whatsapp, email: r.email, city: r.city, stage: r.stage }));
 }

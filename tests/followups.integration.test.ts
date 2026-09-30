@@ -163,16 +163,17 @@ d("follow-ups, cadences, stop rules, today", () => {
     expect(t.dueToday.map((f) => f.leadName)).toEqual([earlyToday.fullName]);
     expect(t.consultsToday.map((c) => c.leadId)).toEqual([earlyToday.id]);
     expect(t.decisionsDue.map((l) => l.id)).toEqual([o4.id]);
-    expect(t.decisionsDue[0].daysInStage).toBe(4);
-    const unc = t.uncontacted.map((l) => l.id);
+    // no agreed decision date: due once the offer is older than the threshold (3 days by default)
+    expect(t.decisionsDue[0].since?.getTime()).toBe(now.getTime() - 4 * 86_400_000);
+    const unc = t.queue.filter((q) => q.reason === "new").map((q) => q.leadId);
     expect(unc).not.toContain(contacted.id);
     expect(unc).toContain(tomorrow.id);
     expect(unc).not.toContain(gone.id); // deleted
-    expect(unc).toEqual([...unc].sort((x, y) => x - y)); // created in id order == oldest first
+    expect(unc).toEqual([...unc].sort((x, y) => x - y)); // created in id order == longest waiting first
 
     const mine = await getToday(db, { now, ownerId: 999999 });
     expect(mine.overdue).toHaveLength(0);
-    expect(mine.uncontacted).toHaveLength(0);
+    expect(mine.queue).toHaveLength(0);
   });
 
   it("bulk: stage moves report per-lead outcomes; assign; cadence skips those already running", async () => {

@@ -7,7 +7,7 @@ import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 
 export const metadata = { title: "Audit log · Settings" };
-const field = "rounded border border-line bg-surface px-2 py-1.5 text-sm";
+const field = "input";
 
 export default async function AuditPage(props: { searchParams: Promise<{ entity?: string; user?: string; page?: string }> }) {
   const searchParams = await props.searchParams;
@@ -51,13 +51,13 @@ export default async function AuditPage(props: { searchParams: Promise<{ entity?
             ))}
           </select>
         </label>
-        <button className="rounded bg-gold px-3 py-1.5 text-sm font-medium text-ink">Filter</button>
+        <button className="btn btn-primary">Filter</button>
         <span className="py-1.5 text-sm text-muted">{total} entries</span>
       </form>
-      <div className="overflow-x-auto rounded border border-line">
+      <div className="card overflow-x-auto">
         <table className="w-full min-w-[640px] text-left text-sm">
           <caption className="sr-only">Audit log, newest first</caption>
-          <thead className="bg-surface text-xs uppercase text-muted">
+          <thead className="text-[11px] uppercase tracking-wider text-muted">
             <tr>
               <th scope="col" className="px-3 py-2">When (Cairo)</th>
               <th scope="col" className="px-3 py-2">User</th>

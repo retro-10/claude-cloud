@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/server-auth";
 import { changePasswordAction } from "../settings/actions";
 
 export const metadata = { title: "My account" };
-const box = "rounded border border-line bg-bg px-3 py-2 text-sm";
+const box = "input";
 
 export default async function AccountPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const searchParams = await props.searchParams;
@@ -16,8 +16,8 @@ export default async function AccountPage(props: { searchParams: Promise<{ notic
         {user.name} · <span dir="ltr">{user.email}</span> · {user.role}
       </p>
       <Flash {...searchParams} />
-      <form action={changePasswordAction} className="flex max-w-sm flex-col gap-3 rounded border border-line bg-surface p-4">
-        <h2 className="font-display text-lg">Change password</h2>
+      <form action={changePasswordAction} className="flex max-w-sm flex-col gap-3 card p-5">
+        <h2 className="font-display text-lg font-semibold">Change password</h2>
         <label className="flex flex-col gap-1 text-xs text-muted">
           Current password
           <input name="current" type="password" required autoComplete="current-password" className={box} />
@@ -30,7 +30,7 @@ export default async function AccountPage(props: { searchParams: Promise<{ notic
           Repeat new password
           <input name="confirm" type="password" required minLength={MIN_PASSWORD} autoComplete="new-password" className={box} />
         </label>
-        <button className="self-start rounded bg-gold px-3 py-2 text-sm font-medium text-ink">Change password</button>
+        <button className="btn btn-primary self-start">Change password</button>
         <p className="text-xs text-muted">You will be signed out everywhere and asked to sign in again.</p>
       </form>
     </>

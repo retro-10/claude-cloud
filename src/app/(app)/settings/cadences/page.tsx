@@ -7,7 +7,7 @@ import { STEP_KINDS, stepsToText } from "@/lib/settings";
 import { deleteTemplateAction, saveTemplateAction } from "../actions";
 
 export const metadata = { title: "Cadences · Settings" };
-const box = "rounded border border-line bg-bg px-2 py-1.5 text-sm";
+const box = "input";
 
 export default async function CadenceSettings(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const searchParams = await props.searchParams;
@@ -22,7 +22,7 @@ export default async function CadenceSettings(props: { searchParams: Promise<{ n
       </p>
       <div className="flex max-w-3xl flex-col gap-4">
         {list.map((t) => (
-          <section key={t.id} className="rounded border border-line bg-surface p-3">
+          <section key={t.id} className="card p-4">
             <form action={saveTemplateAction} className="flex flex-col gap-2">
               <input type="hidden" name="id" value={t.id} />
               <label className="flex flex-col gap-1 text-xs text-muted">
@@ -34,7 +34,7 @@ export default async function CadenceSettings(props: { searchParams: Promise<{ n
                 <textarea name="steps" defaultValue={stepsToText(t.steps)} rows={Math.max(4, t.steps.length + 1)} required dir="auto" className={`${box} font-mono`} />
               </label>
               <div className="flex gap-2">
-                <button className="rounded bg-gold px-3 py-1.5 text-sm font-medium text-ink">Save</button>
+                <button className="btn btn-primary">Save</button>
               </div>
             </form>
             <form action={deleteTemplateAction} className="mt-2">
@@ -43,9 +43,9 @@ export default async function CadenceSettings(props: { searchParams: Promise<{ n
             </form>
           </section>
         ))}
-        <section className="rounded border border-line bg-surface p-3">
+        <section className="card p-4">
           <form action={saveTemplateAction} className="flex flex-col gap-2">
-            <h2 className="font-display text-lg">New template</h2>
+            <h2 className="font-display text-lg font-semibold">New template</h2>
             <label className="flex flex-col gap-1 text-xs text-muted">
               Name
               <input name="name" required maxLength={80} dir="auto" className={box} />
@@ -55,7 +55,7 @@ export default async function CadenceSettings(props: { searchParams: Promise<{ n
               <textarea name="steps" rows={4} required dir="auto" placeholder={"0 | whatsapp | Warm-up\n3 | whatsapp | Value clip"} className={`${box} font-mono`} />
             </label>
             <div>
-              <button className="rounded bg-gold px-3 py-1.5 text-sm font-medium text-ink">Create</button>
+              <button className="btn btn-primary">Create</button>
             </div>
           </form>
         </section>

@@ -14,5 +14,5 @@ export async function signIn(page: Page, email: string, password = PASSWORD) {
 /** Text of a dashboard KPI card, e.g. stat(page, "Leads") -> "Leads 20". */
 export async function stat(page: Page, label: string) {
   await page.goto("/dashboard?all=1");
-  return (await page.locator(`div:has(> div:text-is("${label}"))`).first().innerText()).replace(/\s+/g, " ");
+  return (await page.locator(`[data-stat="${label}"]`).first().innerText()).replace(/\s+/g, " ").trim();
 }

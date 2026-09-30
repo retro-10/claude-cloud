@@ -355,6 +355,7 @@ export type RuleAction =
   | { type: "create_follow_up"; kind: string; note: string; dueInMinutes?: number; dueAt?: "decision_date" }
   | { type: "apply_cadence"; cadence: string }
   | { type: "cancel_follow_ups" }
+  | { type: "cancel_cadence" }
   | { type: "add_tag"; tag: string; ifLostReasons?: string[] }
   | { type: "set_owner"; userId: number }
   | { type: "notify"; title: string };

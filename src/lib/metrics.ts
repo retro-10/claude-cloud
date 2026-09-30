@@ -38,7 +38,8 @@ export type Metrics = {
     byCohort: { id: number; name: string; count: number; egp: number }[];
     bySource: { label: string; count: number; egp: number }[];
   };
-  leaks: { lostReasons: Count[]; objections: Count[] };
+  // P5: an explicit "no" and "went silent after the offer" (no decision) are reported apart
+  leaks: { lostReasons: (Count & { noDecision: boolean })[]; objections: Count[]; lostExplicit: number; lostNoDecision: number };
   sources: { label: string; leads: number; enrolled: number; rate: Rate }[];
   campaigns: { label: string; leads: number; enrolled: number; rate: Rate }[];
   weekly: { week: string; leads: number; consults: number; enrolments: number }[];
@@ -99,8 +100,8 @@ export async function getMetrics(db: Db, f: MetricFilters = {}, now: Date = new 
             join cohorts c on c.id = e.cohort_id group by c.id, c.name order by c.id`),
       q(sql`select coalesce(s.label, 'Unknown') as k, count(*)::int as n, sum(e.amount_egp)::int as egp from enrolments e
             join sel on sel.id = e.lead_id left join sources s on s.id = sel.source_id group by s.label order by sum(e.amount_egp) desc, s.label`),
-      q(sql`select r.label as k, count(*)::int as n from leads l join sel on sel.id = l.id join lost_reasons r on r.id = l.lost_reason_id
-            where l.stage in (select key from stages where kind = 'lost') group by r.label order by count(*) desc, r.label limit 5`),
+      q(sql`select r.label as k, r.kind as kind, count(*)::int as n from leads l join sel on sel.id = l.id join lost_reasons r on r.id = l.lost_reason_id
+            where l.stage in (select key from stages where kind = 'lost') group by r.label, r.kind order by count(*) desc, r.label`),
       q(sql`select o.label as k, count(*)::int as n from consult_objections co join consults c on c.id = co.consult_id
             join sel on sel.id = c.lead_id join objections o on o.id = co.objection_id group by o.label order by count(*) desc, o.label limit 5`),
       q(sql`select coalesce(s.label, 'Unknown') as k, count(*)::int as leads,
@@ -177,7 +178,9 @@ export async function getMetrics(db: Db, f: MetricFilters = {}, now: Date = new 
       bySource: bySource.map((r) => ({ label: String(r.k), count: n(r.n), egp: n(r.egp) })),
     },
     leaks: {
-      lostReasons: lost.map((r) => ({ label: String(r.k), count: n(r.n) })),
+      lostReasons: lost.slice(0, 5).map((r) => ({ label: String(r.k), count: n(r.n), noDecision: r.kind === "no_decision" })),
+      lostExplicit: lost.filter((r) => r.kind !== "no_decision").reduce((a, r) => a + n(r.n), 0),
+      lostNoDecision: lost.filter((r) => r.kind === "no_decision").reduce((a, r) => a + n(r.n), 0),
       objections: objs.map((r) => ({ label: String(r.k), count: n(r.n) })),
     },
     sources: srcQ.map((r) => ({ label: String(r.k), leads: n(r.leads), enrolled: n(r.enrolled), rate: rate(n(r.enrolled), n(r.leads)) })),

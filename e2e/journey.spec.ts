@@ -38,8 +38,9 @@ test("owner takes a lead from first message to enrolment and sees it on the dash
 
   // 4. book a consult for tomorrow, then record it as held with two objections
   const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10) + "T16:30";
-  await page.fill("form:has(button:has-text('Book')) input[name=when]", tomorrow);
-  await page.click("button:has-text('Book')");
+  const book = page.locator("form:has(input[name=confirmed])");
+  await book.locator("input[name=when]").fill(tomorrow);
+  await book.locator("button").click();
   await expect(page.getByText("Scheduled", { exact: true })).toBeVisible();
   await page.click("summary:has-text('Record result')");
   await page.locator("form:has(button:has-text('Save result')) select[name=outcome]").selectOption("enrolled");
@@ -55,7 +56,11 @@ test("owner takes a lead from first message to enrolment and sees it on the dash
   await page.locator("[role=dialog] select").first().selectOption({ index: 0 });
   await page.locator("[role=dialog] select").nth(1).selectOption("freelance_ready");
   await expect(page.locator("[role=dialog] input[inputmode=numeric]")).toHaveValue("15000");
-  await page.click("[role=dialog] button:has-text('Enrol')");
+  // exit criterion for Enrolled: no payment reference, no enrolment
+  await page.click("[role=dialog] button:text-is('Enrol')");
+  await expect(page.locator("[role=dialog] [role=alert]")).toContainText("Payment confirmed with a reference");
+  await page.fill("[role=dialog] input[placeholder='Paymob transaction id']", "PMB-778899");
+  await page.click("[role=dialog] button:text-is('Enrol')");
   await expect(page.locator("[role=dialog]")).toHaveCount(0);
   await expect(page.locator("section[aria-label='Enrolled']", { hasText: "ياسمين فؤاد" })).toBeVisible();
 
@@ -63,7 +68,7 @@ test("owner takes a lead from first message to enrolment and sees it on the dash
   expect(await stat(page, "Leads")).toBe("Leads 21");
   expect(await stat(page, "Revenue")).toContain("75,000 EGP"); // 60,000 + 15,000
   await page.goto("/dashboard?all=1");
-  await expect(page.locator("section:has(h2:has-text('Funnel')) tr", { hasText: "Enrolled" })).toContainText("6");
+  await expect(page.locator("section[aria-label='Funnel'] li", { hasText: "Enrolled" })).toContainText("6");
 });
 
 test("a new user is nagged to set a password, changes it, is signed out, and the old password stops working", async ({ page }) => {
@@ -98,4 +103,60 @@ test("a new user is nagged to set a password, changes it, is signed out, and the
   await expect(page.locator("form [role=alert]")).toContainText("Wrong email or password");
   await signIn(page, "nada@orladent.local", "second password 2");
   await expect(page.locator("[role=status]", { hasText: "initial password" })).toHaveCount(0);
+});
+
+test("release 1.1: command palette, template message with confirm, exit criteria on the board, done with next step", async ({ page, context }) => {
+  await context.route("https://wa.me/**", (r) => r.fulfill({ status: 200, body: "whatsapp" })); // never leave the sandbox
+  await signIn(page, "retro@orladent.local");
+
+  // Ctrl+K finds a lead by a local-format phone number and opens it
+  await page.goto("/");
+  await page.keyboard.press("Control+k");
+  await expect(page.locator("[role=dialog][aria-label='Command palette']")).toBeVisible();
+  await page.keyboard.type("0108 000 0016");
+  await expect(page.locator("[role=option]", { hasText: "Demo Lead 16" })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("h1", { hasText: "Demo Lead 16" })).toBeVisible();
+
+  // template -> WhatsApp opens with the text -> "Yes, log it" puts it on the timeline
+  await page.locator("main button:has-text('WhatsApp')").first().click();
+  const composer = page.locator("[role=dialog][aria-labelledby=composer-title]");
+  await expect(composer).toBeVisible();
+  await composer.locator("[role=tab]:has-text('English')").click();
+  await composer.locator("button:has-text('First reply')").click();
+  await expect(composer.locator("textarea")).toHaveValue(/^Hi Demo, thanks for reaching out/);
+  const [popup] = await Promise.all([page.waitForEvent("popup"), composer.locator("a:has-text('Open in WhatsApp')").click()]);
+  expect(decodeURIComponent(popup.url())).toContain("wa.me/201080000016?text=Hi Demo");
+  await popup.close();
+  await composer.locator("button:has-text('Yes, log it as sent')").click();
+  await expect(page.locator("li", { hasText: "Hi Demo, thanks for reaching out" }).first()).toBeVisible();
+
+  // a missing placeholder blocks sending
+  await page.locator("main button:has-text('WhatsApp')").first().click();
+  await composer.locator("[role=tab]:has-text('English')").click();
+  await composer.locator("button:has-text('Post-consult recap')").click();
+  await expect(composer.locator("[role=alert]")).toContainText("{payment_link}");
+  await expect(composer.locator("a:has-text('Open in WhatsApp')")).toHaveAttribute("aria-disabled", "true");
+  await page.keyboard.press("Escape");
+
+  // board: Consult held -> Offer sent lists what is missing; owner can override with a reason
+  await page.goto("/pipeline");
+  await page.locator("li", { hasText: "Demo Lead 12" }).locator("select").selectOption({ label: "Offer sent" });
+  const dialog = page.locator("[role=dialog]");
+  await expect(dialog).toContainText(/Not ready|Next step/);
+  if (await dialog.locator("input[type=date]").count()) await dialog.locator("input[type=date]").fill("2030-01-10");
+  await dialog.locator("button:text-is('Move')").click();
+  await expect(dialog.locator("[role=alert]")).toContainText("Decision date agreed");
+  await dialog.locator("textarea").fill("Agreed on the phone");
+  await dialog.locator("button:has-text('Move anyway')").click();
+  await expect(page.locator("section[aria-label='Offer sent']", { hasText: "Demo Lead 12" })).toBeVisible();
+
+  // Today: "Done" asks for the next step in the same click
+  await page.goto("/");
+  const before = await page.locator("#overdue li").count();
+  expect(before).toBeGreaterThan(0);
+  const row = page.locator("#overdue li").first();
+  await row.locator("summary:has-text('Done')").click();
+  await row.locator("details:has(summary:has-text('Done')) button:has-text('In 3 days')").click();
+  await expect(page.locator("#overdue li")).toHaveCount(before - 1);
 });

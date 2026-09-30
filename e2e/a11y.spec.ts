@@ -37,6 +37,8 @@ for (const t of ["dark", "light"] as const) {
     const screens = [
       "/", "/?mine=1", "/leads", "/leads?stage=contacted&q=demo", "/leads/import", firstLead!, "/pipeline", firstCohort, "/dashboard",
       "/dashboard?all=1", "/account", "/settings/users", "/settings/pipeline", "/settings/lists", "/settings/cadences", "/settings/audit",
+      "/settings/rules", "/settings/workflows", "/settings/templates", "/leads?view=no_next_step", "/leads?view=no_decision_review",
+      `/leads/merge?a=${firstLead!.split("/").pop()}`,
     ];
     for (const path of screens) {
       await page.goto(path);
@@ -46,7 +48,7 @@ for (const t of ["dark", "light"] as const) {
     }
     // the cohort detail page too
     await page.goto("/cohorts");
-    await page.locator("tbody a[href^='/cohorts/']").first().click();
+    await page.locator("main a[href^='/cohorts/']").first().click();
     await theme(page, t);
     await scan(page, `cohort detail (${t})`);
   });
@@ -65,6 +67,19 @@ for (const t of ["dark", "light"] as const) {
     await page.locator("li", { hasText: "Demo Lead 14" }).locator("select").selectOption({ label: "Lost" });
     await expect(page.locator("[role=dialog]")).toBeVisible();
     await scan(page, `lost dialog (${t})`);
+    await page.keyboard.press("Escape");
+
+    await page.goto("/");
+    await theme(page, t);
+    await page.keyboard.press("Control+k");
+    await page.keyboard.type("demo");
+    await expect(page.locator("[role=option]").first()).toBeVisible();
+    await scan(page, `command palette (${t})`);
+    await page.keyboard.press("Escape");
+
+    await page.locator("#queue button:has-text('Reply')").first().click();
+    await expect(page.locator("[aria-labelledby=composer-title] button:has-text('First reply')").first()).toBeVisible();
+    await scan(page, `message composer (${t})`);
   });
 }
 

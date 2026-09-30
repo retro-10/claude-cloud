@@ -6,7 +6,7 @@ import { parseCsv } from "@/lib/csv";
 import { FIELD_LABELS, IMPORT_FIELDS, guessMapping, type ImportField, type ImportRow } from "@/lib/import-fields";
 import { normalizePhone } from "@/lib/phone";
 
-const sel = "rounded border border-line bg-bg px-2 py-1.5 text-sm";
+const sel = "input";
 
 export function ImportClient() {
   const [table, setTable] = useState<string[][] | null>(null);
@@ -97,7 +97,7 @@ export function ImportClient() {
             </p>
           )}
 
-          <div className="overflow-x-auto rounded border border-line">
+          <div className="card overflow-x-auto">
             <table className="w-full min-w-[600px] text-left text-xs">
               <thead className="bg-surface uppercase text-muted">
                 <tr>
@@ -128,10 +128,10 @@ export function ImportClient() {
           </label>
 
           <div className="flex gap-2">
-            <button disabled={pending || !rows.length} onClick={() => go(true)} className="rounded border border-line px-3 py-1.5 text-sm disabled:opacity-60">
+            <button disabled={pending || !rows.length} onClick={() => go(true)} className="btn btn-secondary">
               {pending ? "Working…" : "Preview (saves nothing)"}
             </button>
-            <button disabled={pending || !rows.length} onClick={() => go(false)} className="rounded bg-gold px-3 py-1.5 text-sm font-medium text-ink disabled:opacity-60">
+            <button disabled={pending || !rows.length} onClick={() => go(false)} className="btn btn-primary">
               Import {body.length} rows
             </button>
           </div>
@@ -144,7 +144,7 @@ export function ImportClient() {
         </p>
       )}
       {result?.ok && (
-        <div className="rounded border border-line bg-surface p-3 text-sm" role="status">
+        <div className="card p-4 text-sm" role="status">
           <p className="font-medium">{result.dryRun ? "Preview (nothing saved)" : "Import complete"}</p>
           <p>
             Created {result.report.created} · Updated {result.report.updated} · Skipped {result.report.skipped}

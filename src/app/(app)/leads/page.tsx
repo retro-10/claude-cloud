@@ -2,26 +2,30 @@ import Link from "next/link";
 import { asc, eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { cadenceTemplates, lostReasons, savedViews, sources, stages, users } from "@/db/schema";
-import { SpeedBadge } from "@/components/SpeedBadge";
+import { ComposeButton } from "@/components/crm/Composer";
+import { Flash } from "@/components/Flash";
+import { SelectAll } from "@/components/SelectAll";
+import { Avatar, EmptyState, Icon, PageHeader, pretty } from "@/components/ui";
 import { VIEW_KEYS, listLeads, type LeadFilters } from "@/lib/lead-list";
 import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
+import { formatMinutes, speedBadge } from "@/lib/speed";
 import { formatCairo } from "@/lib/time";
-import { SelectAll } from "@/components/SelectAll";
-import { deleteViewAction, saveViewAction } from "./actions";
+import { VIEWS, healthOf, isViewKey } from "@/lib/views";
+import { closeReviewAction, deleteViewAction, reactivateAction, saveViewAction } from "./actions";
 import { bulkAction } from "../followups/actions";
+
+export const metadata = { title: "Leads" };
 
 const SEGMENTS = ["fresh_graduate", "technician", "dentist", "other"];
 const TIERS = ["foundation", "freelance_ready", "production_partner", "unsure"];
-const pretty = (s: string | null) => (s ? s.replace(/_/g, " ") : "");
-
-const field = "rounded border border-line bg-surface px-2 py-1.5 text-sm";
+const FILTER_KEYS = ["stage", "source", "segment", "tier", "owner", "from", "to", "overdue", "tag"] as const;
 
 export default async function LeadsPage(props: { searchParams: Promise<Record<string, string | undefined> & { notice?: string }> }) {
   const searchParams = await props.searchParams;
   const user = await requireUser();
   const f = searchParams as LeadFilters;
-  const [{ rows, total, page, pages }, stageList, sourceList, userList, views, reasons, tpls] = await Promise.all([
+  const [{ rows, total, page, pages, settings }, stageList, sourceList, userList, views, reasons, tpls] = await Promise.all([
     listLeads(db, f),
     db.select().from(stages).orderBy(asc(stages.position)),
     db.select().from(sources).orderBy(asc(sources.id)),
@@ -36,252 +40,350 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
     for (const [k, v] of Object.entries({ ...searchParams, ...over })) if (v && k !== "notice") p.set(k, v);
     return `?${p.toString()}`;
   };
-  const viewQuery = new URLSearchParams(
-    VIEW_KEYS.flatMap((k) => (searchParams[k] ? [[k, searchParams[k]!] as [string, string]] : [])),
-  ).toString();
+  const viewQuery = new URLSearchParams(VIEW_KEYS.flatMap((k) => (searchParams[k] ? [[k, searchParams[k]!] as [string, string]] : []))).toString();
   const sortHref = (key: string) => qs({ sort: key, dir: f.sort === key && f.dir !== "asc" ? "asc" : "desc", page: undefined });
+  const sortMark = (key: string) => (f.sort === key || (!f.sort && key === "created") ? (f.dir === "asc" ? " ↑" : " ↓") : "");
   const canWrite = can(user.role, "lead:write");
+  const view = isViewKey(f.view) ? f.view : null;
+  const reviewing = view === "no_decision_review" || view === "nurture_review";
+  const activeFilters = FILTER_KEYS.filter((k) => searchParams[k]).length;
+  const now = new Date();
+  const title = f.deleted === "1" ? "Deleted leads" : view ? VIEWS[view].label : f.tag ? `#${f.tag}` : "Leads";
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-baseline gap-3">
-        <h1 className="font-display text-2xl">{f.deleted === "1" ? "Deleted leads" : "Leads"}</h1>
-        <span className="text-sm text-muted">{total} total</span>
-        <div className="ml-auto flex gap-3 text-xs text-muted">
-          {canWrite && (
-            <Link href="/leads/import" className="underline">
-              Import CSV
+      <PageHeader
+        eyebrow={view ? "Smart view" : "Work"}
+        title={title}
+        subtitle={
+          <>
+            <span className="num">{total}</span> {total === 1 ? "lead" : "leads"}
+            {view && <span className="block text-xs">{VIEWS[view].help}</span>}
+          </>
+        }
+        actions={
+          <>
+            {canWrite && (
+              <Link href="/leads/import" className="btn btn-secondary btn-sm">
+                <Icon name="upload" size={14} /> Import
+              </Link>
+            )}
+            <a href={`/leads/export${qs({ page: undefined })}`} className="btn btn-secondary btn-sm">
+              <Icon name="download" size={14} /> Export CSV
+            </a>
+            {can(user.role, "lead:delete") && (
+              <Link href={f.deleted === "1" ? "/leads" : "/leads?deleted=1"} className="btn btn-ghost btn-sm">
+                <Icon name="trash" size={14} /> {f.deleted === "1" ? "Live leads" : "Deleted"}
+              </Link>
+            )}
+          </>
+        }
+      />
+      <Flash notice={searchParams.notice} />
+
+      {/* views: smart ones and saved ones */}
+      <nav aria-label="Views" className="mb-4 flex flex-wrap items-center gap-1.5">
+        <Link href="/leads" className={`chip px-3 py-1 text-xs ${!view && !viewQuery ? "chip-gold" : "hover:text-fg"}`}>
+          All
+        </Link>
+        {(Object.keys(VIEWS) as (keyof typeof VIEWS)[]).map((k) => (
+          <Link key={k} href={`/leads?view=${k}`} aria-current={view === k ? "page" : undefined} className={`chip px-3 py-1 text-xs ${view === k ? "chip-gold" : "hover:text-fg"}`}>
+            <Icon name={VIEWS[k].icon} size={12} /> {VIEWS[k].label}
+          </Link>
+        ))}
+        {views.map((v) => (
+          <span key={v.id} className="chip py-0 pl-3 pr-1 text-xs">
+            <Link href={`/leads?${new URLSearchParams(v.filters).toString()}`} className="py-1 hover:text-fg" dir="auto">
+              {v.name}
+            </Link>
+            {canWrite && (v.userId === user.id || user.role === "owner") && (
+              <form action={deleteViewAction}>
+                <input type="hidden" name="id" value={v.id} />
+                <button className="grid h-5 w-5 place-items-center rounded-full hover:bg-danger/15 hover:text-danger" aria-label={`Delete view ${v.name}`}>
+                  <Icon name="x" size={11} />
+                </button>
+              </form>
+            )}
+          </span>
+        ))}
+      </nav>
+
+      <form className="card mb-4 p-3" method="get">
+        {f.deleted === "1" && <input type="hidden" name="deleted" value="1" />}
+        {view && <input type="hidden" name="view" value={view} />}
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="relative min-w-[14rem] flex-1">
+            <span className="sr-only">Search</span>
+            <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <input id="search" name="q" defaultValue={f.q} placeholder="Search name, phone, email, city, notes…" dir="auto" className="input pl-9" />
+            <kbd className="kbd absolute right-2 top-1/2 -translate-y-1/2">/</kbd>
+          </label>
+          <button className="btn btn-primary">Search</button>
+          {(viewQuery || f.q) && (
+            <Link href="/leads" className="btn btn-ghost">
+              Clear
             </Link>
           )}
-          <a href={`/leads/export${qs({ page: undefined })}`} className="underline">
-            Export CSV
-          </a>
-          <Link href={f.deleted === "1" ? "/leads" : "/leads?deleted=1"} className="underline">
-            {f.deleted === "1" ? "Back to live leads" : can(user.role, "lead:delete") ? "Show deleted" : ""}
-          </Link>
         </div>
-      </div>
-
-      {views.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-muted">Views:</span>
-          {views.map((v) => (
-            <span key={v.id} className="flex items-center rounded border border-line bg-surface">
-              <Link href={`/leads?${new URLSearchParams(v.filters).toString()}`} className="px-2 py-1 hover:text-accent" dir="auto">
-                {v.name}
-              </Link>
-              {canWrite && (v.userId === user.id || user.role === "owner") && (
-                <form action={deleteViewAction}>
-                  <input type="hidden" name="id" value={v.id} />
-                  <button className="px-1.5 text-muted hover:text-danger" aria-label={`Delete view ${v.name}`}>
-                    ×
-                  </button>
-                </form>
-              )}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <form className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6" method="get">
-        {f.deleted === "1" && <input type="hidden" name="deleted" value="1" />}
-        <input id="search" name="q" defaultValue={f.q} placeholder="Search name, phone, email, notes ( / )" dir="auto" className={`${field} col-span-2 sm:col-span-4 lg:col-span-2`} />
-        <select name="stage" defaultValue={f.stage ?? ""} className={field} aria-label="Stage">
-          <option value="">All stages</option>
-          {stageList.map((s) => (
-            <option key={s.key} value={s.key}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <select name="source" defaultValue={f.source ?? ""} className={field} aria-label="Source">
-          <option value="">All sources</option>
-          {sourceList.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <select name="segment" defaultValue={f.segment ?? ""} className={field} aria-label="Segment">
-          <option value="">All segments</option>
-          {SEGMENTS.map((s) => (
-            <option key={s} value={s}>
-              {pretty(s)}
-            </option>
-          ))}
-        </select>
-        <select name="tier" defaultValue={f.tier ?? ""} className={field} aria-label="Tier interest">
-          <option value="">All tiers</option>
-          {TIERS.map((s) => (
-            <option key={s} value={s}>
-              {pretty(s)}
-            </option>
-          ))}
-        </select>
-        <select name="owner" defaultValue={f.owner ?? ""} className={field} aria-label="Owner">
-          <option value="">Any owner</option>
-          <option value="none">Unassigned</option>
-          {userList.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name}
-            </option>
-          ))}
-        </select>
-        <label className="flex items-center gap-1 text-xs text-muted">
-          From <input type="date" name="from" defaultValue={f.from} className={`${field} flex-1`} />
-        </label>
-        <label className="flex items-center gap-1 text-xs text-muted">
-          To <input type="date" name="to" defaultValue={f.to} className={`${field} flex-1`} />
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="overdue" value="1" defaultChecked={f.overdue === "1"} /> Overdue follow-up
-        </label>
-        <div className="flex gap-2">
-          <button className="rounded bg-gold px-3 py-1.5 text-sm font-medium text-ink">Filter</button>
-          <Link href="/leads" className="px-2 py-1.5 text-sm text-muted">
-            Clear
-          </Link>
-        </div>
-      </form>
-
-      {canWrite && viewQuery && (
-        <form action={saveViewAction} className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-          <input type="hidden" name="query" value={viewQuery} />
-          <input name="name" required maxLength={60} placeholder="Save this filter as…" dir="auto" className={field} />
-          <label className="flex items-center gap-1 text-muted">
-            <input type="checkbox" name="shared" /> shared
-          </label>
-          <button className="rounded border border-line px-2 py-1.5">Save view</button>
-        </form>
-      )}
-
-      {searchParams.notice && (
-        <p role="status" className="mb-3 rounded border border-line bg-surface px-3 py-2 text-sm">
-          {searchParams.notice}
-        </p>
-      )}
-
-      <form action={bulkAction}>
-      {canWrite && f.deleted !== "1" && (
-        <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2 rounded border border-line bg-surface p-2 text-xs">
-          <span className="text-muted">With selected:</span>
-          <span className="flex items-center gap-1">
-            <select name="stage" className={field} aria-label="Stage">
-              <option value="">Stage…</option>
-              {stageList.filter((s) => s.kind !== "won").map((s) => (
+        <details className="mt-2" open={activeFilters > 0}>
+          <summary className="btn btn-ghost btn-sm w-fit cursor-pointer list-none">
+            <Icon name="filter" size={13} /> Filters {activeFilters > 0 && <span className="count bg-gold/15 text-accent">{activeFilters}</span>}
+          </summary>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            <select name="stage" defaultValue={f.stage ?? ""} className="input" aria-label="Stage">
+              <option value="">All stages</option>
+              {stageList.map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.label}
                 </option>
               ))}
             </select>
-            <select name="lostReasonId" className={field} aria-label="Lost reason (if Lost)">
-              <option value="">Lost reason…</option>
-              {reasons.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
+            <select name="source" defaultValue={f.source ?? ""} className="input" aria-label="Source">
+              <option value="">All sources</option>
+              {sourceList.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
                 </option>
               ))}
             </select>
-            <button name="op" value="stage" className="rounded border border-line px-2 py-1.5 hover:border-gold">
-              Move
-            </button>
-          </span>
-          <span className="flex items-center gap-1">
-            <select name="ownerId" className={field} aria-label="Owner">
-              <option value="">Unassigned</option>
+            <select name="segment" defaultValue={f.segment ?? ""} className="input" aria-label="Segment">
+              <option value="">All segments</option>
+              {SEGMENTS.map((s) => (
+                <option key={s} value={s}>
+                  {pretty(s)}
+                </option>
+              ))}
+            </select>
+            <select name="tier" defaultValue={f.tier ?? ""} className="input" aria-label="Tier interest">
+              <option value="">All tiers</option>
+              {TIERS.map((s) => (
+                <option key={s} value={s}>
+                  {pretty(s)}
+                </option>
+              ))}
+            </select>
+            <select name="owner" defaultValue={f.owner ?? ""} className="input" aria-label="Owner">
+              <option value="">Any owner</option>
+              <option value="none">Unassigned</option>
               {userList.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
                 </option>
               ))}
             </select>
-            <button name="op" value="owner" className="rounded border border-line px-2 py-1.5 hover:border-gold">
-              Assign
-            </button>
-          </span>
-          <span className="flex items-center gap-1">
-            <select name="templateId" className={field} aria-label="Cadence">
-              <option value="">Cadence…</option>
-              {tpls.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <button name="op" value="cadence" className="rounded border border-line px-2 py-1.5 hover:border-gold">
-              Start cadence
-            </button>
-          </span>
-        </div>
+            <input name="tag" defaultValue={f.tag} placeholder="Tag" aria-label="Tag" className="input" />
+            <label className="field">
+              Created from
+              <input type="date" name="from" defaultValue={f.from} className="input" />
+            </label>
+            <label className="field">
+              Created to
+              <input type="date" name="to" defaultValue={f.to} className="input" />
+            </label>
+            <label className="flex items-end gap-2 pb-2 text-sm">
+              <input type="checkbox" name="overdue" value="1" className="check" defaultChecked={f.overdue === "1"} /> Overdue follow-up
+            </label>
+          </div>
+        </details>
+      </form>
+
+      {canWrite && viewQuery && (
+        <form action={saveViewAction} className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+          <input type="hidden" name="query" value={viewQuery} />
+          <input name="name" required maxLength={60} placeholder="Save this view as…" aria-label="View name" dir="auto" className="input input-sm w-56" />
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            <input type="checkbox" name="shared" className="check" /> share with the team
+          </label>
+          <button className="btn btn-secondary btn-sm">
+            <Icon name="plus" size={13} /> Save view
+          </button>
+        </form>
       )}
-      <div className="overflow-x-auto rounded border border-line">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="bg-surface text-xs uppercase text-muted">
-            <tr>
-              {canWrite && (
-                <th className="w-8 px-3 py-2">
-                  <SelectAll />
-                </th>
-              )}
-              <th className="px-3 py-2">
-                <Link href={sortHref("name")}>Name</Link>
-              </th>
-              <th className="px-3 py-2">Phone</th>
-              <th className="px-3 py-2">
-                <Link href={sortHref("stage")}>Stage</Link>
-              </th>
-              <th className="px-3 py-2">Source</th>
-              <th className="px-3 py-2">Owner</th>
-              <th className="px-3 py-2">Next follow-up</th>
-              <th className="px-3 py-2">
-                <Link href={sortHref("created")}>Created</Link>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((l) => (
-              <tr key={l.id} className="border-t border-line hover:bg-surface/60">
-                {canWrite && (
-                  <td className="px-3 py-2">
-                    <input type="checkbox" name="ids" value={l.id} aria-label={`Select ${l.fullName}`} />
-                  </td>
-                )}
-                <td className="px-3 py-2">
-                  <Link href={`/leads/${l.id}`} className="font-medium hover:text-accent" dir="auto">
-                    {l.fullName}
-                  </Link>{" "}
-                  <SpeedBadge createdAt={l.createdAt} firstContactAt={l.firstContactAt} />
-                </td>
-                <td className="px-3 py-2" dir="ltr">
-                  {l.phone}
-                </td>
-                <td className="px-3 py-2">{l.stageLabel}</td>
-                <td className="px-3 py-2">{l.source}</td>
-                <td className="px-3 py-2">{l.owner}</td>
-                <td className="px-3 py-2">{l.nextFollowUp ? formatCairo(new Date(l.nextFollowUp), false) : ""}</td>
-                <td className="px-3 py-2 text-muted">{formatCairo(l.createdAt, false)}</td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
+
+      <form action={bulkAction}>
+        {canWrite && f.deleted !== "1" && !reviewing && (
+          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-line bg-surface/70 px-3 py-2 text-xs">
+            <span className="eyebrow">With selected</span>
+            <span className="flex items-center gap-1">
+              <select name="stage" className="input input-sm w-auto" aria-label="Stage">
+                <option value="">Stage…</option>
+                {stageList
+                  .filter((s) => s.kind !== "won")
+                  .map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+              </select>
+              <select name="lostReasonId" className="input input-sm w-auto" aria-label="Lost reason (if Lost)">
+                <option value="">Lost reason…</option>
+                {reasons.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+              <button name="op" value="stage" className="btn btn-secondary btn-sm">
+                Move
+              </button>
+            </span>
+            <span className="flex items-center gap-1">
+              <select name="ownerId" className="input input-sm w-auto" aria-label="Owner">
+                <option value="">Unassigned</option>
+                {userList.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+              <button name="op" value="owner" className="btn btn-secondary btn-sm">
+                Assign
+              </button>
+            </span>
+            <span className="flex items-center gap-1">
+              <select name="templateId" className="input input-sm w-auto" aria-label="Cadence">
+                <option value="">Cadence…</option>
+                {tpls.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <button name="op" value="cadence" className="btn btn-secondary btn-sm">
+                Start cadence
+              </button>
+            </span>
+          </div>
+        )}
+        <div className="card overflow-x-auto">
+          <table className="table min-w-[860px]">
+            <thead>
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-muted">
-                  No leads match.
-                </td>
+                {canWrite && !reviewing && (
+                  <th className="w-10">
+                    <SelectAll />
+                  </th>
+                )}
+                <th>
+                  <Link href={sortHref("name")} className="hover:text-fg">
+                    Name{sortMark("name")}
+                  </Link>
+                </th>
+                <th>
+                  <Link href={sortHref("stage")} className="hover:text-fg">
+                    Stage{sortMark("stage")}
+                  </Link>
+                </th>
+                <th>Source</th>
+                <th>Owner</th>
+                <th className="whitespace-nowrap">Next follow-up</th>
+                <th>
+                  <Link href={sortHref("created")} className="hover:text-fg">
+                    Created{sortMark("created")}
+                  </Link>
+                </th>
+                <th className="w-px">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((l) => {
+                const h = healthOf(l, settings, now);
+                const wait = l.stageKind === "open" ? speedBadge(l.createdAt, l.firstContactAt, now, settings) : null;
+                return (
+                  <tr key={l.id}>
+                    {canWrite && !reviewing && (
+                      <td>
+                        <input type="checkbox" name="ids" value={l.id} className="check" aria-label={`Select ${l.fullName}`} />
+                      </td>
+                    )}
+                    <td>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={l.fullName} size={30} />
+                        <div className="min-w-0">
+                          <Link href={`/leads/${l.id}`} className="font-medium hover:text-accent" dir="auto">
+                            {l.fullName}
+                          </Link>
+                          <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                            {l.phone && (
+                              <span className="num text-xs text-muted" dir="ltr">
+                                {l.phone}
+                              </span>
+                            )}
+                            {wait && (
+                              <span className={`chip ${wait.level === "red" ? "chip-danger" : wait.level === "amber" ? "chip-warn" : "chip-ok"}`}>{formatMinutes(wait.minutes)} waiting</span>
+                            )}
+                            {h.neglected && <span className="chip chip-warn">neglected</span>}
+                            {h.stale && <span className="chip chip-warn">stale</span>}
+                            {h.noNextStep && <span className="chip chip-danger">no next step</span>}
+                            {l.tags.slice(0, 3).map((t) => (
+                              <span key={t} className="chip">
+                                #{t}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap">
+                      <span className={`chip ${l.stageKind === "won" ? "chip-ok" : l.stageKind === "lost" ? "chip-danger" : l.stageKind === "open" ? "chip-gold" : ""}`}>{l.stageLabel}</span>
+                      <span className="num ml-1.5 text-xs text-muted">{h.daysInStage}d</span>
+                    </td>
+                    <td className="whitespace-nowrap text-muted">{l.source ?? "—"}</td>
+                    <td className="text-muted">{l.owner ?? "—"}</td>
+                    <td className="num whitespace-nowrap">{l.nextFollowUp ? formatCairo(new Date(l.nextFollowUp), false) : <span className="text-muted">—</span>}</td>
+                    <td className="num whitespace-nowrap text-muted">{formatCairo(l.createdAt, false)}</td>
+                    <td>
+                      <div className="flex justify-end gap-1">
+                        {reviewing && canWrite ? (
+                          <>
+                            <button formAction={reactivateAction} name="id" value={l.id} className="btn btn-secondary btn-sm" title="Back to Nurture with a follow-up in 7 days">
+                              Reactivate
+                            </button>
+                            <input type="hidden" name="back" value={`/leads?view=${view}`} />
+                            <button formAction={closeReviewAction} name="id" value={l.id} className="btn btn-ghost btn-sm">
+                              Close
+                            </button>
+                          </>
+                        ) : (
+                          canWrite && <ComposeButton leadId={l.id} phone={l.phone} doNotContact={l.doNotContact} label="" />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={8}>
+                    <EmptyState icon={view ? VIEWS[view].icon : "search"} title={view ? "Nothing here. Nice." : "No leads match."}>
+                      {view ? VIEWS[view].help : "Try fewer filters, or search by part of a name or number."}
+                    </EmptyState>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </form>
 
       {pages > 1 && (
-        <div className="mt-3 flex items-center justify-center gap-4 text-sm">
-          {page > 1 && <Link href={qs({ page: String(page - 1) })}>← Prev</Link>}
-          <span className="text-muted">
+        <nav aria-label="Pages" className="mt-4 flex items-center justify-center gap-2 text-sm">
+          {page > 1 && (
+            <Link href={qs({ page: String(page - 1) })} className="btn btn-secondary btn-sm">
+              <Icon name="chevronLeft" size={14} /> Prev
+            </Link>
+          )}
+          <span className="num px-2 text-muted">
             Page {page} of {pages}
           </span>
-          {page < pages && <Link href={qs({ page: String(page + 1) })}>Next →</Link>}
-        </div>
+          {page < pages && (
+            <Link href={qs({ page: String(page + 1) })} className="btn btn-secondary btn-sm">
+              Next <Icon name="chevronRight" size={14} />
+            </Link>
+          )}
+        </nav>
       )}
     </>
   );

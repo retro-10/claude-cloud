@@ -8,7 +8,7 @@ import { formatCairo } from "@/lib/time";
 import { createUserAction, resetPasswordAction, updateUserAction } from "../actions";
 
 export const metadata = { title: "Users · Settings" };
-const box = "rounded border border-line bg-bg px-2 py-1.5 text-sm";
+const box = "input";
 const ROLES = [
   ["owner", "owner (full access, admin)"],
   ["sales", "sales (edit leads, no settings)"],
@@ -25,7 +25,7 @@ export default async function UsersPage(props: { searchParams: Promise<{ notice?
       <Flash {...searchParams} />
       <ul className="mb-8 flex flex-col gap-3">
         {list.map((u) => (
-          <li key={u.id} className="rounded border border-line bg-surface p-3">
+          <li key={u.id} className="card p-4">
             <form action={updateUserAction} className="flex flex-wrap items-end gap-3">
               <input type="hidden" name="id" value={u.id} />
               <label className="flex flex-col gap-1 text-xs text-muted">
@@ -51,7 +51,7 @@ export default async function UsersPage(props: { searchParams: Promise<{ notice?
               <label className="flex items-center gap-2 py-1.5 text-sm">
                 <input type="checkbox" name="active" defaultChecked={u.active} /> Active
               </label>
-              <button className="rounded bg-gold px-3 py-1.5 text-sm font-medium text-ink">Save</button>
+              <button className="btn btn-primary">Save</button>
               {u.id === me.id && <span className="text-xs text-muted">(you)</span>}
               {!u.passwordChangedAt && <span className="text-xs text-warn">still on the initial password</span>}
             </form>
@@ -63,7 +63,7 @@ export default async function UsersPage(props: { searchParams: Promise<{ notice?
                   New password (min {MIN_PASSWORD} characters)
                   <input name="password" type="password" minLength={MIN_PASSWORD} required autoComplete="new-password" className={box} />
                 </label>
-                <button className="rounded border border-line px-3 py-1.5 text-sm hover:border-gold">Reset</button>
+                <button className="btn btn-secondary">Reset</button>
                 <span className="text-xs text-muted">Signs them out everywhere. Created {formatCairo(u.createdAt, false)}.</span>
               </form>
             </details>
@@ -71,8 +71,8 @@ export default async function UsersPage(props: { searchParams: Promise<{ notice?
         ))}
       </ul>
 
-      <form action={createUserAction} className="grid max-w-2xl grid-cols-1 gap-3 rounded border border-line bg-surface p-3 sm:grid-cols-2">
-        <h2 className="font-display text-lg sm:col-span-2">Add a user</h2>
+      <form action={createUserAction} className="grid max-w-2xl grid-cols-1 gap-3 card p-4 sm:grid-cols-2">
+        <h2 className="font-display text-lg font-semibold sm:col-span-2">Add a user</h2>
         <label className="flex flex-col gap-1 text-xs text-muted">
           Name
           <input name="name" required dir="auto" className={box} />
@@ -96,7 +96,7 @@ export default async function UsersPage(props: { searchParams: Promise<{ notice?
           <input name="password" type="password" minLength={MIN_PASSWORD} required autoComplete="new-password" className={box} />
         </label>
         <div className="sm:col-span-2">
-          <button className="rounded bg-gold px-3 py-1.5 text-sm font-medium text-ink">Create user</button>
+          <button className="btn btn-primary">Create user</button>
           <span className="ml-3 text-xs text-muted">They are asked to set their own password after signing in.</span>
         </div>
       </form>

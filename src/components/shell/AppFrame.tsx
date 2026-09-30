@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/app/login/actions";
 import { QuickAdd } from "../QuickAdd";
 import { ThemeToggle } from "../ThemeToggle";
 import { Icon, type IconName } from "../ui/Icon";
+import { Composer } from "../crm/Composer";
 import { CommandPalette, type PaletteLink } from "./CommandPalette";
+import { NotificationBell, type BellItem } from "./NotificationBell";
 import { OPEN_PALETTE, OPEN_QUICK_ADD, emit } from "./events";
 import { Shortcuts, type GoKey } from "./Shortcuts";
 
@@ -28,12 +30,14 @@ type Props = {
   canWrite: boolean;
   sources: { id: number; label: string }[];
   goKeys: GoKey[];
+  bell: { items: BellItem[]; unread: number };
   children: React.ReactNode;
 };
 
-function isActive(pathname: string, item: NavItem) {
+function isActive(pathname: string, item: NavItem, search = "") {
   const [path, query] = item.href.split("?");
-  if (query) return false; // views are highlighted by their own page
+  if (query) return pathname === path && new URLSearchParams(search).get("view") === new URLSearchParams(query).get("view");
+  if (item.href === "/leads" && new URLSearchParams(search).get("view")) return false;
   return item.exact ? pathname === path : pathname === path || pathname.startsWith(path + "/");
 }
 
@@ -53,6 +57,7 @@ function Brand() {
 }
 
 function NavList({ nav, pathname, onNavigate }: { nav: NavItem[]; pathname: string; onNavigate?: () => void }) {
+  const search = useSearchParams().toString();
   const sections = nav.reduce<string[]>((a, n) => (a.includes(n.section) ? a : [...a, n.section]), []);
   return (
     <nav aria-label="Main" className="flex flex-col gap-5">
@@ -63,7 +68,7 @@ function NavList({ nav, pathname, onNavigate }: { nav: NavItem[]; pathname: stri
             {nav
               .filter((n) => n.section === s)
               .map((n) => {
-                const active = isActive(pathname, n);
+                const active = isActive(pathname, n, search);
                 return (
                   <li key={n.href}>
                     <Link
@@ -121,7 +126,7 @@ function UserCard({ user }: { user: Props["user"] }) {
   );
 }
 
-export function AppFrame({ user, nav, canWrite, sources, goKeys, children }: Props) {
+export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children }: Props) {
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
   useEffect(() => setDrawer(false), [pathname]);
@@ -210,6 +215,7 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, children }: Pro
               <Icon name="command" />
               <span className="text-xs">Commands</span>
             </button>
+            <NotificationBell items={bell.items} unread={bell.unread} />
             <ThemeToggle />
             {canWrite && <QuickAdd sources={sources} />}
           </div>
@@ -249,6 +255,7 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, children }: Pro
       </nav>
 
       <CommandPalette links={links} canWrite={canWrite} />
+      <Composer />
       <Shortcuts goKeys={goKeys} canWrite={canWrite} />
     </div>
   );

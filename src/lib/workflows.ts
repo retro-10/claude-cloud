@@ -1,7 +1,8 @@
 import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { cadenceTemplates, followUps, leads, lostReasons, notifications, users, workflowRules, workflowRuns, type RuleAction } from "@/db/schema";
-import { applyCadence } from "./followups";
+import { audit } from "./audit";
+import { applyCadence, cancelCadenceFollowUps } from "./followups";
 import { getSettings } from "./app-settings";
 import { waitingMinutes } from "./speed";
 
@@ -83,6 +84,10 @@ async function runAction(db: Exec, a: RuleAction, rule: Rule, ev: RuleEvent, lea
         .returning({ id: followUps.id });
       return `cancelled ${rows.length} follow-up${rows.length === 1 ? "" : "s"}`;
     }
+    case "cancel_cadence": {
+      const n = await cancelCadenceFollowUps(db, lead.id);
+      return `stopped ${n} cadence step${n === 1 ? "" : "s"}`;
+    }
     case "add_tag": {
       if (a.ifLostReasons?.length) {
         if (ev.trigger !== "stage_changed" || !ev.lostReasonId) return "no lost reason, tag skipped";
@@ -148,7 +153,20 @@ export async function fireRules(db: Exec, ev: RuleEvent, userId: number | null, 
  * most once per follow-up or lead (workflow_runs.dedupe_key), so running it often is harmless.
  * Runs every few minutes in the server process and on each Today page load.
  */
+const SWEEP_BATCH = 50; // per rule per run: a backlog is worked off over a few runs, never in one long burst
+let sweeping = false;
+
 export async function runScheduledRules(db: Db, now = new Date()): Promise<number> {
+  if (sweeping) return 0; // one sweep at a time per server process
+  sweeping = true;
+  try {
+    return await sweep(db, now);
+  } finally {
+    sweeping = false;
+  }
+}
+
+async function sweep(db: Db, now: Date): Promise<number> {
   const rules = await db
     .select()
     .from(workflowRules)
@@ -171,7 +189,7 @@ export async function runScheduledRules(db: Db, now = new Date()): Promise<numbe
           sql`not exists (select 1 from workflow_runs r where r.dedupe_key = ${`rule:${rule.id}:fu:`} || ${followUps.id}::text)`,
         ),
       )
-      .limit(200);
+      .limit(SWEEP_BATCH);
     for (const f of due) {
       fired += await db.transaction((tx) =>
         fireRules(tx as unknown as Db, { trigger: "follow_up_overdue", leadId: f.leadId, followUpId: f.id }, null, {
@@ -190,7 +208,7 @@ export async function runScheduledRules(db: Db, now = new Date()): Promise<numbe
       select l.id, l.created_at from leads l join stages st on st.key = l.stage
       where l.deleted_at is null and l.first_contact_at is null and st.kind = 'open'
         and l.created_at < ${new Date(now.getTime() - s.slaRedMin * 60_000).toISOString()}::timestamptz
-      order by l.created_at asc limit 200`);
+      order by l.created_at asc limit ${SWEEP_BATCH}`);
     for (const row of waiting as unknown as { id: number; created_at: string }[]) {
       if (waitingMinutes(new Date(row.created_at), now, s.workingHours) < s.slaRedMin) continue;
       fired += await db.transaction((tx) =>
@@ -199,4 +217,77 @@ export async function runScheduledRules(db: Db, now = new Date()): Promise<numbe
     }
   }
   return fired;
+}
+
+// ---- editing rules (Settings → Workflows) ----
+
+const CONDITION_KEYS = ["to_stage", "result", "outcome", "segment", "source", "tier", "lost_reason", "overdue_hours", "unassigned"] as const;
+export type RuleInput = { name: string; trigger: string; conditions: Record<string, string>; actions: RuleAction[] };
+
+export function validateRule(r: RuleInput): string | null {
+  if (!r.name.trim() || r.name.length > 120) return "Give the rule a name (up to 120 characters)";
+  if (!(r.trigger in TRIGGERS)) return "Unknown trigger";
+  for (const k of Object.keys(r.conditions)) if (!(CONDITION_KEYS as readonly string[]).includes(k)) return `Unknown condition ${k}`;
+  if (r.conditions.overdue_hours && !/^\d{1,4}$/.test(r.conditions.overdue_hours)) return "Overdue hours must be a whole number";
+  if (!r.actions.length) return "Add at least one action";
+  for (const a of r.actions) {
+    if (a.type === "create_follow_up" && (!a.note?.trim() || (a.dueInMinutes !== undefined && (!Number.isInteger(a.dueInMinutes) || a.dueInMinutes < 0 || a.dueInMinutes > 525_600))))
+      return "A follow-up needs a note and a delay in minutes (0 or more)";
+    if (a.type === "notify" && !a.title?.trim()) return "A notification needs a title";
+    if (a.type === "add_tag" && !/^[a-z0-9-]{1,40}$/.test(a.tag)) return "Tags are lowercase letters, numbers and dashes";
+    if (a.type === "apply_cadence" && !a.cadence?.trim()) return "Choose a cadence";
+    if (a.type === "set_owner" && !Number.isInteger(a.userId)) return "Choose an owner";
+  }
+  return null;
+}
+
+export async function saveRule(db: Db, id: number | null, r: RuleInput, actorId: number | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  const bad = validateRule(r);
+  if (bad) return { ok: false, error: bad };
+  const conditions = Object.fromEntries(Object.entries(r.conditions).filter(([, v]) => v !== ""));
+  if (id) {
+    const [cur] = await db.select().from(workflowRules).where(eq(workflowRules.id, id));
+    if (!cur) return { ok: false, error: "Rule not found" };
+    // built-in rules keep their trigger; name, conditions and action details are editable
+    await db.update(workflowRules).set({ name: r.name.trim(), conditions, actions: r.actions, trigger: cur.builtin ? cur.trigger : r.trigger }).where(eq(workflowRules.id, id));
+  } else {
+    await db.insert(workflowRules).values({ name: r.name.trim(), trigger: r.trigger, conditions, actions: r.actions, builtin: false, enabled: true, position: 100 });
+  }
+  await audit(db, { userId: actorId, entity: "workflow_rule", entityId: id ?? undefined, action: id ? "update" : "create" });
+  return { ok: true };
+}
+
+export async function setRuleEnabled(db: Db, id: number, enabled: boolean, actorId: number | null) {
+  await db.update(workflowRules).set({ enabled }).where(eq(workflowRules.id, id));
+  await audit(db, { userId: actorId, entity: "workflow_rule", entityId: id, action: enabled ? "enable" : "disable" });
+}
+
+export async function deleteRule(db: Db, id: number, actorId: number | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  const [r] = await db.select().from(workflowRules).where(eq(workflowRules.id, id));
+  if (!r) return { ok: false, error: "Rule not found" };
+  if (r.builtin) return { ok: false, error: "Built-in rules can be switched off but not deleted" };
+  await db.delete(workflowRuns).where(eq(workflowRuns.ruleId, id));
+  await db.update(followUps).set({ ruleId: null }).where(eq(followUps.ruleId, id));
+  await db.delete(workflowRules).where(eq(workflowRules.id, id));
+  await audit(db, { userId: actorId, entity: "workflow_rule", entityId: id, action: "delete" });
+  return { ok: true };
+}
+
+export function describeAction(a: RuleAction): string {
+  switch (a.type) {
+    case "create_follow_up":
+      return a.dueAt === "decision_date" ? `Follow-up on the decision date: “${a.note}”` : `Follow-up in ${a.dueInMinutes ?? 0} min: “${a.note}”`;
+    case "apply_cadence":
+      return `Start cadence “${a.cadence}”`;
+    case "cancel_follow_ups":
+      return "Cancel open follow-ups";
+    case "cancel_cadence":
+      return "Stop the running cadence";
+    case "add_tag":
+      return `Tag #${a.tag}${a.ifLostReasons?.length ? ` if the reason is ${a.ifLostReasons.join(" or ")}` : ""}`;
+    case "set_owner":
+      return "Assign an owner";
+    case "notify":
+      return `Notify: “${a.title}”`;
+  }
 }

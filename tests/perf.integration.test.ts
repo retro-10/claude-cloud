@@ -10,6 +10,9 @@ import { listLeads } from "@/lib/lead-list";
 import { getMetrics } from "@/lib/metrics";
 import { getBoard } from "@/lib/pipeline";
 import { getToday } from "@/lib/today";
+import { navCounts } from "@/lib/nav-counts";
+import { searchLeads } from "@/lib/search";
+import { runScheduledRules } from "@/lib/workflows";
 import { findDuplicates } from "@/lib/leads";
 import { listCohorts } from "@/lib/cohorts";
 
@@ -160,4 +163,14 @@ d(`performance with ${N} leads`, () => {
     expect(csv.count).toBe(N);
     for (const k of ["today", "board", "cohorts", "duplicate check", "export all"]) expect(timings[k], k).toBeLessThan(LIMIT_MS);
   });
+
+  it("Release 1.1: sidebar counts (every smart view), each smart view, search, scheduled rules < 1 s", async () => {
+    await time("sidebar counts", () => navCounts(db));
+    for (const v of ["neglected", "stale", "no_next_step", "decision_due", "no_decision_review"]) await time(`view ${v}`, () => listLeads(db, { view: v }));
+    await time("palette search", () => searchLeads(db, "lead 12"));
+    for (let i = 0; i < 400; i++) if (!(await runScheduledRules(db))) break; // work off the seeded backlog first
+    await time("scheduled rules", () => runScheduledRules(db)); // then a normal 5-minute sweep
+    for (const k of Object.keys(timings).filter((k) => k.startsWith("view ") || ["sidebar counts", "palette search", "scheduled rules"].includes(k)))
+      expect(timings[k], k).toBeLessThan(LIMIT_MS);
+  }, 600_000);
 });

@@ -4,24 +4,41 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import { enrolLead } from "@/lib/enrol";
+import type { Missing } from "@/lib/exit-criteria";
 import { changeStage } from "@/lib/leads";
+import { can } from "@/lib/rbac";
 import { requireCan } from "@/lib/server-auth";
+import { followUpDue } from "@/lib/time";
 
-export type MoveResult = { ok: true } | { ok: false; error: string };
+export type MoveResult = { ok: true } | { ok: false; error: string; missing?: Missing[]; canOverride?: boolean };
 
 const moveSchema = z.object({
   leadId: z.number().int().positive(),
   stage: z.string().min(1).max(50),
   lostReasonId: z.number().int().positive().nullable().optional(),
+  nextStepDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  override: z.string().max(500).nullable().optional(),
 });
 
+// Used by the board, the lead page and the review lists. Exit criteria (P1) are checked on the server;
+// only owners may override them, and only with a reason, which goes to the audit log.
 export async function moveLead(input: unknown): Promise<MoveResult> {
   const user = await requireCan("lead:write");
   const p = moveSchema.safeParse(input);
   if (!p.success) return { ok: false, error: "Invalid request" };
-  const r = await changeStage(db, p.data.leadId, p.data.stage, user.id, { lostReasonId: p.data.lostReasonId ?? null });
-  if (r.ok) revalidatePath("/pipeline");
-  return r;
+  const canOverride = can(user.role, "stage:override");
+  const r = await changeStage(db, p.data.leadId, p.data.stage, user.id, {
+    lostReasonId: p.data.lostReasonId ?? null,
+    nextStepDate: p.data.nextStepDate ? followUpDue(p.data.nextStepDate) : null,
+    override: canOverride ? (p.data.override ?? null) : null,
+  });
+  if (r.ok) {
+    revalidatePath("/pipeline");
+    revalidatePath(`/leads/${p.data.leadId}`);
+    revalidatePath("/", "layout");
+    return { ok: true };
+  }
+  return { ...r, canOverride };
 }
 
 const enrolSchema = z.object({
@@ -33,19 +50,21 @@ const enrolSchema = z.object({
   paymentRef: z.string().max(200).nullable().optional(),
   gateway: z.enum(["paymob", "other"]).default("other"),
   overrideCap: z.boolean().optional(),
+  overrideCriteria: z.string().max(500).nullable().optional(),
 });
 
 export type EnrolActionResult =
   | { ok: true; seatsUsed: number; seatCap: number }
-  | { ok: false; error: string; cohortFull?: boolean };
+  | { ok: false; error: string; cohortFull?: boolean; missing?: Missing[]; canOverride?: boolean };
 
 export async function enrolAction(input: unknown): Promise<EnrolActionResult> {
   const user = await requireCan("lead:write");
   const p = enrolSchema.safeParse(input);
   if (!p.success) return { ok: false, error: "Check tier, amount and cohort." };
 
-  // only owners may exceed the seat cap; the flag is ignored for anyone else
+  // only owners may exceed the seat cap or skip exit criteria; the flags are ignored for anyone else
   const overrideCap = p.data.overrideCap === true && user.role === "owner";
+  const canOverride = can(user.role, "stage:override");
   const r = await enrolLead(
     db,
     {
@@ -57,11 +76,13 @@ export async function enrolAction(input: unknown): Promise<EnrolActionResult> {
       paymentRef: p.data.paymentRef,
       gateway: p.data.gateway,
       overrideCap,
+      overrideCriteria: canOverride ? p.data.overrideCriteria : null,
     },
     user.id,
   );
   if (r.ok) {
     revalidatePath("/pipeline");
+    revalidatePath(`/leads/${p.data.leadId}`);
     return { ok: true, seatsUsed: r.seatsUsed, seatCap: r.seatCap };
   }
   switch (r.error) {
@@ -74,6 +95,8 @@ export async function enrolAction(input: unknown): Promise<EnrolActionResult> {
             ? `Cohort is full (${r.seatsUsed}/${r.seatCap}). Tick "override" to add a seat anyway.`
             : `Cohort is full (${r.seatsUsed}/${r.seatCap}). Ask an owner to override.`,
       };
+    case "criteria":
+      return { ok: false, error: "Payment must be confirmed with a reference before enrolling.", missing: r.missing, canOverride };
     case "already_enrolled":
       return { ok: false, error: "This lead is already enrolled in that cohort." };
     case "invalid_amount":

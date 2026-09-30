@@ -13,7 +13,7 @@ import {
 } from "../actions";
 
 export const metadata = { title: "Sources & reasons · Settings" };
-const box = "rounded border border-line bg-bg px-2 py-1.5 text-sm";
+const box = "input";
 
 function Item({ list, id, label }: { list: string; id: number; label: string }) {
   return (
@@ -22,7 +22,7 @@ function Item({ list, id, label }: { list: string; id: number; label: string }) 
         <input type="hidden" name="list" value={list} />
         <input type="hidden" name="id" value={id} />
         <input name="label" defaultValue={label} required maxLength={80} dir="auto" aria-label={`Rename ${label}`} className={`${box} min-w-0 flex-1`} />
-        <button className="rounded border border-line px-2 py-1.5 text-sm hover:border-gold">Rename</button>
+        <button className="btn btn-secondary btn-sm">Rename</button>
       </form>
       <form action={deleteListItemAction}>
         <input type="hidden" name="list" value={list} />
@@ -40,7 +40,7 @@ function Add({ list, what }: { list: string; what: string }) {
     <form action={addListItemAction} className="mt-3 flex items-center gap-2">
       <input type="hidden" name="list" value={list} />
       <input name="label" required maxLength={80} dir="auto" placeholder={`New ${what}`} aria-label={`New ${what}`} className={`${box} min-w-0 flex-1`} />
-      <button className="rounded bg-gold px-3 py-1.5 text-sm font-medium text-ink">Add</button>
+      <button className="btn btn-primary">Add</button>
     </form>
   );
 }
@@ -54,7 +54,7 @@ export default async function ListsSettings(props: { searchParams: Promise<{ not
     db.select().from(objections).orderBy(asc(objections.id)),
     db.select().from(campaigns).orderBy(asc(campaigns.id)),
   ]);
-  const card = "rounded border border-line bg-surface p-3";
+  const card = "card p-4";
   return (
     <>
       <Flash {...searchParams} />
@@ -63,22 +63,22 @@ export default async function ListsSettings(props: { searchParams: Promise<{ not
       </p>
       <div className="grid gap-4 lg:grid-cols-2">
         <section className={card}>
-          <h2 className="mb-2 font-display text-lg">Sources</h2>
+          <h2 className="mb-2 font-display text-lg font-semibold">Sources</h2>
           <ul className="flex flex-col gap-2">{src.map((s) => <Item key={s.id} list="sources" id={s.id} label={s.label} />)}</ul>
           <Add list="sources" what="source" />
         </section>
         <section className={card}>
-          <h2 className="mb-2 font-display text-lg">Lost reasons</h2>
+          <h2 className="mb-2 font-display text-lg font-semibold">Lost reasons</h2>
           <ul className="flex flex-col gap-2">{reasons.map((s) => <Item key={s.id} list="lostReasons" id={s.id} label={s.label} />)}</ul>
           <Add list="lostReasons" what="lost reason" />
         </section>
         <section className={card}>
-          <h2 className="mb-2 font-display text-lg">Objection tags</h2>
+          <h2 className="mb-2 font-display text-lg font-semibold">Objection tags</h2>
           <ul className="flex flex-col gap-2">{objs.map((s) => <Item key={s.id} list="objections" id={s.id} label={s.label} />)}</ul>
           <Add list="objections" what="objection tag" />
         </section>
         <section className={card}>
-          <h2 className="mb-2 font-display text-lg">Campaigns</h2>
+          <h2 className="mb-2 font-display text-lg font-semibold">Campaigns</h2>
           <ul className="flex flex-col gap-2">
             {camps.map((c) => (
               <li key={c.id} className="flex items-center gap-2">
@@ -86,7 +86,7 @@ export default async function ListsSettings(props: { searchParams: Promise<{ not
                   <input type="hidden" name="id" value={c.id} />
                   <input name="label" defaultValue={c.label} required maxLength={80} dir="auto" aria-label={`Rename ${c.label}`} className={`${box} min-w-0 flex-1`} />
                   <span className="text-xs text-muted">{src.find((s) => s.id === c.sourceId)?.label}</span>
-                  <button className="rounded border border-line px-2 py-1.5 text-sm hover:border-gold">Rename</button>
+                  <button className="btn btn-secondary btn-sm">Rename</button>
                 </form>
                 <form action={deleteCampaignAction}>
                   <input type="hidden" name="id" value={c.id} />
@@ -108,7 +108,7 @@ export default async function ListsSettings(props: { searchParams: Promise<{ not
                 </option>
               ))}
             </select>
-            <button className="rounded bg-gold px-3 py-1.5 text-sm font-medium text-ink">Add</button>
+            <button className="btn btn-primary">Add</button>
           </form>
         </section>
       </div>

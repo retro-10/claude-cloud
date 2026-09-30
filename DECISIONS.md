@@ -156,3 +156,44 @@ enrolment, lost needs a reason), and the brief asks only for label and order to 
 | **`docker compose up`, the Dockerfile and `docker-compose.prod.yml`** | **not run: the environment this was built in has no Docker daemon.** The same steps were run by hand (migrate, seed, build, start, login) and the compose files are standard, but please run `docker compose up --build` once and, for production, the prod file on the real server | **unverified** |
 | HTTPS, certificate issuance, HSTS end to end | headers verified on the running server; Caddy and real certificates not run | **unverified** |
 | Assistive-technology use (screen reader) | only automated checks and keyboard tests; automated tools find roughly a third of issues | **partly verified** |
+
+## Release 1.1: design and discipline
+
+**Interface.** A new design system (`src/app/globals.css`, `src/components/ui`): warm charcoal surfaces, warm
+white text, one gold accent (the brief's palette), Playfair Display for titles, Inter for everything else,
+hairline borders, soft shadows. A fixed sidebar with live counts replaces the top bar; a mobile bottom bar and
+drawer; a command palette (Ctrl/⌘K) searching leads and commands; `g`-key navigation and a `?` shortcut sheet;
+toasts for saved notices. Icons are inline SVG (no icon font, no network). Charts are server-rendered HTML with
+one hue, focusable marks with tooltips and a table view; the weekly trend is three small multiples instead of
+three series on one scale. Both themes pass the automated WCAG AA scan on every screen and dialog.
+
+**Exit criteria (P1)** are checked in `moveStageTx`, the one function every stage change goes through (board,
+lead page, bulk, consults, enrolment), so no path can skip them. Checks are code (`src/lib/exit-criteria.ts`);
+which apply to which stage is data (`stage_exit_criteria`), edited in Settings. Checks apply to the stage being
+entered. Owners may override with a reason (audit-logged). Automatic moves (consult booked/held) simply wait.
+CSV imports of past data skip the checks and the rules: they record history, not a move.
+
+**Workflow rules (W1)** run inside the same transaction as the event that triggers them, so a lead is never
+created without its reply task. Time-based rules (overdue, response time breached) are swept every 5 minutes in
+the server process and on each Today load (in the background); each fires at most once per follow-up or lead
+(`workflow_runs.dedupe_key`). Rules can create follow-ups, stop cadences, cancel follow-ups, tag, assign and
+notify. They never send a message. The "they replied" rule stops only cadence steps: hand-made follow-ups stay.
+
+**Smart views** are one SQL condition each (`src/lib/views.ts`) used by the list and the badges. The sidebar
+counts run on every page, so they use one aggregated query (65 ms at 10,000 leads, down from 795 ms with the
+per-row form); a test checks every count equals its list's total.
+
+**Templates** never contain typed dates (refused on save): every deadline comes from the cohort or lead record
+(E2). Missing placeholder values block sending instead of sending blank text. The composer opens `wa.me` with
+the text; the user confirms it was sent, which logs it.
+
+**Phone numbers (D1).** Egyptian numbers must be a valid mobile (10, 11, 12, 15 + 8 digits) or landline length;
+the text as typed is kept in `phone_raw`. **Duplicates (D2)**: phone or email block; same name and city warn;
+name only does nothing. Search folds Arabic spelling variants (أ/إ/آ/ا, ى/ي, ة/ه) and ignores phone formatting.
+
+**Merges (D3)** move activities, follow-ups, consults, enrolments and consent records; the loser is soft-deleted
+with `merged_into_id` and a snapshot is kept for a 7-day undo. Stage events stay with their lead.
+
+**Not built in 1.1** (later releases per the blueprint): scoring (S1-S3), events, onboarding, referrals, proof
+library, the extended reports (R1-R6), capture form and UTM (A1, A2, A4), daily digest and push (N2, N3),
+booking page (B1), integrations (2.0). A minimal notification centre (N1) was needed for the built-in rules.

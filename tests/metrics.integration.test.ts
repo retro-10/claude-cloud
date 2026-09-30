@@ -91,11 +91,13 @@ d("dashboard metrics against the hand-checked demo dataset", () => {
   it("leaks: top lost reasons and top objection tags (ties broken alphabetically)", async () => {
     const { leaks } = await M();
     expect(leaks.lostReasons).toEqual([
-      { label: "No response", count: 2 },
-      { label: "Price", count: 2 },
-      { label: "Not a fit", count: 1 },
-      { label: "Timing", count: 1 },
+      { label: "No response", count: 2, noDecision: false },
+      { label: "Price", count: 2, noDecision: false },
+      { label: "Not a fit", count: 1, noDecision: false },
+      { label: "Timing", count: 1, noDecision: false },
     ]);
+    expect(leaks.lostExplicit).toBe(6);
+    expect(leaks.lostNoDecision).toBe(0);
     expect(leaks.objections).toEqual([
       { label: "Price", count: 3 },
       { label: "Time", count: 2 },

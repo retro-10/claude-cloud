@@ -27,3 +27,16 @@ Each has a safe default already applied. Answer any and it will be changed.
 23. **Session length.** Sessions last 7 days and end sooner if the password changes or the user is deactivated. Shorter (for example 12 hours)?
 24. **Two-factor sign-in** is not built. With customers' personal data on the public internet, do you want it added?
 25. **Data retention.** Nothing is ever purged. Do you need a rule (for example anonymise leads inactive for N months) for privacy?
+
+## Release 1.1 (feature blueprint)
+
+26. **Working hours.** The response-time clock can skip nights and days off, but the blueprint gives no hours, so it is **off**. If you want it, what are Camp's hours and days (the placeholder is 10:00-22:00, Friday off)?
+27. **Default owner.** The blueprint says new leads belong to Retro by default. Today a lead belongs to whoever adds it until you pick a default owner in Settings > Thresholds & routing. Set Retro as the default?
+28. **Message templates.** Only neutral starter templates are seeded (no prices, incentives, guarantees or outcome claims). The blueprint asks for the objection replies and cadence wording from the Camp sales roadmap: please share it, and Badr must approve any price, incentive or claim before it goes in.
+29. **Referral-ask template** was not seeded because the reward rules are Badr's to set (blueprint E5).
+30. **Consult held checks.** Entering Consult held needs at least one objection tag. If a consult raises no objection, the owner overrides with a reason. Add an objection called "None raised" instead?
+31. **Exact-email duplicates.** The blueprint's table says "block and offer merge" while its note says "auto-merge exact email". Built: block and offer the existing lead, merge only by a person (merges are hard to undo). OK?
+32. **Merged-away stage history** stays on the merged-away lead (hidden), so the funnel does not count one person twice. The combined timeline shows every activity, follow-up and consult. OK?
+33. **"No response" vs "No decision".** Both lost reasons exist: No response = never replied; No decision = went silent after the offer (reported separately on the dashboard). Keep both?
+34. **Course prerequisites** (computer, Exocad access) for the fit scoring in Release 1.2: what exactly should count?
+35. **Consent wording.** The CRM records how each lead agreed to WhatsApp contact. Is there wording you want on forms, and has a lawyer confirmed the obligations under Law 151 of 2020?
