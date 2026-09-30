@@ -26,7 +26,20 @@ services:
       AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SEED_PASSWORD: ${SEED_PASSWORD:?set SEED_PASSWORD in .env}
-      SEED_DEMO: ${SEED_DEMO:-true}
+      SEED_DEMO: ${SEED_DEMO:-false}
+      # Notion sync (optional): only NOTION_TOKEN is needed, the rest have defaults
+      NOTION_TOKEN: ${NOTION_TOKEN:-}
+      NOTION_SYNC_LEADS: ${NOTION_SYNC_LEADS:-true}
+      NOTION_SYNC_INTERVAL_SEC: ${NOTION_SYNC_INTERVAL_SEC:-60}
+      NOTION_BATCHES_DB: ${NOTION_BATCHES_DB:-}
+      NOTION_CANDIDATES_DB: ${NOTION_CANDIDATES_DB:-}
+      NOTION_LEDGER_DB: ${NOTION_LEDGER_DB:-}
+      NOTION_SESSIONS_DB: ${NOTION_SESSIONS_DB:-}
+      NOTION_PROOF_DB: ${NOTION_PROOF_DB:-}
+      NOTION_TEAM_DB: ${NOTION_TEAM_DB:-}
+      NOTION_LEADS_DB: ${NOTION_LEADS_DB:-}
+      NOTION_PARENT_PAGE: ${NOTION_PARENT_PAGE:-}
+      APP_URL: ${APP_URL:-http://localhost:3000}
       TZ: UTC
     ports:
       - "${APP_PORT:-3000}:3000"

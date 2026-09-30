@@ -34,6 +34,19 @@ services:
       SEED_PASSWORD: ${SEED_PASSWORD:?set SEED_PASSWORD in .env}
       COOKIE_SECURE: "true" # HTTPS only: session cookie gets the Secure flag, HSTS is sent
       SEED_DEMO: ${SEED_DEMO:-false} # never demo data in production unless you ask for it
+      # Notion sync (optional): only NOTION_TOKEN is needed, the rest have defaults
+      NOTION_TOKEN: ${NOTION_TOKEN:-}
+      NOTION_SYNC_LEADS: ${NOTION_SYNC_LEADS:-true}
+      NOTION_SYNC_INTERVAL_SEC: ${NOTION_SYNC_INTERVAL_SEC:-60}
+      NOTION_BATCHES_DB: ${NOTION_BATCHES_DB:-}
+      NOTION_CANDIDATES_DB: ${NOTION_CANDIDATES_DB:-}
+      NOTION_LEDGER_DB: ${NOTION_LEDGER_DB:-}
+      NOTION_SESSIONS_DB: ${NOTION_SESSIONS_DB:-}
+      NOTION_PROOF_DB: ${NOTION_PROOF_DB:-}
+      NOTION_TEAM_DB: ${NOTION_TEAM_DB:-}
+      NOTION_LEADS_DB: ${NOTION_LEADS_DB:-}
+      NOTION_PARENT_PAGE: ${NOTION_PARENT_PAGE:-}
+      APP_URL: ${APP_URL:-}
       TZ: UTC
     expose:
       - "3000"

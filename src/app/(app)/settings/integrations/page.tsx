@@ -4,7 +4,9 @@ import { Card, EmptyState, Icon } from "@/components/ui";
 import { notionConfig, syncRunning, syncStatus } from "@/lib/notion/sync";
 import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
-import { syncNotionAction } from "./actions";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { demoCounts } from "@/lib/demo-cleanup";
+import { removeDemoAction, syncNotionAction } from "./actions";
 
 export const metadata = { title: "Integrations · Settings" };
 
@@ -14,7 +16,7 @@ export default async function Integrations(props: { searchParams: Promise<{ noti
   const sp = await props.searchParams;
   await requirePageCan("settings:write");
   const cfg = notionConfig();
-  const st = await syncStatus(db);
+  const [st, demo] = await Promise.all([syncStatus(db), demoCounts(db)]);
   const last = st.runs[0];
   const leadsDb = cfg?.leadsDb ?? st.leadsDb;
   const dbs = cfg
@@ -25,7 +27,7 @@ export default async function Integrations(props: { searchParams: Promise<{ noti
         { label: "Sessions", id: cfg.sessionsDb, n: st.linked.session, dir: "both ways" },
         { label: "Proof & Testimonial Bank", id: cfg.proofDb, n: st.linked.proof, dir: "both ways" },
         { label: "Team", id: cfg.teamDb, n: st.linked.team, dir: "both ways (pay and equity stay in Notion)" },
-        ...(cfg.syncLeads ? [{ label: "CRM Leads", id: leadsDb, n: st.linked.lead, dir: "CRM → Notion; name, email, notes back" }] : []),
+        ...(cfg.syncLeads ? [{ label: "Leads", id: leadsDb, n: st.linked.lead, dir: "both ways (add leads in Notion; stage and owner stay the CRM's)" }] : []),
       ]
     : [];
 
@@ -97,6 +99,22 @@ export default async function Integrations(props: { searchParams: Promise<{ noti
           </>
         )}
       </Card>
+
+      {(demo.leads > 0 || demo.ledger > 0) && (
+        <Card title="Demo data" icon="trash" className="mb-5 max-w-3xl border-warn/40">
+          <div className="flex flex-wrap items-center gap-4">
+            <p className="flex-1 text-sm text-muted">
+              This CRM still holds {demo.leads} demo leads (fake &ldquo;Demo Lead&rdquo; names and +20 108 numbers) and {demo.ledger} demo money rows. Remove them before going
+              live so only your real leads and Notion&rsquo;s candidates remain. Real data is never touched.
+            </p>
+            <form action={removeDemoAction}>
+              <ConfirmButton message="Delete all demo leads, demo batches and DEMO money rows? This cannot be undone." className="btn btn-danger btn-sm">
+                <Icon name="trash" size={14} /> Remove demo data
+              </ConfirmButton>
+            </form>
+          </div>
+        </Card>
+      )}
 
       {st.runs.length > 0 && (
         <Card title="Recent runs" icon="history" bodyClass="p-0" className="max-w-3xl">

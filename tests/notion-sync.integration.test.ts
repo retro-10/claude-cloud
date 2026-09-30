@@ -317,6 +317,41 @@ d("Notion two-way sync", () => {
     expect((await saveTeamMember(db, null, { name: "X", contact: "not-an-email" }, userId)).ok).toBe(false);
   });
 
+  it("a lead typed into the Notion Leads database becomes a CRM lead (routed, de-duplicated, phone cleaned up)", async () => {
+    await sync();
+    const leadsDb = [...notion.databases.keys()][0];
+    const page = notion.add(leadsDb, {
+      Name: put.title("Hana Mostafa"),
+      Phone: put.phone("0122 333 4444"),
+      Source: put.select("Referral"),
+      Segment: put.select("Dentist"),
+      "Tier interest": put.select("Production Partner"),
+      Notes: put.text("Met at the masterclass"),
+    });
+    let r = await sync();
+    expect(r.errors).toEqual([]);
+    const [hana] = await db.select().from(s.leads).where(eq(s.leads.fullName, "Hana Mostafa"));
+    expect(hana).toMatchObject({ phoneWhatsapp: "+201223334444", stage: "new", segment: "dentist", tierInterest: "production_partner", notes: "Met at the masterclass" });
+    // the CRM's own columns are written back to the Notion row
+    expect(notion.prop(page, "Stage").select!.name).toBe("New");
+    expect(notion.prop(page, "Phone").phone_number).toBe("+201223334444");
+    expect(notion.prop(page, "Open in CRM").url).toBe(`https://crm.example.com/leads/${hana.id}`);
+
+    // the same person typed again in Notion is linked to the existing lead, never duplicated
+    notion.add(leadsDb, { Name: put.title("Hana M."), Phone: put.phone("+201223334444") });
+    r = await sync();
+    expect(await db.select().from(s.leads).where(eq(s.leads.phoneWhatsapp, "+201223334444"))).toHaveLength(1);
+
+    // edits in Notion come in (phone, segment); an unreadable number is reported, not saved
+    notion.edit(page, { Segment: put.select("Technician") });
+    await sync();
+    expect((await db.select().from(s.leads).where(eq(s.leads.id, hana.id)))[0].segment).toBe("technician");
+    notion.add(leadsDb, { Name: put.title("Bad Number"), Phone: put.phone("12") });
+    r = await sync();
+    expect(r.errors.some((e) => /cannot read/.test(e))).toBe(true);
+    expect(await db.select().from(s.leads).where(eq(s.leads.fullName, "Bad Number"))).toHaveLength(0);
+  });
+
   it("each run is logged", async () => {
     const runs = await db.select().from(s.notionSyncRuns);
     expect(runs.length).toBeGreaterThan(5);

@@ -22,8 +22,8 @@ docker compose up --build
 ```
 
 Open http://localhost:3000. On start the app applies migrations, seeds reference data (stages, sources, lost
-reasons, objections, cadence templates), four accounts, and, because `SEED_DEMO=true`, 20 demo leads so every
-screen has something on it. All of it is idempotent: restarting is safe.
+reasons, objections, cadence templates) and four accounts. Set `SEED_DEMO=true` in `.env` if you want 20 demo leads
+to try every screen (off by default; owners can remove them later in Settings > Integrations). All of it is idempotent: restarting is safe.
 
 | User | Email | Role |
 | --- | --- | --- |
@@ -44,7 +44,7 @@ See `.env.example`, which explains every value. The important ones:
 | `POSTGRES_PASSWORD`, `DATABASE_URL` | Database password, and the URL the app uses (same password) |
 | `AUTH_SECRET` | 32+ random characters that sign session cookies. Changing it signs everyone out |
 | `SEED_PASSWORD` | Initial password of the four seeded accounts |
-| `SEED_DEMO` | `true`: add demo leads on first start into an empty database. `false` for real use |
+| `SEED_DEMO` | `true`: add demo leads on first start into an empty database. Default `false` (real use) |
 | `COOKIE_SECURE` | `true` when served over HTTPS (production compose forces it) |
 | `DOMAIN` | Production only: the domain Caddy gets a certificate for |
 | `NOTION_TOKEN` | Optional. Switches on the two-way Notion sync (Batches, Candidates, Ledger, Sessions, Proof bank, Team, CRM Leads). Setup: User guide > Notion |

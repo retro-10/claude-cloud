@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { audit } from "@/lib/audit";
+import { removeDemoData } from "@/lib/demo-cleanup";
 import { syncNow } from "@/lib/notion/sync";
 import { requireCan } from "@/lib/server-auth";
 
@@ -17,4 +18,12 @@ export async function syncNotionAction() {
   revalidatePath("/", "layout");
   const msg = `Synced: ${r.pushed} sent, ${r.pulled} updated from Notion, ${r.created} new${r.conflicts ? `, ${r.conflicts} conflicts` : ""}${r.more ? " (more next run)" : ""}`;
   redirect(`/settings/integrations?${r.errors.length ? "error" : "notice"}=${encodeURIComponent(r.errors.length ? `${msg}. ${r.errors.length} problem(s) below.` : msg)}`);
+}
+
+// Owners only: deletes the demo leads, batches and DEMO money rows so only real data (and Notion's) remains.
+export async function removeDemoAction() {
+  const user = await requireCan("settings:write");
+  const r = await removeDemoData(db, user.id);
+  revalidatePath("/", "layout");
+  redirect(`/settings/integrations?notice=${encodeURIComponent(`Demo data removed (${r.leads} demo leads)`)}`);
 }

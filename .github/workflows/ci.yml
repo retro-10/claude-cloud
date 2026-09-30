@@ -99,6 +99,8 @@ jobs:
         run: |
           cp .env.example .env
           echo "AUTH_SECRET=$(openssl rand -base64 48)" >> .env
+          # real deployments start empty (SEED_DEMO=false); the stack test uses the demo data
+          sed -i 's/^SEED_DEMO=.*/SEED_DEMO=true/' .env
       - name: Both compose files are valid
         run: |
           docker compose config -q
