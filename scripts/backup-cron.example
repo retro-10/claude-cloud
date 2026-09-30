@@ -1,0 +1,7 @@
+# Nightly backup at 02:30 server time, kept for 14 days. Install with: crontab -e
+# Adjust the path to where the project lives on the VPS.
+#
+# Off-machine copy: a backup on the same disk does not survive the disk. Copy the newest file somewhere
+# else (another server, object storage) and encrypt it first, because it contains personal data, e.g.
+#   age -r <public-key> -o crm.dump.age backups/crm-….dump     or     gpg --symmetric backups/crm-….dump
+30 2 * * * cd /srv/orladent-crm && scripts/backup.sh >> backups/backup.log 2>&1

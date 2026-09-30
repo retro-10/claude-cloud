@@ -1,0 +1,59 @@
+# Production stack: database + app + Caddy, which gets and renews a free HTTPS certificate automatically.
+# The app is NOT published on any port; only Caddy (80/443) is reachable from the internet.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Needs a real domain name whose DNS A/AAAA record points at this server, and ports 80 and 443 open.
+# Set DOMAIN, POSTGRES_PASSWORD, DATABASE_URL, AUTH_SECRET and SEED_PASSWORD in .env (see README).
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-crm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-crm}
+      TZ: UTC
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-crm} -d ${POSTGRES_DB:-crm}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env}
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      SEED_PASSWORD: ${SEED_PASSWORD:?set SEED_PASSWORD in .env}
+      COOKIE_SECURE: "true" # HTTPS only: session cookie gets the Secure flag, HSTS is sent
+      SEED_DEMO: ${SEED_DEMO:-false} # never demo data in production unless you ask for it
+      TZ: UTC
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env, e.g. crm.example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
