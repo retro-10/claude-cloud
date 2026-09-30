@@ -207,7 +207,8 @@ minute. **Settings > Integrations** shows what is linked, the last runs and any 
 
 **Going live with real data:** a fresh install has no demo data (`SEED_DEMO=false`). If yours still shows
 "Demo Lead" contacts, open **Settings > Integrations > Remove demo data** (owners): every demo lead, demo
-batch and DEMO money row goes, real data is untouched. After the first sync, your real candidates, batches
+batch and DEMO money row goes, real data is untouched. Their copies in Notion are archived too (restore them
+from Notion's trash if you need them), so they never come back on a later sync. After the first sync, your real candidates, batches
 and payments come in from Notion with their real numbers.
 
 **Setting it up (once, by whoever runs the server):** create an internal integration at

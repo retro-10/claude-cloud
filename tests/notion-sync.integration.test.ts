@@ -12,7 +12,7 @@ import { deleteEntry, listCandidates, saveEntry, updateCandidate } from "@/lib/f
 import { deleteProof, listProof, listSessions, saveSession, saveTeamMember, updateProgramme } from "@/lib/programme";
 import { changeStage, createLead } from "@/lib/leads";
 import { NotionHttp, pid, put } from "@/lib/notion/client";
-import { hashFields, notionConfig, runNotionSync, type NotionConfig } from "@/lib/notion/sync";
+import { archiveNotionPages, hashFields, notionConfig, runNotionSync, type NotionConfig } from "@/lib/notion/sync";
 import { withoutRelease11Rules } from "./base-rules";
 import { FakeNotion } from "./fake-notion";
 
@@ -350,6 +350,38 @@ d("Notion two-way sync", () => {
     r = await sync();
     expect(r.errors.some((e) => /cannot read/.test(e))).toBe(true);
     expect(await db.select().from(s.leads).where(eq(s.leads.fullName, "Bad Number"))).toHaveLength(0);
+  });
+
+  it("an email typed in Notion that another lead already has is reported, and the rest of the leads still sync", async () => {
+    const leadsDb = [...notion.databases.keys()][0];
+    const [hana] = await db.select().from(s.leads).where(eq(s.leads.fullName, "Hana Mostafa"));
+    const page = (await link("lead", hana.id)).pageId;
+    notion.edit(page, { Email: put.email("KERO@example.com"), Notes: put.text("email clash") });
+    notion.add(leadsDb, { Name: put.title("After The Clash"), Phone: put.phone("01155566677") });
+    const r = await sync();
+    expect(r.errors.some((e) => /^lead: /.test(e))).toBe(false);
+    expect(r.errors.some((e) => /email.*another lead/.test(e))).toBe(true);
+    const [after] = await db.select().from(s.leads).where(eq(s.leads.id, hana.id));
+    expect(after).toMatchObject({ email: null, notes: "email clash" });
+    expect(await db.select().from(s.leads).where(eq(s.leads.fullName, "After The Clash"))).toHaveLength(1);
+  });
+
+  it("a removed row whose link is gone is never brought back from Notion, and its page can be archived", async () => {
+    const x = await createLead(db, { fullName: "Removed Later", phone: "01166677788" }, userId);
+    if (!x.ok) throw new Error("setup");
+    await sync();
+    const page = (await link("lead", x.lead.id)).pageId;
+    // what removing demo data does: the link is kept as "gone", the row is deleted
+    await db.update(s.notionLinks).set({ hash: "gone" }).where(eq(s.notionLinks.pageId, page));
+    for (const t of ["stage_events", "activities", "follow_ups", "notifications", "workflow_runs"]) await client.unsafe(`delete from ${t} where lead_id = ${x.lead.id}`);
+    await db.delete(s.leads).where(eq(s.leads.id, x.lead.id));
+    notion.edit(page, { Notes: put.text("edited after the removal") });
+    await client.unsafe(`update app_settings set value = value - 'cursors' where key = 'notion_state'`); // full re-read
+    await sync();
+    expect(await db.select().from(s.leads).where(eq(s.leads.fullName, "Removed Later"))).toHaveLength(0);
+
+    expect(await archiveNotionPages([page, "0000000000000000000000000000dead"], cfg, notion)).toEqual({ archived: 2, failed: 0 }); // an already-deleted page counts as done
+    expect(notion.pages.get(page)?.archived).toBe(true);
   });
 
   it("each run is logged", async () => {

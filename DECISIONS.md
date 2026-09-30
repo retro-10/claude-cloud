@@ -310,6 +310,10 @@ refused the enrolment. Both now name the table explicitly.
   rows from an existing install in Settings > Integrations: demo leads are recognised by construction
   (name "Demo Lead NN" and a +20108000000NN number), batches by name when nothing real uses them, money,
   sessions and proof by the "DEMO " prefix. Tested: nothing real is touched, and a second run is a no-op.
+  Rows already mirrored to Notion keep their link, marked "gone", and their pages are archived: deleting the
+  link instead would make the next read of Notion treat those pages as new rows and bring the demo back.
+* A phone or email typed in Notion that another lead already has is not saved (it would break the unique
+  index and stop every later lead in the run from syncing); the run log names both leads so they can be merged.
 
 ## Fonts
 
