@@ -21,6 +21,9 @@
     "playwright-core": "1.56.1",
     "next": {
       "postcss": "8.5.28"
+    },
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.12"
     }
   },
   "dependencies": {
@@ -49,6 +52,6 @@
     "tailwindcss": "^3.4.13",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2",
-    "vitest": "^2.1.2"
+    "vitest": "^4.1.11"
   }
 }
