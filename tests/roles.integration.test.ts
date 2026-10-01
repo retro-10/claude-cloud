@@ -130,6 +130,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/growth/content/actions")),
       ...(await import("@/app/(app)/growth/referrals/actions")),
       ...(await import("@/app/(app)/classes/actions")),
+      ...(await import("@/app/(app)/assignments/actions")),
     };
   });
   afterAll(async () => {
@@ -200,6 +201,7 @@ d("role rules on the server", () => {
       const [c] = await db.insert(s.batchClasses).values({ cohortId, title: `C${++n}`, startsAt: new Date() }).returning();
       return strict(() => A.markAttendanceAction(fd({ classId: c.id, [`st-${enrolmentId}`]: "present" })));
     }],
+    ["saveAssignmentAction", ["owner", "instructor"], () => strict(() => A.saveAssignmentAction(fd({ cohortId, title: `Case ${++n}`, rubric: "Fit | 50\nAnatomy | 50", passPct: 70, dueAt: "" })))],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 

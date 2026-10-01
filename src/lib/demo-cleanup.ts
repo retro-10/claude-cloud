@@ -47,6 +47,9 @@ export async function removeDemoData(db: Db, userId: number | null) {
     await run(sql`delete from class_attendance where enrolment_id in (select id from demo_enrol)
       or class_id in (select id from batch_classes where cohort_id in (select id from demo_cohorts))`);
     await run(sql`delete from batch_classes where cohort_id in (select id from demo_cohorts)`);
+    await run(sql`delete from submissions where enrolment_id in (select id from demo_enrol)
+      or assignment_id in (select id from assignments where cohort_id in (select id from demo_cohorts))`);
+    await run(sql`delete from assignments where cohort_id in (select id from demo_cohorts)`);
     await run(sql`delete from enrolments where id in (select id from demo_enrol)`);
     await run(sql`delete from consult_objections where consult_id in (select id from consults where lead_id in (select id from demo_leads))`);
     for (const t of ["consults", "activities", "follow_ups", "stage_events", "notifications", "workflow_runs", "consent_records", "tasks", "attachments", "form_submissions", "event_attendance"]) {

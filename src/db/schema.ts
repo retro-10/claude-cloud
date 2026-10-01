@@ -814,3 +814,54 @@ export const classAttendance = pgTable(
   },
   (t) => [uniqueIndex("class_attendance_uq").on(t.classId, t.enrolmentId), index("class_attendance_enrolment_idx").on(t.enrolmentId)],
 );
+
+export type RubricCriterion = { name: string; max: number };
+export type RubricScore = { name: string; max: number; score: number };
+
+// Assignments: a case to design, scored against a rubric. The reviewed result feeds the student's QC score.
+export const assignments = pgTable(
+  "assignments",
+  {
+    id: serial("id").primaryKey(),
+    cohortId: integer("cohort_id")
+      .notNull()
+      .references(() => cohorts.id),
+    title: text("title").notNull(),
+    brief: text("brief"),
+    dueAt: ts("due_at"),
+    rubric: jsonb("rubric").$type<RubricCriterion[]>().notNull(),
+    passPct: integer("pass_pct").notNull().default(70),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+    deletedAt: ts("deleted_at"),
+  },
+  (t) => [index("assignments_cohort_idx").on(t.cohortId)],
+);
+
+export const submissionStatusEnum = pgEnum("submission_status", ["submitted", "rework", "passed"]);
+
+export const submissions = pgTable(
+  "submissions",
+  {
+    id: serial("id").primaryKey(),
+    assignmentId: integer("assignment_id")
+      .notNull()
+      .references(() => assignments.id),
+    enrolmentId: integer("enrolment_id")
+      .notNull()
+      .references(() => enrolments.id),
+    attempt: integer("attempt").notNull().default(1),
+    attachmentId: integer("attachment_id").references(() => attachments.id),
+    link: text("link"),
+    note: text("note"),
+    submittedAt: ts("submitted_at").notNull().defaultNow(),
+    status: submissionStatusEnum("status").notNull().default("submitted"),
+    scores: jsonb("scores").$type<RubricScore[]>(),
+    totalPct: integer("total_pct"),
+    feedback: text("feedback"),
+    reviewerId: integer("reviewer_id").references(() => users.id),
+    reviewedAt: ts("reviewed_at"),
+  },
+  (t) => [uniqueIndex("submissions_uq").on(t.assignmentId, t.enrolmentId), index("submissions_enrolment_idx").on(t.enrolmentId)],
+);
