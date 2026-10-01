@@ -86,6 +86,21 @@ d("Command centre", () => {
     const sales = (await alerts(db, "sales", now)).map((a) => a.key);
     expect(sales).toContain("content_late");
     expect(sales).not.toContain("rewards");
+    // teaching: work to review, and a class held this week with no attendance taken
+    const [batch] = await db.select().from(s.cohorts).limit(1);
+    await db.insert(s.batchClasses).values({ cohortId: batch.id, title: "Held", startsAt: new Date(now.getTime() - 86_400_000) });
+    const [asg] = await db.insert(s.assignments).values({ cohortId: batch.id, title: "Case", rubric: [{ name: "Fit", max: 10 }] }).returning();
+    const [someone] = await db.select().from(s.leads).limit(1);
+    const [en] = await db.insert(s.enrolments).values({ leadId: someone.id, cohortId: batch.id, tier: "foundation", amountEgp: 1 }).returning();
+    await db.insert(s.submissions).values({ assignmentId: asg.id, enrolmentId: en.id, link: "https://x.example" });
+    const teach = await alerts(db, "instructor", now);
+    expect(teach.find((a) => a.key === "to_review")).toMatchObject({ count: 1 });
+    expect(teach.find((a) => a.key === "unmarked")).toMatchObject({ count: 1 });
+    // leave nothing behind for the tests after this one
+    await client`delete from submissions where enrolment_id = ${en.id}`;
+    await client`delete from enrolments where id = ${en.id}`;
+    await client`delete from assignments where id = ${asg.id}`;
+    await client`delete from batch_classes where cohort_id = ${batch.id}`;
     expect(sales).not.toContain("instalments");
     expect(sales).toContain("past_red");
   });

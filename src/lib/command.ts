@@ -51,7 +51,7 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
 
   const [counts, [r], batches, [lastRun], progress] = await Promise.all([
     navCounts(db, now),
-    db.execute<{ past_red: number; tasks_overdue: number; instalments_overdue: number; instalments_egp: number; owed_overdue: number; replies: number; content_late: number; rewards_pending: number }>(sql`
+    db.execute<{ past_red: number; tasks_overdue: number; instalments_overdue: number; instalments_egp: number; owed_overdue: number; replies: number; content_late: number; rewards_pending: number; to_review: number; unmarked: number }>(sql`
       select
         (select count(*) from leads l join stages s on s.key = l.stage
           where l.deleted_at is null and s.kind = 'open' and l.first_contact_at is null and not l.do_not_contact
@@ -67,7 +67,11 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
             and e.status is distinct from 'dropped')::int as instalments_egp,
         (select count(*) from ledger_entries where deleted_at is null and status = 'owed' and date < ${today}::timestamptz)::int as owed_overdue,
         (select count(*) from content_items where deleted_at is null and status <> 'posted' and publish_at < ${now.toISOString()}::timestamptz)::int as content_late,
-        (select count(*) from referral_rewards where status = 'pending')::int as rewards_pending`),
+        (select count(*) from referral_rewards where status = 'pending')::int as rewards_pending,
+        (select count(*) from submissions x join assignments a on a.id = x.assignment_id and a.deleted_at is null where x.status = 'submitted')::int as to_review,
+        (select count(*) from batch_classes b where b.deleted_at is null and b.starts_at < ${now.toISOString()}::timestamptz
+           and b.starts_at > ${new Date(now.getTime() - 7 * 86_400_000).toISOString()}::timestamptz
+           and not exists (select 1 from class_attendance x where x.class_id = b.id))::int as unmarked`),
     db.execute<{ id: number; name: string; seat_cap: number; used: number; close_at: string }>(sql`
       select c.id, c.name, c.seat_cap, count(e.id)::int as used, c.enrolment_close_at as close_at
       from cohorts c left join enrolments e on e.cohort_id = c.id and e.status is distinct from 'dropped'
@@ -86,6 +90,8 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
   add({ key: "decision_due", severity: "warn", title: "Decisions due", detail: `${plural(v.decision_due, "offer")} at or past the agreed decision date`, count: v.decision_due, href: "/leads?view=decision_due" });
   add({ key: "no_next_step", severity: "warn", title: "Leads with no next step", detail: `${plural(v.no_next_step, "open lead")} with nothing scheduled`, count: v.no_next_step, href: "/leads?view=no_next_step" });
   add({ key: "neglected", severity: "info", title: "Neglected leads", detail: `no activity for ${settings.neglectDays}+ days`, count: v.neglected, href: "/leads?view=neglected" });
+  add({ key: "to_review", severity: "warn", title: "Student work waiting for review", detail: `${plural(Number(r.to_review), "submission")} sent and not reviewed yet`, count: Number(r.to_review), href: "/assignments" });
+  add({ key: "unmarked", severity: "info", title: "Attendance not taken", detail: `${plural(Number(r.unmarked), "class", "classes")} held this week without attendance`, count: Number(r.unmarked), href: "/classes" });
   add({ key: "content_late", severity: "warn", title: "Content past its publish time", detail: `${plural(Number(r.content_late), "piece")} planned for earlier and not marked posted`, count: Number(r.content_late), href: "/growth/content?view=board" });
   add({ key: "tasks_overdue", severity: "warn", title: "Overdue tasks", detail: `${plural(Number(r.tasks_overdue), "task")} past due across the team`, count: Number(r.tasks_overdue), href: "/tasks?who=all&due=overdue" });
   if (money) {
