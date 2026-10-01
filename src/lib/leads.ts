@@ -23,6 +23,7 @@ export type NewLeadInput = {
   tierInterest?: Lead["tierInterest"];
   notes?: string | null;
   ownerId?: number | null;
+  attribution?: Record<string, string> | null; // utm_* and the form, from a public form or the inbound webhook
 };
 
 export type Duplicate = { id: number; fullName: string; deleted: boolean; matchedOn: "phone" | "email" | "name and city" };
@@ -128,6 +129,7 @@ export async function createLead(
           tierInterest: input.tierInterest ?? "unsure",
           notes: blank(input.notes),
           ownerId,
+          attribution: input.attribution && Object.keys(input.attribution).length ? input.attribution : null,
         })
         .returning();
       // creation is the funnel's first event (from_stage NULL -> new)

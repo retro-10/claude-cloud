@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { CAMPAIGN_KINDS, CAMPAIGN_STATUS, saveCampaign, type CampaignKind, type CampaignStatus } from "@/lib/campaigns";
 import { saveEntry } from "@/lib/finance";
+import { saveForm } from "@/lib/lead-forms";
 import { requireCan } from "@/lib/server-auth";
 import { cairoLocalToDate } from "@/lib/time";
 
@@ -63,4 +64,23 @@ export async function addCampaignCostAction(form: FormData) {
   const r = await saveEntry(db, null, { entry: p.entry || "Campaign cost", amountEgp: p.amountEgp, section: "variable_costs", category: p.category, status: p.status, date: toDate(p.date), campaignId: p.campaignId }, user.id);
   revalidatePath(`/growth/campaigns/${p.campaignId}`);
   go(`/growth/campaigns/${p.campaignId}`, r, "Cost recorded in the ledger");
+}
+
+export async function saveFormAction(form: FormData) {
+  const user = await requireCan("growth:write");
+  const p = z
+    .object({
+      id: optId,
+      slug: z.string().max(60),
+      title: z.string().max(200),
+      intro: z.string().max(4000).optional(),
+      thankYou: z.string().max(2000).optional(),
+      campaignId: optId,
+      sourceId: optId,
+    })
+    .parse(Object.fromEntries(form));
+  const on = (k: string) => form.get(k) === "on";
+  const r = await saveForm(db, p.id, { ...p, askEmail: on("askEmail"), askCity: on("askCity"), askSegment: on("askSegment"), askTier: on("askTier"), active: on("active") }, user.id);
+  revalidatePath("/growth/forms");
+  go("/growth/forms", r, p.id ? "Form saved" : "Form created");
 }

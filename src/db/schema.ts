@@ -166,6 +166,8 @@ export const leads = pgTable(
     tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
     lostReviewedAt: ts("lost_reviewed_at"), // no-decision review: closed without reactivating
     mergedIntoId: integer("merged_into_id"), // set on the lead that disappeared in a merge
+    // where a lead came from, as the link told us: utm_source/medium/campaign/content/term, the form, the referrer
+    attribution: jsonb("attribution").$type<Record<string, string>>(),
   },
   (t) => [
     index("leads_stage_idx").on(t.stage),
@@ -653,4 +655,39 @@ export const attachments = pgTable(
     deletedAt: ts("deleted_at"),
   },
   (t) => [index("attachments_lead_idx").on(t.leadId), index("attachments_cohort_idx").on(t.cohortId)],
+);
+
+// Public sign-up forms (/f/<slug>): a masterclass registration, an "apply" page, a link in bio. Each submission
+// becomes a lead (or is linked to the existing one) with the form's source and campaign.
+export const leadForms = pgTable("lead_forms", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  intro: text("intro"),
+  thankYou: text("thank_you"),
+  campaignId: integer("campaign_id").references(() => campaigns.id),
+  sourceId: integer("source_id").references(() => sources.id),
+  askEmail: boolean("ask_email").notNull().default(true),
+  askCity: boolean("ask_city").notNull().default(false),
+  askSegment: boolean("ask_segment").notNull().default(true),
+  askTier: boolean("ask_tier").notNull().default(false),
+  active: boolean("active").notNull().default(true),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: createdAt(),
+});
+
+export const formSubmissions = pgTable(
+  "form_submissions",
+  {
+    id: serial("id").primaryKey(),
+    formId: integer("form_id").references(() => leadForms.id), // null = the inbound webhook
+    leadId: integer("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    existing: boolean("existing").notNull().default(false), // the person was already a lead
+    channel: text("channel").notNull().default("form"), // form | webhook
+    ipHash: text("ip_hash"), // keyed hash, for spotting floods without keeping addresses
+    createdAt: createdAt(),
+  },
+  (t) => [index("form_submissions_form_idx").on(t.formId, t.createdAt), index("form_submissions_lead_idx").on(t.leadId)],
 );

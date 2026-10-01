@@ -53,6 +53,8 @@ export async function middleware(req: NextRequest) {
 
   const { pathname } = req.nextUrl;
   if (pathname === "/api/health") return withSecurityHeaders(NextResponse.next());
+  // public on purpose: the sign-up forms (/f/<slug>) and the token-protected inbound lead webhook
+  if (pathname.startsWith("/f/") || pathname === "/api/inbound/leads") return withSecurityHeaders(NextResponse.next());
 
   const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
   if (!session && pathname !== "/login" && pathname !== "/login/verify") {

@@ -6,6 +6,7 @@ export const metadata = { title: "Tools" };
 
 const TOOLS: { href: string; title: string; body: string; icon: IconName }[] = [
   { href: "/tools/offer", title: "Offer builder", body: "Tier, discount and payment plan: the schedule, the WhatsApp message, and the offer saved on the lead.", icon: "template" },
+  { href: "/tools/links", title: "Tracked links", body: "A link and QR code for each post, story, ad or flyer, so every lead says where it came from.", icon: "send" },
   { href: "/tools/planner", title: "Batch planner", body: "Seats to fill, worked back to consults and leads per week, at your own conversion rates.", icon: "target" },
 ];
 

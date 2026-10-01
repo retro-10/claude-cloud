@@ -178,6 +178,7 @@ d("role rules on the server", () => {
       const [g] = await db.insert(s.campaigns).values({ label: `Cost camp ${++n}` }).returning();
       return strict(() => A.addCampaignCostAction(fd({ campaignId: g.id, entry: "Ads", amountEgp: "1,500", status: "paid", date: "" })));
     }],
+    ["saveFormAction", ["owner", "sales"], () => strict(() => A.saveFormAction(fd({ slug: `form-${++n}`, title: "Apply", askEmail: "on", active: "on" })))],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 

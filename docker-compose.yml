@@ -39,6 +39,7 @@ services:
       NOTION_TEAM_DB: ${NOTION_TEAM_DB:-}
       NOTION_LEADS_DB: ${NOTION_LEADS_DB:-}
       NOTION_PARENT_PAGE: ${NOTION_PARENT_PAGE:-}
+      INBOUND_LEADS_TOKEN: ${INBOUND_LEADS_TOKEN:-} # optional: switches on /api/inbound/leads
       APP_URL: ${APP_URL:-http://localhost:3000}
       TZ: UTC
     ports:

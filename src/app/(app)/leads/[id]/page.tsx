@@ -222,6 +222,14 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
                   <dd className="inline text-fg">{source}</dd>
                 </div>
               )}
+              {lead.attribution && (lead.attribution.utm_source || lead.attribution.utm_medium || lead.attribution.utm_content) && (
+                <div>
+                  <dt className="inline">Came from </dt>
+                  <dd className="inline text-fg" dir="ltr">
+                    {[lead.attribution.utm_source, lead.attribution.utm_medium, lead.attribution.utm_content].filter(Boolean).join(" · ")}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="inline">Owner </dt>
                 <dd className="inline text-fg">{owner ?? "Unassigned"}</dd>

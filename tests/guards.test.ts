@@ -14,9 +14,11 @@ const files = walk(ROOT);
 const rel = (f: string) => relative(ROOT, f).replace(/\\/g, "/");
 
 // exported functions that are deliberately public (before a session exists)
-// verify2fa runs before there is a session: the signed 5-minute pass from the password step is its check
-const PUBLIC_ACTIONS = new Set(["app/login/actions.ts:login", "app/login/actions.ts:logout", "app/login/actions.ts:verify2fa"]);
-const PUBLIC_ROUTES = new Set(["app/api/health/route.ts"]);
+// verify2fa runs before there is a session: the signed 5-minute pass from the password step is its check.
+// submitFormAction is the public sign-up form: its checks are the honeypot, the signed stamp and the rate limit.
+const PUBLIC_ACTIONS = new Set(["app/login/actions.ts:login", "app/login/actions.ts:logout", "app/login/actions.ts:verify2fa", "app/f/[slug]/actions.ts:submitFormAction"]);
+// the inbound webhook has no session: its check is the bearer token (asserted below)
+const PUBLIC_ROUTES = new Set(["app/api/health/route.ts", "app/api/inbound/leads/route.ts"]);
 
 function exportedAsyncFunctions(src: string): { name: string; body: string }[] {
   const parts = src.split(/^export async function /m).slice(1);
@@ -72,6 +74,16 @@ describe("every route handler checks the caller", () => {
       expect(src).toMatch(/can\(user\.role, "[a-z]+:[a-z]+"\)/);
     });
   }
+});
+
+describe("the inbound lead webhook", () => {
+  it("is off without a token and compares the token in constant time before doing anything", () => {
+    const src = readFileSync(files.find((f) => /api[\\/]inbound[\\/]leads[\\/]route\.ts$/.test(f))!, "utf8");
+    const check = src.indexOf("timingSafeEqual(");
+    expect(src).toContain("process.env.INBOUND_LEADS_TOKEN");
+    expect(check).toBeGreaterThan(0);
+    expect(check).toBeLessThan(src.indexOf("req.json()"));
+  });
 });
 
 describe("settings pages enforce their own permission (a layout check alone can be skipped by parallel rendering)", () => {
