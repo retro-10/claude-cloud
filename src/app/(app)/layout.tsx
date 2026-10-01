@@ -34,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/leads", label: "Leads", icon: "leads", section: "Work", keys: "G L" },
     { href: "/pipeline", label: "Pipeline", icon: "pipeline", section: "Work", keys: "G P" },
     { href: "/tasks", label: "Tasks", icon: "list", section: "Work", count: myTasks.mine, alert: myTasks.mineOverdue > 0, keys: "G K" },
+    { href: "/growth/campaigns", label: "Campaigns", icon: "target", section: "Growth", keys: "G M" },
     { href: "/cohorts", label: "Batches", icon: "cohorts", section: "Programme", keys: "G C" },
     { href: "/proof", label: "Proof bank", icon: "sparkle", section: "Programme" },
     { href: "/dashboard", label: "Dashboard", icon: "dashboard", section: "Insight", keys: "G D" },

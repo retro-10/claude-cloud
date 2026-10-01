@@ -86,11 +86,24 @@ export const sources = pgTable("sources", {
   label: text("label").notNull().unique(),
 });
 
+export const campaignKindEnum = pgEnum("campaign_kind", ["masterclass", "ads", "collaboration", "organic", "event", "referral", "other"]);
+export const campaignStatusEnum = pgEnum("campaign_status", ["planned", "live", "ended"]);
+
+// A masterclass, an ad run, a collaboration: anything that brings leads. Spend comes from ledger costs tagged
+// with the campaign, so cost per lead and per enrolment use real money, not typed numbers.
 export const campaigns = pgTable("campaigns", {
   id: serial("id").primaryKey(),
   label: text("label").notNull(),
   sourceId: integer("source_id").references(() => sources.id),
   startedAt: ts("started_at"),
+  kind: campaignKindEnum("kind").notNull().default("other"),
+  status: campaignStatusEnum("status").notNull().default("live"),
+  endsAt: ts("ends_at"),
+  eventAt: ts("event_at"), // a masterclass or event: when it happens
+  budgetEgp: integer("budget_egp"),
+  slug: text("slug").unique(), // utm_campaign value and the public form link
+  ownerId: integer("owner_id").references(() => users.id),
+  notes: text("notes"),
 });
 
 export const objections = pgTable("objections", {
@@ -471,6 +484,7 @@ export const ledgerEntries = pgTable(
     enrolmentId: integer("enrolment_id").references(() => enrolments.id),
     cohortId: integer("cohort_id").references(() => cohorts.id),
     teamMemberId: integer("team_member_id").references(() => teamMembers.id), // who a salary / freelance cost was paid to
+    campaignId: integer("campaign_id").references(() => campaigns.id), // a marketing cost: which campaign it paid for
     createdBy: integer("created_by").references(() => users.id),
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),

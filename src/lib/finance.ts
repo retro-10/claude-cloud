@@ -25,7 +25,7 @@ export const SECTIONS: Record<Section, { label: string; statuses: Status[]; cate
   variable_costs: {
     label: "Variable costs",
     statuses: ["paid", "owed", "cancelled"],
-    categories: ["Freelancers & sales", "Video production", "Content creator", "Equipment"],
+    categories: ["Freelancers & sales", "Video production", "Content creator", "Equipment", "Ads & promotion"],
   },
   partner_withdrawals: { label: "Partner withdrawals", statuses: ["paid", "owed", "cancelled"], categories: ["Partner withdrawal"] },
 };
@@ -52,6 +52,7 @@ export type EntryInput = {
   enrolmentId?: number | null;
   cohortId?: number | null;
   teamMemberId?: number | null;
+  campaignId?: number | null; // undefined = leave as is (forms and the Notion sync that do not know campaigns)
 };
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -66,6 +67,7 @@ export function entryProblem(e: EntryInput, split: Split): string | null {
   if (!e.category.trim() || e.category.length > 80) return "Choose a category";
   if (e.section === "partner_withdrawals" && !split.partners.some((p) => p.name === e.partner)) return "Choose which partner withdrew";
   if (e.enrolmentId && e.section !== "income") return "Only income can be linked to a candidate";
+  if (e.campaignId && e.section !== "fixed_costs" && e.section !== "variable_costs") return "Only a cost can be tagged to a campaign";
   return null;
 }
 
@@ -94,6 +96,7 @@ export async function saveEntry(db: Db, id: number | null, e: EntryInput, userId
     enrolmentId: e.enrolmentId ?? null,
     cohortId,
     teamMemberId: e.section === "income" ? null : (e.teamMemberId ?? null),
+    ...(e.campaignId !== undefined ? { campaignId: e.campaignId } : {}),
     updatedAt: new Date(),
   };
   return db.transaction(async (tx) => {

@@ -8,7 +8,7 @@ type Section = "income" | "fixed_costs" | "variable_costs" | "partner_withdrawal
 const SECTIONS: Record<Section, { label: string; statuses: [string, string][]; categories: string[] }> = {
   income: { label: "Income", statuses: [["received", "Received"], ["expected", "Expected"]], categories: ["Candidate payment", "OrlaDent client work", "Refund"] },
   fixed_costs: { label: "Fixed cost", statuses: [["paid", "Paid"], ["owed", "Owed"]], categories: ["Salaries", "Subscriptions"] },
-  variable_costs: { label: "Variable cost", statuses: [["paid", "Paid"], ["owed", "Owed"]], categories: ["Freelancers & sales", "Video production", "Content creator", "Equipment"] },
+  variable_costs: { label: "Variable cost", statuses: [["paid", "Paid"], ["owed", "Owed"]], categories: ["Freelancers & sales", "Video production", "Content creator", "Equipment", "Ads & promotion"] },
   partner_withdrawals: { label: "Partner withdrawal", statuses: [["paid", "Paid"], ["owed", "Owed"]], categories: ["Partner withdrawal"] },
 };
 

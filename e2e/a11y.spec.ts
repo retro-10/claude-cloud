@@ -44,7 +44,7 @@ for (const t of ["dark", "light"] as const) {
       "/dashboard?all=1", "/account", "/settings/users", "/settings/pipeline", "/settings/lists", "/settings/cadences", "/settings/audit",
       "/settings/rules", "/settings/workflows", "/settings/templates", "/leads?view=no_next_step", "/leads?view=no_decision_review",
       `/leads/merge?a=${firstLead!.split("/").pop()}`, "/finance", "/finance/ledger", "/finance/candidates", "/settings/finance",
-      "/settings/integrations", "/settings/team", "/proof", "/tasks", "/tasks?who=done", "/settings/targets", "/command", "/tools", "/tools/offer", `/tools/offer?lead=${firstLead!.split("/").pop()}`, "/tools/planner",
+      "/settings/integrations", "/settings/team", "/proof", "/tasks", "/tasks?who=done", "/settings/targets", "/command", "/tools", "/tools/offer", `/tools/offer?lead=${firstLead!.split("/").pop()}`, "/tools/planner", "/growth/campaigns",
     ];
     for (const path of screens) {
       await page.goto(path);
@@ -53,6 +53,13 @@ for (const t of ["dark", "light"] as const) {
       await expect(page.locator("h1").first()).toBeVisible();
       await scan(page, `${path} (${t})`);
     }
+    // a campaign's page (the demo data has one)
+    await page.goto("/growth/campaigns");
+    await ready(page);
+    await page.locator("main tbody a[href^='/growth/campaigns/']").first().click();
+    await page.waitForURL("**/growth/campaigns/*");
+    await theme(page, t);
+    await scan(page, `campaign detail (${t})`);
     // the cohort detail page too
     await page.goto("/cohorts");
     await ready(page);

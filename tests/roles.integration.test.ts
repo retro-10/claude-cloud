@@ -125,6 +125,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/command/actions")),
       ...(await import("@/app/(app)/tools/actions")),
       ...(await import("@/app/(app)/files/actions")),
+      ...(await import("@/app/(app)/growth/actions")),
     };
   });
   afterAll(async () => {
@@ -171,6 +172,11 @@ d("role rules on the server", () => {
       const f = fd({ leadId, back: `/leads/${leadId}` });
       f.set("file", new File([Buffer.from("%PDF-1.4")], "receipt.pdf", { type: "application/pdf" }));
       return strict(() => A.uploadFileAction(f));
+    }],
+    ["saveCampaignAction", ["owner", "sales"], () => strict(() => A.saveCampaignAction(fd({ label: `Camp ${++n}`, kind: "ads", status: "live" })))],
+    ["addCampaignCostAction", ["owner", "finance"], async () => {
+      const [g] = await db.insert(s.campaigns).values({ label: `Cost camp ${++n}` }).returning();
+      return strict(() => A.addCampaignCostAction(fd({ campaignId: g.id, entry: "Ads", amountEgp: "1,500", status: "paid", date: "" })));
     }],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];

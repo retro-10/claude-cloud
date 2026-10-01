@@ -12,6 +12,7 @@ export type Action =
   | "audit:read"
   | "task:write" // create, assign and finish team tasks (everyone who works; viewers only read)
   | "file:write" // attach files to leads and batches (same people as tasks)
+  | "growth:write" // campaigns, lead forms, masterclasses, content calendar, referrals (owner and sales)
   | "stage:override" // move a lead although the stage's exit criteria are not met (with a reason)
   | "finance:read"; // revenue anywhere (dashboard, batches, a lead's payments) and the Finance board: owner and finance only
 
@@ -30,8 +31,9 @@ const MATRIX: Record<Role, ReadonlySet<Action>> = {
     "finance:read",
     "task:write",
     "file:write",
+    "growth:write",
   ]),
-  sales: new Set<Action>(["lead:read", "lead:write", "task:write", "file:write"]),
+  sales: new Set<Action>(["lead:read", "lead:write", "task:write", "file:write", "growth:write"]),
   viewer: new Set<Action>(["lead:read"]),
   // Finance: sees everything, records/edits payments and exports revenue. No lead, settings or user edits.
   finance: new Set<Action>(["lead:read", "payment:write", "revenue:export", "finance:read", "task:write", "file:write"]),

@@ -54,7 +54,8 @@ export async function removeDemoData(db: Db, userId: number | null) {
     await run(sql`update tasks set cohort_id = null where cohort_id in (select id from demo_cohorts)`);
     await run(sql`delete from attachments where cohort_id in (select id from demo_cohorts)`);
     await run(sql`delete from cohorts where id in (select id from demo_cohorts)`);
-    await run(sql`delete from campaigns g where g.label = 'Masterclass Sep' and not exists (select 1 from leads l where l.campaign_id = g.id)`);
+    await run(sql`delete from campaigns g where g.label = 'Masterclass Sep' and not exists (select 1 from leads l where l.campaign_id = g.id)
+      and not exists (select 1 from ledger_entries x where x.campaign_id = g.id)`);
     await audit(tx, { userId, entity: "demo", action: "remove", diff: { leads: Number(leadCount), notionPages: pages.length } });
     return { leads: Number(leadCount), notionPages: [...pages].map((p) => p.page_id) };
   });
