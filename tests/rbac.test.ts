@@ -44,3 +44,12 @@ describe("role rules", () => {
     expect(can("owner", "payment:write") && can("owner", "revenue:export")).toBe(true);
   });
 });
+
+describe("instructor", () => {
+  it("teaches and reviews, sees no money and changes no leads or settings", () => {
+    for (const a of ["lead:read", "programme:write", "task:write", "file:write"] as const) expect(can("instructor", a)).toBe(true);
+    for (const a of ["lead:write", "lead:delete", "lead:export", "finance:read", "payment:write", "revenue:export", "settings:write", "users:manage", "growth:write"] as const)
+      expect(can("instructor", a)).toBe(false);
+    for (const r of ["sales", "viewer", "finance"] as const) expect(can(r, "programme:write")).toBe(false);
+  });
+});

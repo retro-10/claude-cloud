@@ -75,7 +75,7 @@ const fd = (o: Record<string, string | number>) => {
 d("role rules on the server", () => {
   const client = postgres(url ?? "postgres://x", { max: 4, onnotice: () => {} });
   const db = drizzle(client, { schema: s }) as unknown as Db;
-  const ROLES = ["owner", "sales", "viewer", "finance"] as const;
+  const ROLES = ["owner", "sales", "viewer", "finance", "instructor"] as const;
   const email = (r: string) => `${r}@roles.local`;
   let n = 0;
   let cohortId: number, enrolmentId: number, leadId: number;
@@ -129,6 +129,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/growth/events/actions")),
       ...(await import("@/app/(app)/growth/content/actions")),
       ...(await import("@/app/(app)/growth/referrals/actions")),
+      ...(await import("@/app/(app)/classes/actions")),
     };
   });
   afterAll(async () => {
@@ -162,8 +163,8 @@ d("role rules on the server", () => {
     ["updateProgrammeAction", ["owner", "sales"], () => A.updateProgrammeAction(fd({ enrolmentId, qcScore: "80", leaderboardRank: "", contentConsent: "on", contentConsentScope: "Video", back: "/proof" }))],
     ["saveSessionAction", ["owner", "sales"], () => A.saveSessionAction(fd({ enrolmentId, name: `S${++n}`, type: "Production Partner 1:1", back: "/proof" }))],
     ["saveProofAction", ["owner", "sales"], () => A.saveProofAction(fd({ enrolmentId, name: `P${++n}`, consentStatus: "Asked", back: "/proof" }))],
-    ["createTaskAction", ["owner", "sales", "finance"], () => strict(() => A.createTaskAction(fd({ title: `Task ${++n}`, leadId, due: "2030-01-01", back: "/tasks" })))],
-    ["taskStateAction", ["owner", "sales", "finance"], async () => {
+    ["createTaskAction", ["owner", "sales", "finance", "instructor"], () => strict(() => A.createTaskAction(fd({ title: `Task ${++n}`, leadId, due: "2030-01-01", back: "/tasks" })))],
+    ["taskStateAction", ["owner", "sales", "finance", "instructor"], async () => {
       const [t] = await db.insert(s.tasks).values({ title: `Task ${++n}` }).returning();
       return strict(() => A.taskStateAction(fd({ id: t.id, state: "done", back: "/tasks" })));
     }],
@@ -171,7 +172,7 @@ d("role rules on the server", () => {
     ["saveReviewAction", ["owner"], () => strict(() => A.saveReviewAction(fd({ week: "2026-10-05", wins: "A good week" })))],
     ["saveOfferToLeadAction", ["owner", "sales"], () => strict(() => A.saveOfferToLeadAction(fd({ leadId, tier: "foundation", amount: 7000, link: "", decision: "2030-01-10" })))],
     ["resetTwoFactorAction", ["owner"], async () => A.resetTwoFactorAction(fd({ id: (await db.select().from(s.users).where(eq(s.users.email, email("viewer"))))[0].id }))],
-    ["uploadFileAction", ["owner", "sales", "finance"], () => {
+    ["uploadFileAction", ["owner", "sales", "finance", "instructor"], () => {
       const f = fd({ leadId, back: `/leads/${leadId}` });
       f.set("file", new File([Buffer.from("%PDF-1.4")], "receipt.pdf", { type: "application/pdf" }));
       return strict(() => A.uploadFileAction(f));
@@ -193,6 +194,11 @@ d("role rules on the server", () => {
       const [a, b] = [await freshLead(), await freshLead()];
       const [w] = await db.insert(s.referralRewards).values({ referrerId: a, referredLeadId: b }).returning();
       return strict(() => A.decideRewardAction(fd({ id: w.id, status: "declined", amountEgp: "" })));
+    }],
+    ["saveClassAction", ["owner", "instructor"], () => strict(() => A.saveClassAction(fd({ cohortId, title: `Class ${++n}`, startsAt: "2030-02-01T18:00", durationMin: 120 })))],
+    ["markAttendanceAction", ["owner", "instructor"], async () => {
+      const [c] = await db.insert(s.batchClasses).values({ cohortId, title: `C${++n}`, startsAt: new Date() }).returning();
+      return strict(() => A.markAttendanceAction(fd({ classId: c.id, [`st-${enrolmentId}`]: "present" })));
     }],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
@@ -290,7 +296,7 @@ d("role rules on the server", () => {
     expect((await leadExport(req())).status).toBe(401);
     expect((await cohortExport(req(), { params: Promise.resolve({ id: String(cohortId) }) })).status).toBe(401);
 
-    const expected: Record<string, number> = { owner: 200, finance: 200, sales: 403, viewer: 403 };
+    const expected: Record<string, number> = { owner: 200, finance: 200, sales: 403, viewer: 403, instructor: 403 };
     for (const role of ROLES) {
       await signInAs(email(role));
       expect((await leadExport(req())).status, `lead export as ${role}`).toBe(role === "owner" ? 200 : 403);

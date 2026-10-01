@@ -19,7 +19,7 @@ import {
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const createdAt = () => ts("created_at").notNull().defaultNow();
 
-export const roleEnum = pgEnum("role", ["owner", "sales", "viewer", "finance"]);
+export const roleEnum = pgEnum("role", ["owner", "sales", "viewer", "finance", "instructor"]);
 export const segmentEnum = pgEnum("segment", ["fresh_graduate", "technician", "dentist", "other"]);
 export const tierEnum = pgEnum("tier", ["foundation", "freelance_ready", "production_partner"]);
 export const tierInterestEnum = pgEnum("tier_interest", [
@@ -768,4 +768,49 @@ export const referralRewards = pgTable(
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
   (t) => [uniqueIndex("referral_rewards_referred_uq").on(t.referredLeadId), index("referral_rewards_referrer_idx").on(t.referrerId)],
+);
+
+// ---------------- OrlaDent OS · Phase 3: student success ----------------
+
+// A batch's class schedule (the group classes). The 1:1s and Q&As from Notion stay in programme_sessions.
+export const batchClasses = pgTable(
+  "batch_classes",
+  {
+    id: serial("id").primaryKey(),
+    cohortId: integer("cohort_id")
+      .notNull()
+      .references(() => cohorts.id),
+    title: text("title").notNull(),
+    module: text("module"), // e.g. "Module 2: crowns"
+    startsAt: ts("starts_at").notNull(),
+    durationMin: integer("duration_min").notNull().default(120),
+    instructorId: integer("instructor_id").references(() => users.id),
+    location: text("location"), // room, or the meeting link
+    recordingUrl: text("recording_url"),
+    materialsUrl: text("materials_url"),
+    notes: text("notes"),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+    deletedAt: ts("deleted_at"),
+  },
+  (t) => [index("batch_classes_cohort_idx").on(t.cohortId, t.startsAt)],
+);
+
+export const attendanceStatusEnum = pgEnum("attendance_status", ["present", "late", "absent", "excused"]);
+
+export const classAttendance = pgTable(
+  "class_attendance",
+  {
+    id: serial("id").primaryKey(),
+    classId: integer("class_id")
+      .notNull()
+      .references(() => batchClasses.id),
+    enrolmentId: integer("enrolment_id")
+      .notNull()
+      .references(() => enrolments.id),
+    status: attendanceStatusEnum("status").notNull(),
+    markedBy: integer("marked_by").references(() => users.id),
+    markedAt: ts("marked_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("class_attendance_uq").on(t.classId, t.enrolmentId), index("class_attendance_enrolment_idx").on(t.enrolmentId)],
 );

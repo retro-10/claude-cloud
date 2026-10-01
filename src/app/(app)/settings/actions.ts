@@ -35,7 +35,7 @@ import { createStage, setCriterion } from "@/lib/settings";
 import { deleteRule, saveRule, setRuleEnabled, type RuleInput } from "@/lib/workflows";
 
 const id = z.coerce.number().int().positive();
-const role = z.enum(["owner", "sales", "viewer", "finance"]);
+const role = z.enum(["owner", "sales", "viewer", "finance", "instructor"]);
 const list = z.enum(["sources", "lostReasons", "objections"]);
 
 // Every mutation here returns to the page it came from with either a notice or an error.

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { TaskForm, TaskList } from "@/components/tasks/TaskPanel";
 import { listTasks } from "@/lib/tasks";
+import { attendanceSummary, listClasses } from "@/lib/classes";
 import { FilesPanel } from "@/components/FilesPanel";
 import { listAttachments } from "@/lib/attachments";
 import { Flash } from "@/components/Flash";
@@ -26,11 +27,13 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
   const user = await requireUser();
   const id = Number(params.id);
   if (!Number.isInteger(id)) notFound();
-  const [data, batchTasks, people, files] = await Promise.all([
+  const [data, batchTasks, people, files, attendance, classes] = await Promise.all([
     getCohort(db, id),
     listTasks(db, { cohortId: id, status: "open" }),
     db.select({ id: users.id, name: users.name }).from(users).where(eq(users.active, true)).orderBy(asc(users.name)),
     listAttachments(db, { cohortId: id }),
+    attendanceSummary(db, id),
+    listClasses(db, { cohortId: id }),
   ]);
   if (!data) notFound();
   const { summary: c, students, byTier } = data;
@@ -77,6 +80,29 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
         ))}
       </div>
 
+      <Card
+        title={`Classes (${classes.length})`}
+        icon="calendar"
+        className="mb-6"
+        actions={
+          <Link href={`/classes?batch=${c.id}`} className="btn btn-ghost btn-sm">
+            Schedule and attendance
+          </Link>
+        }
+      >
+        {classes.length === 0 ? (
+          <p className="text-sm text-muted">No classes scheduled yet. Add them on the Classes page, or copy another batch&rsquo;s schedule.</p>
+        ) : (
+          <p className="text-sm">
+            {classes.filter((x) => x.startsAt < new Date()).length} held, {classes.filter((x) => x.startsAt >= new Date()).length} to come
+            {(() => {
+              const next = classes.find((x) => x.startsAt >= new Date());
+              return next ? ` · next: ${next.title}, ${formatCairo(next.startsAt)}` : "";
+            })()}
+          </p>
+        )}
+      </Card>
+
       <Card title={`Tasks for this batch (${batchTasks.length})`} icon="list" className="mb-6">
         <TaskList rows={batchTasks} back={`/cohorts/${c.id}`} canWrite={can(user.role, "task:write")} showLinks={false} empty="No open tasks for this batch." />
         {can(user.role, "task:write") && (
@@ -102,6 +128,7 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
                   <th>Tier</th>
                   <th>Plan</th>
                   <th>Status</th>
+                  <th className="text-right">Attendance</th>
                   <th className="text-right">QC</th>
                   <th className="text-right">Rank</th>
                   <th>Consent</th>
@@ -125,6 +152,10 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
                     <td>
                       <span className={`chip ${s.status === "active" ? "chip-ok" : s.status === "dropped" ? "chip-danger" : "chip-brand"}`}>{STUDENT_STATUS_LABEL[s.status]}</span>
                     </td>
+                    <td className="num text-right">{(() => {
+                      const a = attendance.get(s.enrolmentId);
+                      return a?.rate == null ? "—" : <span className={a.rate < 0.75 ? "text-warn" : ""} title={`${a.present} present, ${a.late} late, ${a.absent} absent, ${a.excused} excused`}>{Math.round(a.rate * 100)}%</span>;
+                    })()}</td>
                     <td className="num text-right">{s.qcScore ?? "—"}</td>
                     <td className="num text-right">{s.leaderboardRank ? `#${s.leaderboardRank}` : "—"}</td>
                     <td>

@@ -120,6 +120,20 @@
       "when": 1790851408354,
       "tag": "0016_referrals",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790860700315,
+      "tag": "0017_instructor_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790860741132,
+      "tag": "0018_batch_classes",
+      "breakpoints": true
     }
   ]
 }
