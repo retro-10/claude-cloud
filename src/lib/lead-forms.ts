@@ -7,6 +7,7 @@ import { SLUG } from "./campaigns";
 import { recordConsent } from "./consent";
 import { createLead, findDuplicates, logActivity } from "./leads";
 import { normalizePhone } from "./phone";
+import { referrerByCode } from "./referrals";
 
 export const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "ref"] as const;
 
@@ -190,9 +191,10 @@ export async function intake(db: Db, i: IntakeInput): Promise<IntakeResult> {
     if (!l.campaignId && campaignId) await db.update(leads).set({ campaignId, updatedAt: new Date() }).where(eq(leads.id, leadId));
     await logActivity(db, { leadId, type: "note", direction: "internal", body: `Signed up again${i.formId ? " on a form" : " through the ads webhook"}${campaignId ? " for a campaign" : ""}.`, runRules: false }, null);
   } else {
+    const referredById = i.attribution.ref ? await referrerByCode(db, i.attribution.ref) : null;
     const r = await createLead(
       db,
-      { fullName: name, phone, email, city: clip(i.city, 80), segment: i.segment ?? null, tierInterest: i.tier ?? "unsure", sourceId, campaignId, attribution },
+      { fullName: name, phone, email, city: clip(i.city, 80), segment: i.segment ?? null, tierInterest: i.tier ?? "unsure", sourceId, campaignId, attribution, referredById },
       null,
       { allowNameMatch: true },
     );

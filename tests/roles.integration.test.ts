@@ -128,6 +128,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/growth/actions")),
       ...(await import("@/app/(app)/growth/events/actions")),
       ...(await import("@/app/(app)/growth/content/actions")),
+      ...(await import("@/app/(app)/growth/referrals/actions")),
     };
   });
   afterAll(async () => {
@@ -186,6 +187,13 @@ d("role rules on the server", () => {
       return A.saveAttendanceAction(fd({ campaignId: g.id }));
     }],
     ["saveContentAction", ["owner", "sales"], () => strict(() => A.saveContentAction(fd({ title: `Reel ${++n}`, platform: "instagram", format: "reel", status: "idea", publishAt: "" })))],
+    ["makeReferralCodeAction", ["owner", "sales"], () => strict(() => A.makeReferralCodeAction(fd({ leadId })))],
+    ["setReferrerAction", ["owner", "sales"], () => strict(() => A.setReferrerAction(fd({ leadId, phone: "" })))],
+    ["decideRewardAction", ["owner", "finance"], async () => {
+      const [a, b] = [await freshLead(), await freshLead()];
+      const [w] = await db.insert(s.referralRewards).values({ referrerId: a, referredLeadId: b }).returning();
+      return strict(() => A.decideRewardAction(fd({ id: w.id, status: "declined", amountEgp: "" })));
+    }],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 

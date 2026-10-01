@@ -25,7 +25,7 @@ export const SECTIONS: Record<Section, { label: string; statuses: Status[]; cate
   variable_costs: {
     label: "Variable costs",
     statuses: ["paid", "owed", "cancelled"],
-    categories: ["Freelancers & sales", "Video production", "Content creator", "Equipment", "Ads & promotion"],
+    categories: ["Freelancers & sales", "Video production", "Content creator", "Equipment", "Ads & promotion", "Referral rewards"],
   },
   partner_withdrawals: { label: "Partner withdrawals", statuses: ["paid", "owed", "cancelled"], categories: ["Partner withdrawal"] },
 };

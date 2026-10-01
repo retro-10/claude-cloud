@@ -44,7 +44,7 @@ for (const t of ["dark", "light"] as const) {
       "/dashboard?all=1", "/account", "/settings/users", "/settings/pipeline", "/settings/lists", "/settings/cadences", "/settings/audit",
       "/settings/rules", "/settings/workflows", "/settings/templates", "/leads?view=no_next_step", "/leads?view=no_decision_review",
       `/leads/merge?a=${firstLead!.split("/").pop()}`, "/finance", "/finance/ledger", "/finance/candidates", "/settings/finance",
-      "/settings/integrations", "/settings/team", "/proof", "/tasks", "/tasks?who=done", "/settings/targets", "/command", "/tools", "/tools/offer", `/tools/offer?lead=${firstLead!.split("/").pop()}`, "/tools/planner", "/growth/campaigns", "/growth/forms", "/growth/events", "/growth/content", "/growth/content?view=board", "/tools/links",
+      "/settings/integrations", "/settings/team", "/proof", "/tasks", "/tasks?who=done", "/settings/targets", "/command", "/tools", "/tools/offer", `/tools/offer?lead=${firstLead!.split("/").pop()}`, "/tools/planner", "/growth/campaigns", "/growth/forms", "/growth/events", "/growth/content", "/growth/content?view=board", "/growth/referrals", "/tools/links",
     ];
     for (const path of screens) {
       await page.goto(path);

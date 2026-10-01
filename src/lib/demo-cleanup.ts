@@ -50,6 +50,8 @@ export async function removeDemoData(db: Db, userId: number | null) {
       await run(sql`delete from ${sql.raw(t)} where lead_id in (select id from demo_leads)`);
     }
     await run(sql`delete from lead_merges where loser_id in (select id from demo_leads) or survivor_id in (select id from demo_leads)`);
+    await run(sql`delete from referral_rewards where referrer_id in (select id from demo_leads) or referred_lead_id in (select id from demo_leads)`);
+    await run(sql`update leads set referred_by_id = null where referred_by_id in (select id from demo_leads)`);
     await run(sql`delete from leads where id in (select id from demo_leads)`);
     // demo batches and campaign, only when nothing real uses them
     await run(sql`update tasks set cohort_id = null where cohort_id in (select id from demo_cohorts)`);

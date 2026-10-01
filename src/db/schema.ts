@@ -168,6 +168,8 @@ export const leads = pgTable(
     mergedIntoId: integer("merged_into_id"), // set on the lead that disappeared in a merge
     // where a lead came from, as the link told us: utm_source/medium/campaign/content/term, the form, the referrer
     attribution: jsonb("attribution").$type<Record<string, string>>(),
+    referredById: integer("referred_by_id"), // the lead (usually a student or graduate) who referred them
+    referralCode: text("referral_code").unique(), // this person's own code for ?ref= links
   },
   (t) => [
     index("leads_stage_idx").on(t.stage),
@@ -741,4 +743,29 @@ export const contentItems = pgTable(
     deletedAt: ts("deleted_at"),
   },
   (t) => [index("content_publish_idx").on(t.publishAt), index("content_status_idx").on(t.status)],
+);
+
+export const rewardStatusEnum = pgEnum("reward_status", ["pending", "approved", "paid", "declined"]);
+
+// A referral reward decision: made when someone referred enrols. The amount is set by a person (the reward
+// rules are the owners' to decide, QUESTIONS.md 29); paying it is recorded in the ledger.
+export const referralRewards = pgTable(
+  "referral_rewards",
+  {
+    id: serial("id").primaryKey(),
+    referrerId: integer("referrer_id")
+      .notNull()
+      .references(() => leads.id),
+    referredLeadId: integer("referred_lead_id")
+      .notNull()
+      .references(() => leads.id),
+    status: rewardStatusEnum("status").notNull().default("pending"),
+    amountEgp: integer("amount_egp"),
+    note: text("note"),
+    ledgerEntryId: integer("ledger_entry_id").references(() => ledgerEntries.id),
+    decidedBy: integer("decided_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("referral_rewards_referred_uq").on(t.referredLeadId), index("referral_rewards_referrer_idx").on(t.referrerId)],
 );

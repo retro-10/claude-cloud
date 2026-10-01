@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { activities, cadenceTemplates, cohorts, consults, followUps, leads, ledgerEntries, lostReasons, sources, stageEvents, stages, users } from "@/db/schema";
+import { activities, cadenceTemplates, cohorts, consults, followUps, leadForms, leads, ledgerEntries, lostReasons, sources, stageEvents, stages, users } from "@/db/schema";
 import { ComposeButton } from "@/components/crm/Composer";
 import { DoneMenu, SnoozeMenu } from "@/components/crm/FollowUpActions";
 import { LiveWait } from "@/components/crm/LiveWait";
@@ -13,6 +13,8 @@ import { TaskForm, TaskList } from "@/components/tasks/TaskPanel";
 import { listTasks } from "@/lib/tasks";
 import { FilesPanel } from "@/components/FilesPanel";
 import { listAttachments } from "@/lib/attachments";
+import { publicBaseUrl } from "@/lib/public-url";
+import { makeReferralCodeAction, setReferrerAction } from "../../growth/referrals/actions";
 import { ProgrammeCard } from "@/components/programme/ProgrammeCard";
 import { Flash } from "@/components/Flash";
 import { LeadForm } from "@/components/LeadForm";
@@ -84,7 +86,16 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
         .orderBy(asc(ledgerEntries.createdAt))
     : [];
   const enrolmentIds = candidates.map((c) => c.enrolmentId);
-  const [sessions, proof, leadTasks, files] = await Promise.all([listSessions(db, enrolmentIds), listProof(db, { enrolmentIds }), listTasks(db, { leadId: id, status: "all" }), listAttachments(db, { leadId: id })]);
+  const [sessions, proof, leadTasks, files, referrer, referredPeople, [applyForm], base] = await Promise.all([
+    listSessions(db, enrolmentIds),
+    listProof(db, { enrolmentIds }),
+    listTasks(db, { leadId: id, status: "all" }),
+    listAttachments(db, { leadId: id }),
+    lead.referredById ? db.select({ id: leads.id, fullName: leads.fullName }).from(leads).where(eq(leads.id, lead.referredById)).then((r) => r[0] ?? null) : Promise.resolve(null),
+    db.select({ id: leads.id, fullName: leads.fullName }).from(leads).where(and(eq(leads.referredById, id), isNull(leads.deletedAt))),
+    db.select({ slug: leadForms.slug }).from(leadForms).where(and(eq(leadForms.active, true), isNull(leadForms.campaignId))).orderBy(asc(leadForms.id)).limit(1),
+    publicBaseUrl(),
+  ]);
   const openFus = fus.filter((f) => !f.doneAt && !f.cancelledAt).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime());
   const stage = stageList.find((s) => s.key === lead.stage);
   const stageLabel = (k: string | null) => stageList.find((s) => s.key === k)?.label ?? k ?? "";
@@ -495,6 +506,70 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
               <div className="mt-3">
                 <TaskForm people={ownerList} back={`/leads/${lead.id}`} leadId={lead.id} me={user.id} />
               </div>
+            )}
+          </Card>
+
+          <Card title="Referrals" icon="user" label="Referrals">
+            <dl className="grid gap-2 text-sm">
+              <div>
+                <dt className="inline text-muted">Referred by </dt>
+                <dd className="inline">
+                  {referrer ? (
+                    <Link href={`/leads/${referrer.id}`} className="link" dir="auto">
+                      {referrer.fullName}
+                    </Link>
+                  ) : (
+                    "nobody recorded"
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="inline text-muted">Has referred </dt>
+                <dd className="inline">
+                  {referredPeople.length === 0
+                    ? "nobody yet"
+                    : referredPeople.map((p, i) => (
+                        <span key={p.id}>
+                          {i > 0 && ", "}
+                          <Link href={`/leads/${p.id}`} className="link" dir="auto">
+                            {p.fullName}
+                          </Link>
+                        </span>
+                      ))}
+                </dd>
+              </div>
+            </dl>
+            {lead.referralCode ? (
+              <p className="mt-3 text-xs">
+                <span className="text-muted">Their referral link: </span>
+                {applyForm ? (
+                  <code className="num break-all" dir="ltr">
+                    {base}/f/{applyForm.slug}?ref={lead.referralCode}
+                  </code>
+                ) : (
+                  <>
+                    code <code className="num">{lead.referralCode}</code> (add <code className="num">?ref={lead.referralCode}</code> to any lead form link; a general form with no campaign is used here once you make one)
+                  </>
+                )}
+              </p>
+            ) : (
+              can(user.role, "growth:write") &&
+              !lead.deletedAt && (
+                <form action={makeReferralCodeAction} className="mt-3">
+                  <input type="hidden" name="leadId" value={lead.id} />
+                  <button className="btn btn-secondary btn-sm">Make referral link</button>
+                </form>
+              )
+            )}
+            {canWrite && (
+              <form action={setReferrerAction} className="mt-3 flex flex-wrap items-end gap-2">
+                <input type="hidden" name="leadId" value={lead.id} />
+                <label className="field min-w-0 flex-1">
+                  Referred by (their WhatsApp number; empty clears it)
+                  <input name="phone" type="tel" dir="ltr" className="input input-sm" />
+                </label>
+                <button className="btn btn-ghost btn-sm">Save</button>
+              </form>
             )}
           </Card>
 

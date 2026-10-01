@@ -94,6 +94,19 @@ export async function mergeLeads(
       from event_attendance o where o.lead_id = ${l.id} and s.lead_id = ${s.id} and o.campaign_id = s.campaign_id`);
     await tx.execute(sql`delete from event_attendance where lead_id = ${l.id} and campaign_id in (select campaign_id from event_attendance where lead_id = ${s.id})`);
 
+    // referrals: whoever the loser referred now counts for the survivor; a reward for the loser being referred
+    // moves over unless the survivor already has one; the survivor keeps its own code (or takes the loser's).
+    // These are not reversed by an undo.
+    await tx.execute(sql`update leads set referred_by_id = ${s.id} where referred_by_id = ${l.id} and id <> ${s.id}`);
+    await tx.execute(sql`update referral_rewards set referrer_id = ${s.id} where referrer_id = ${l.id}`);
+    await tx.execute(sql`delete from referral_rewards where referred_lead_id = ${l.id} and exists (select 1 from referral_rewards r where r.referred_lead_id = ${s.id})`);
+    await tx.execute(sql`update referral_rewards set referred_lead_id = ${s.id} where referred_lead_id = ${l.id}`);
+    if (!s.referredById && l.referredById && l.referredById !== s.id) await tx.update(leads).set({ referredById: l.referredById }).where(eq(leads.id, s.id));
+    if (!s.referralCode && l.referralCode) {
+      await tx.update(leads).set({ referralCode: null }).where(eq(leads.id, l.id));
+      await tx.update(leads).set({ referralCode: l.referralCode }).where(eq(leads.id, s.id));
+    }
+
     const moved: Record<string, number[]> = {};
     for (const [key, table] of Object.entries(CHILDREN) as [ChildKey, (typeof CHILDREN)[ChildKey]][]) {
       const r = await tx.update(table).set({ leadId: s.id }).where(eq(table.leadId, l.id)).returning({ id: table.id });
