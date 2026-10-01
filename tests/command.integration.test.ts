@@ -77,7 +77,15 @@ d("Command centre", () => {
     const rank = { danger: 0, warn: 1, info: 2 };
     expect(owner.map((a) => rank[a.severity])).toEqual([...owner.map((a) => rank[a.severity])].sort());
 
+    // content planned for earlier and not posted shows for everyone; rewards to decide only with money
+    await db.insert(s.contentItems).values({ title: "Late reel", status: "editing", publishAt: new Date(now.getTime() - 3600_000) });
+    const [a, b] = await db.select({ id: s.leads.id }).from(s.leads).limit(2);
+    await db.insert(s.referralRewards).values({ referrerId: a.id, referredLeadId: b.id });
+    const again = (await alerts(db, "owner", now)).map((x) => x.key);
+    expect(again).toEqual(expect.arrayContaining(["content_late", "rewards"]));
     const sales = (await alerts(db, "sales", now)).map((a) => a.key);
+    expect(sales).toContain("content_late");
+    expect(sales).not.toContain("rewards");
     expect(sales).not.toContain("instalments");
     expect(sales).toContain("past_red");
   });

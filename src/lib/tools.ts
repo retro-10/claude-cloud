@@ -110,3 +110,40 @@ export function planBatch(p: PlanInput): PlanResult {
     revenueEgp: Math.round(p.seatsToFill * p.avgPriceEgp),
   };
 }
+
+// ---------------- Campaign ROI ----------------
+
+export type RoiInput = {
+  spendEgp: number;
+  costPerLead: number;
+  leadToConsult: number; // 0..1
+  consultToEnrol: number; // 0..1
+  avgPriceEgp: number;
+};
+export type RoiResult =
+  | { ok: true; leads: number; consults: number; enrolments: number; revenueEgp: number; costPerEnrolment: number | null; roi: number; breakEvenCostPerLead: number }
+  | { ok: false; error: string };
+
+/** What a spend should bring at a cost per lead and your conversion rates, and the most a lead may cost to break even. */
+export function campaignRoi(p: RoiInput): RoiResult {
+  if (!(p.spendEgp > 0)) return { ok: false, error: "Enter the spend" };
+  if (!(p.costPerLead > 0)) return { ok: false, error: "Enter the cost per lead" };
+  if (!(p.leadToConsult > 0 && p.leadToConsult <= 1) || !(p.consultToEnrol > 0 && p.consultToEnrol <= 1)) return { ok: false, error: "Conversion rates are between 1% and 100%" };
+  if (!(p.avgPriceEgp > 0)) return { ok: false, error: "Enter the average price" };
+  const leads = Math.floor(p.spendEgp / p.costPerLead);
+  const consultsExact = leads * p.leadToConsult;
+  const enrolExact = consultsExact * p.consultToEnrol;
+  const enrolments = Math.floor(enrolExact);
+  const revenueEgp = Math.round(enrolments * p.avgPriceEgp);
+  return {
+    ok: true,
+    leads,
+    consults: Math.floor(consultsExact),
+    enrolments,
+    revenueEgp,
+    costPerEnrolment: enrolments ? Math.round(p.spendEgp / enrolments) : null,
+    roi: (revenueEgp - p.spendEgp) / p.spendEgp,
+    // revenue per lead at these rates: spending more than this per lead loses money
+    breakEvenCostPerLead: Math.floor(p.leadToConsult * p.consultToEnrol * p.avgPriceEgp),
+  };
+}

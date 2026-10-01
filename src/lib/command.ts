@@ -51,7 +51,7 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
 
   const [counts, [r], batches, [lastRun], progress] = await Promise.all([
     navCounts(db, now),
-    db.execute<{ past_red: number; tasks_overdue: number; instalments_overdue: number; instalments_egp: number; owed_overdue: number; replies: number }>(sql`
+    db.execute<{ past_red: number; tasks_overdue: number; instalments_overdue: number; instalments_egp: number; owed_overdue: number; replies: number; content_late: number; rewards_pending: number }>(sql`
       select
         (select count(*) from leads l join stages s on s.key = l.stage
           where l.deleted_at is null and s.kind = 'open' and l.first_contact_at is null and not l.do_not_contact
@@ -65,7 +65,9 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
         (select coalesce(sum(x.amount_egp), 0) from ledger_entries x left join enrolments e on e.id = x.enrolment_id
           where x.deleted_at is null and x.section = 'income' and x.status = 'expected' and x.date < ${today}::timestamptz
             and e.status is distinct from 'dropped')::int as instalments_egp,
-        (select count(*) from ledger_entries where deleted_at is null and status = 'owed' and date < ${today}::timestamptz)::int as owed_overdue`),
+        (select count(*) from ledger_entries where deleted_at is null and status = 'owed' and date < ${today}::timestamptz)::int as owed_overdue,
+        (select count(*) from content_items where deleted_at is null and status <> 'posted' and publish_at < ${now.toISOString()}::timestamptz)::int as content_late,
+        (select count(*) from referral_rewards where status = 'pending')::int as rewards_pending`),
     db.execute<{ id: number; name: string; seat_cap: number; used: number; close_at: string }>(sql`
       select c.id, c.name, c.seat_cap, count(e.id)::int as used, c.enrolment_close_at as close_at
       from cohorts c left join enrolments e on e.cohort_id = c.id and e.status is distinct from 'dropped'
@@ -84,9 +86,11 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
   add({ key: "decision_due", severity: "warn", title: "Decisions due", detail: `${plural(v.decision_due, "offer")} at or past the agreed decision date`, count: v.decision_due, href: "/leads?view=decision_due" });
   add({ key: "no_next_step", severity: "warn", title: "Leads with no next step", detail: `${plural(v.no_next_step, "open lead")} with nothing scheduled`, count: v.no_next_step, href: "/leads?view=no_next_step" });
   add({ key: "neglected", severity: "info", title: "Neglected leads", detail: `no activity for ${settings.neglectDays}+ days`, count: v.neglected, href: "/leads?view=neglected" });
+  add({ key: "content_late", severity: "warn", title: "Content past its publish time", detail: `${plural(Number(r.content_late), "piece")} planned for earlier and not marked posted`, count: Number(r.content_late), href: "/growth/content?view=board" });
   add({ key: "tasks_overdue", severity: "warn", title: "Overdue tasks", detail: `${plural(Number(r.tasks_overdue), "task")} past due across the team`, count: Number(r.tasks_overdue), href: "/tasks?who=all&due=overdue" });
   if (money) {
     add({ key: "instalments", severity: "danger", title: "Overdue instalments", detail: `${plural(Number(r.instalments_overdue), "payment")}, ${new Intl.NumberFormat("en-US").format(Number(r.instalments_egp))} EGP expected and not received`, count: Number(r.instalments_overdue), href: "/finance" });
+    add({ key: "rewards", severity: "info", title: "Referral rewards to decide", detail: `${plural(Number(r.rewards_pending), "referred student")} enrolled; their referrer's reward is waiting`, count: Number(r.rewards_pending), href: "/growth/referrals" });
     add({ key: "owed", severity: "warn", title: "Bills past due", detail: `${plural(Number(r.owed_overdue), "cost")} marked Owed with a date in the past`, count: Number(r.owed_overdue), href: "/finance/ledger" });
   }
   for (const b of batches) {

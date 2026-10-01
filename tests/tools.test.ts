@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonthsYmd, buildOffer, offerMessage, planBatch, type OfferInput } from "@/lib/tools";
+import { addMonthsYmd, buildOffer, campaignRoi, offerMessage, planBatch, type OfferInput } from "@/lib/tools";
 
 describe("offer builder", () => {
   const base: OfferInput = { tier: "freelance_ready", priceEgp: 15000, discountEgp: 1000, plan: "installments", depositEgp: 4000, instalments: 3, firstDue: "2026-10-31" };
@@ -68,5 +68,24 @@ describe("batch planner", () => {
   it("refuses impossible inputs", () => {
     expect(planBatch({ seatsToFill: 5, avgPriceEgp: 1, leadToConsult: 0, consultToEnrol: 0.5, weeksLeft: 2 }).ok).toBe(false);
     expect(planBatch({ seatsToFill: 5, avgPriceEgp: 1, leadToConsult: 0.2, consultToEnrol: 0.5, weeksLeft: 0 })).toEqual({ ok: false, error: "The enrolment close date has passed: pick a later one" });
+  });
+});
+
+describe("campaign ROI", () => {
+  it("whole people only: leads, consults and enrolments are rounded down; break-even is revenue per lead", () => {
+    expect(campaignRoi({ spendEgp: 20000, costPerLead: 150, leadToConsult: 0.25, consultToEnrol: 0.4, avgPriceEgp: 11250 })).toEqual({
+      ok: true,
+      leads: 133,
+      consults: 33,
+      enrolments: 13,
+      revenueEgp: 146250,
+      costPerEnrolment: 1538,
+      roi: (146250 - 20000) / 20000,
+      breakEvenCostPerLead: 1125,
+    });
+  });
+  it("too little spend for one enrolment shows no cost per enrolment and a loss", () => {
+    expect(campaignRoi({ spendEgp: 500, costPerLead: 200, leadToConsult: 0.2, consultToEnrol: 0.4, avgPriceEgp: 7500 })).toMatchObject({ enrolments: 0, costPerEnrolment: null, roi: -1 });
+    expect(campaignRoi({ spendEgp: 0, costPerLead: 1, leadToConsult: 0.2, consultToEnrol: 0.4, avgPriceEgp: 1 }).ok).toBe(false);
   });
 });
