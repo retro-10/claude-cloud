@@ -16,7 +16,18 @@ const rel = (f: string) => relative(ROOT, f).replace(/\\/g, "/");
 // exported functions that are deliberately public (before a session exists)
 // verify2fa runs before there is a session: the signed 5-minute pass from the password step is its check.
 // submitFormAction is the public sign-up form: its checks are the honeypot, the signed stamp and the rate limit.
-const PUBLIC_ACTIONS = new Set(["app/login/actions.ts:login", "app/login/actions.ts:logout", "app/login/actions.ts:verify2fa", "app/f/[slug]/actions.ts:submitFormAction"]);
+// portalLogin and acceptInviteAction are the student portal's way in: rate limits, and the one-time token.
+const PUBLIC_ACTIONS = new Set([
+  "app/login/actions.ts:login",
+  "app/login/actions.ts:logout",
+  "app/login/actions.ts:verify2fa",
+  "app/f/[slug]/actions.ts:submitFormAction",
+  "app/portal/actions.ts:portalLogin",
+  "app/portal/actions.ts:acceptInviteAction",
+  "app/portal/actions.ts:portalLogout",
+]);
+// student portal actions check the student's own session, not a staff permission
+const isPortal = (f: string) => rel(f).startsWith("app/portal/");
 // the inbound webhook has no session: its check is the bearer token (asserted below)
 const PUBLIC_ROUTES = new Set(["app/api/health/route.ts", "app/api/inbound/leads/route.ts"]);
 
@@ -38,7 +49,8 @@ describe("every server action checks the caller on the server", () => {
       expect(fns.length).toBeGreaterThan(0);
       for (const fn of fns) {
         if (PUBLIC_ACTIONS.has(`${rel(f)}:${fn.name}`)) continue;
-        expect(/requireCan\(|requireUser\(/.test(fn.body), `${rel(f)}: ${fn.name} has no permission check`).toBe(true);
+        const check = isPortal(f) ? /requireStudent\(/ : /requireCan\(|requireUser\(/;
+        expect(check.test(fn.body), `${rel(f)}: ${fn.name} has no permission check`).toBe(true);
       }
     });
   }
@@ -56,7 +68,7 @@ describe("every server action checks the caller on the server", () => {
     ]);
     for (const f of actionFiles) {
       for (const fn of exportedAsyncFunctions(readFileSync(f, "utf8"))) {
-        if (PUBLIC_ACTIONS.has(`${rel(f)}:${fn.name}`) || selfService.has(fn.name)) continue;
+        if (PUBLIC_ACTIONS.has(`${rel(f)}:${fn.name}`) || selfService.has(fn.name) || isPortal(f)) continue;
         expect(/requireCan\(/.test(fn.body), `${rel(f)}: ${fn.name} should use requireCan(<permission>)`).toBe(true);
       }
     }
@@ -107,5 +119,19 @@ describe("no secrets or personal data in logs", () => {
         expect(m[1], `${rel(f)}: audit diff contains personal data`).not.toMatch(/\b(fullName|phone|phoneWhatsapp|email|notes|body|password)\b\s*[:,}]/);
       }
     }
+  });
+});
+
+describe("the student portal", () => {
+  it("every portal page checks the student session (sign-in and invite pages aside)", () => {
+    const pages = files.filter((f) => /app[\\/]portal[\\/].*page\.tsx$/.test(f) && !/portal[\\/](login|invite)[\\/]/.test(f));
+    expect(pages.length).toBeGreaterThanOrEqual(2);
+    for (const f of pages) expect(readFileSync(f, "utf8"), rel(f)).toContain("requireStudent(");
+  });
+  it("staff code never trusts the student cookie, and portal code never reads the staff one", () => {
+    for (const f of files.filter((x) => !rel(x).startsWith("app/portal/") && !/lib[\\/](session|student-auth)\.ts$/.test(x))) {
+      expect(readFileSync(f, "utf8"), rel(f)).not.toMatch(/STUDENT_COOKIE|verifyStudent\(/);
+    }
+    for (const f of files.filter((x) => rel(x).startsWith("app/portal/"))) expect(readFileSync(f, "utf8"), rel(f)).not.toMatch(/SESSION_COOKIE|requireUser\(|requireCan\(/);
   });
 });

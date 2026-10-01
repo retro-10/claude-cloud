@@ -148,6 +148,13 @@
       "when": 1790861203338,
       "tag": "0020_graduation",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790861466235,
+      "tag": "0021_student_portal",
+      "breakpoints": true
     }
   ]
 }

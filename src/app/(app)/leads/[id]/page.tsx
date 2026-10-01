@@ -15,6 +15,10 @@ import { FilesPanel } from "@/components/FilesPanel";
 import { listAttachments } from "@/lib/attachments";
 import { publicBaseUrl } from "@/lib/public-url";
 import { makeReferralCodeAction, setReferrerAction } from "../../growth/referrals/actions";
+import { PortalInvite } from "@/components/programme/PortalInvite";
+import { portalStatus } from "@/lib/portal";
+import { certificatesFor } from "@/lib/graduation";
+import { setPortalActiveAction } from "../portal-actions";
 import { ProgrammeCard } from "@/components/programme/ProgrammeCard";
 import { Flash } from "@/components/Flash";
 import { LeadForm } from "@/components/LeadForm";
@@ -96,6 +100,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
     db.select({ slug: leadForms.slug }).from(leadForms).where(and(eq(leadForms.active, true), isNull(leadForms.campaignId))).orderBy(asc(leadForms.id)).limit(1),
     publicBaseUrl(),
   ]);
+  const [portal, certs] = await Promise.all([portalStatus(db, id), certificatesFor(db, id)]);
   const openFus = fus.filter((f) => !f.doneAt && !f.cancelledAt).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime());
   const stage = stageList.find((s) => s.key === lead.stage);
   const stageLabel = (k: string | null) => stageList.find((s) => s.key === k)?.label ?? k ?? "";
@@ -508,6 +513,49 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
               </div>
             )}
           </Card>
+
+          {candidates.length > 0 && (
+            <Card title="Student portal" icon="user" label="Student portal">
+              <p className="mb-3 text-sm">
+                {portal.state === "none" && "No portal access yet."}
+                {portal.state === "invited" && `Invited; the link works until ${formatCairo(portal.inviteExpiresAt!, false)}.`}
+                {portal.state === "expired" && "The invite expired before they set a password."}
+                {portal.state === "active" && (portal.lastLoginAt ? `Active; last signed in ${formatCairo(portal.lastLoginAt)}.` : "Active.")}
+                {portal.state === "off" && "Access switched off."}
+              </p>
+              {can(user.role, "programme:write") && !lead.deletedAt && (
+                <div className="flex flex-col gap-3">
+                  {portal.state !== "off" && (
+                    <PortalInvite
+                      leadId={lead.id}
+                      phone={lead.doNotContact ? null : lead.phoneWhatsapp}
+                      firstName={lead.fullName.split(/\s+/)[0]}
+                      label={portal.state === "none" ? "Give portal access (invite link)" : portal.state === "active" ? "New password link" : "New invite link"}
+                    />
+                  )}
+                  {portal.state !== "none" && (
+                    <form action={setPortalActiveAction}>
+                      <input type="hidden" name="leadId" value={lead.id} />
+                      {portal.state === "off" && <input type="hidden" name="active" value="on" />}
+                      <button className="btn btn-ghost btn-sm">{portal.state === "off" ? "Switch access back on" : "Switch access off"}</button>
+                    </form>
+                  )}
+                </div>
+              )}
+              {certs.length > 0 && (
+                <ul className="mt-3 flex flex-col gap-1 border-t border-line pt-3 text-sm">
+                  {certs.map(({ c }) => (
+                    <li key={c.id}>
+                      <a href={`/certificates/${c.code}`} className="link num">
+                        Certificate {c.code}
+                      </a>{" "}
+                      <span className="text-xs text-muted">{c.revokedAt ? "revoked" : `${c.programme}, ${formatCairo(c.issuedAt, false)}`}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
 
           <Card title="Referrals" icon="user" label="Referrals">
             <dl className="grid gap-2 text-sm">

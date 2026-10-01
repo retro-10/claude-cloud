@@ -905,3 +905,20 @@ export const alumniProfiles = pgTable("alumni_profiles", {
   notes: text("notes"),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
+
+// Student portal accounts, separate from staff users. A student signs in with their WhatsApp number and a
+// password they set from a one-time invite link (only its hash is stored).
+export const studentAccounts = pgTable("student_accounts", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id")
+    .notNull()
+    .unique()
+    .references(() => leads.id),
+  passwordHash: text("password_hash"),
+  inviteTokenHash: text("invite_token_hash"),
+  inviteExpiresAt: ts("invite_expires_at"),
+  active: boolean("active").notNull().default(true),
+  lastLoginAt: ts("last_login_at"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: createdAt(),
+});

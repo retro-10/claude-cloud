@@ -80,3 +80,32 @@ export async function verifyPending2fa(token: string | undefined): Promise<{ id:
 export function pendingCookieOptions() {
   return { httpOnly: true, sameSite: "lax" as const, secure: process.env.COOKIE_SECURE === "true", path: "/login", maxAge: PENDING_TTL_SECONDS };
 }
+
+// The student portal's own session: a separate cookie and purpose. Staff pages refuse it (purpose is not
+// "session"), and the portal refuses staff tokens (purpose is not "student").
+export const STUDENT_COOKIE = "orla_student";
+const STUDENT_TTL_SECONDS = 60 * 60 * 24 * 14;
+
+export async function signStudent(accountId: number, pv: string): Promise<string> {
+  return new SignJWT({ purpose: "student", pv })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(String(accountId))
+    .setIssuedAt()
+    .setExpirationTime(`${STUDENT_TTL_SECONDS}s`)
+    .sign(key());
+}
+
+export async function verifyStudent(token: string | undefined): Promise<{ accountId: number; pv: string } | null> {
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, key(), { algorithms: ["HS256"] });
+    if (payload.purpose !== "student") return null;
+    return { accountId: Number(payload.sub), pv: String(payload.pv ?? "") };
+  } catch {
+    return null;
+  }
+}
+
+export function studentCookieOptions() {
+  return { httpOnly: true, sameSite: "lax" as const, secure: process.env.COOKIE_SECURE === "true", path: "/portal", maxAge: STUDENT_TTL_SECONDS };
+}

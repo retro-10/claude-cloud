@@ -132,6 +132,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/classes/actions")),
       ...(await import("@/app/(app)/assignments/actions")),
       ...(await import("@/app/(app)/alumni/actions")),
+      ...(await import("@/app/(app)/leads/portal-actions")),
     };
   });
   afterAll(async () => {
@@ -206,6 +207,14 @@ d("role rules on the server", () => {
     ["saveRulesAction", ["owner", "instructor"], () => strict(() => A.saveRulesAction(fd({ cohortId, gradMinAttendancePct: 75, gradRequireAllPassed: "on" })))],
     ["saveAlumniAction", ["owner", "instructor"], () => strict(() => A.saveAlumniAction(fd({ leadId, skills: "Crowns", availability: "open" })))],
     ["revokeCertificateAction (nothing to revoke: refused, but reachable)", ["owner"], () => A.revokeCertificateAction(fd({ code: "OC-AAAA-AAAA", reason: "test" }))],
+    ["createInviteAction", ["owner", "instructor"], async () => {
+      const [en] = await db.select().from(s.enrolments).where(eq(s.enrolments.id, enrolmentId));
+      await db.update(s.leads).set({ phoneWhatsapp: `+2015999${String(++n).padStart(5, "0")}` }).where(eq(s.leads.id, en.leadId));
+      const r = await A.createInviteAction({}, fd({ leadId: en.leadId }));
+      if (!r.link) throw new Error(`no link: ${JSON.stringify(r)}`);
+      return r;
+    }],
+    ["setPortalActiveAction", ["owner", "instructor"], () => A.setPortalActiveAction(fd({ leadId, active: "on" }))],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 
