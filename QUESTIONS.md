@@ -84,3 +84,20 @@ Each has a safe default already applied. Answer any and it will be changed.
     amount per enrolled referral, or a discount for the referrer), it can be pre-filled.
 42. **Public form wording.** The Arabic labels and the consent sentence are a first draft. Please check them,
     and whether a privacy notice link is needed (Law 151 of 2020).
+
+## OrlaDent OS, Phase 3
+
+45. **Missed classes.** A check-in task is made at the second unexcused absence in a batch. Is two right, and
+    should the student also get a WhatsApp message (written by a person, as now)?
+46. **Graduation rules.** Each batch starts at 75% attendance and every assignment passed; paid in full is off.
+    Are those the camp's rules? Should an unpaid student be able to graduate?
+47. **Certificate wording.** It says "This certifies that … has completed the Foundation programme of OrlaDent
+    Camp (batch)". Please confirm the wording, whether it should be signed (and by whom), and whether you want an
+    Arabic version.
+48. **Portal languages.** Headings in the portal are in English with Arabic beside them. Do you want a full
+    Arabic version?
+49. **What instructors see.** Instructors can read every lead (not only their students) so they can open a
+    student's page. Should they see only enrolled students?
+50. **Alumni for hire.** The alumni directory is staff-only. Do you want a public page of graduates open to work
+    (each graduate opting in)?
+

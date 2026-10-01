@@ -27,10 +27,17 @@ async function theme(page: Page, t: "dark" | "light") {
 }
 
 for (const t of ["dark", "light"] as const) {
-  test(`login page has no accessibility violations (${t})`, async ({ page }) => {
+  test(`login and public pages have no accessibility violations (${t})`, async ({ page }) => {
     await page.goto("/login");
     await theme(page, t);
     await scan(page, `login ${t}`);
+    // the other public pages (no app shell)
+    for (const path of ["/portal/login", "/c/OC-AAAA-AAAA"]) {
+      await page.goto(path);
+      await theme(page, t);
+      await expect(page.locator("h1").first()).toBeVisible();
+      await scan(page, `${path} ${t}`);
+    }
   });
 
   test(`every signed-in screen has no accessibility violations (${t})`, async ({ page }) => {
@@ -44,7 +51,7 @@ for (const t of ["dark", "light"] as const) {
       "/dashboard?all=1", "/account", "/settings/users", "/settings/pipeline", "/settings/lists", "/settings/cadences", "/settings/audit",
       "/settings/rules", "/settings/workflows", "/settings/templates", "/leads?view=no_next_step", "/leads?view=no_decision_review",
       `/leads/merge?a=${firstLead!.split("/").pop()}`, "/finance", "/finance/ledger", "/finance/candidates", "/settings/finance",
-      "/settings/integrations", "/settings/team", "/proof", "/tasks", "/tasks?who=done", "/settings/targets", "/command", "/tools", "/tools/offer", `/tools/offer?lead=${firstLead!.split("/").pop()}`, "/tools/planner", "/growth/campaigns", "/growth/forms", "/growth/events", "/growth/content", "/growth/content?view=board", "/growth/referrals", "/tools/roi", "/classes", "/assignments", "/alumni", "/c/OC-AAAA-AAAA", "/tools/links",
+      "/settings/integrations", "/settings/team", "/proof", "/tasks", "/tasks?who=done", "/settings/targets", "/command", "/tools", "/tools/offer", `/tools/offer?lead=${firstLead!.split("/").pop()}`, "/tools/planner", "/growth/campaigns", "/growth/forms", "/growth/events", "/growth/content", "/growth/content?view=board", "/growth/referrals", "/tools/roi", "/classes", "/assignments", "/alumni", "/tools/links",
     ];
     for (const path of screens) {
       await page.goto(path);

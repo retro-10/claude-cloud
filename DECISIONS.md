@@ -401,3 +401,51 @@ through the real action, the webhook through the real route, merges of registran
 surviving a ledger edit), the role matrix for every new action, and the browser suite: every new screen in both
 themes plus a masterclass run end to end (campaign, form, a signed-out visitor signing up from a tracked link,
 attendance) and content and referrals.
+
+## OrlaDent OS, Phase 3 (student success)
+
+* **An instructor role**, not a flag on sales: read leads, add tasks and files, and `programme:write` (classes,
+  attendance, assignments and reviews, graduation, alumni, portal invites). No money (`finance:read`), no lead
+  editing, no settings. Owners hold `programme:write` too; graduating someone who misses the rules, and revoking
+  a certificate, stay with owners.
+* **Attendance rate = (present + late) ÷ (present + late + absent).** Excused classes do not count against
+  anyone, and a class nobody marked counts for no one, so a batch with no attendance taken has no attendance
+  rule to meet (said on the graduation page) rather than everyone at 0%.
+* **Missed classes make one task, not a stream.** At the second unexcused absence in a batch
+  (`MISSED_FOR_CHECK_IN`) a high-priority check-in task is created once per student and batch, for the person
+  who marked it. Nothing is sent to the student.
+* **Rubrics are plain text** (`name | points`, 1 to 10 criteria) stored as JSON on the assignment, so instructors
+  write them without a form builder. A review stores each criterion's score with its name and maximum, so later
+  rubric edits do not rewrite past results. A resubmission is a new attempt on the same row: scores cleared,
+  feedback kept until the next review, `attempt` counted.
+* **QC score and leaderboard come from reviews when a batch uses them**: QC = the rounded average of the
+  student's reviewed results; rank = SQL `rank()` by QC in the batch (ties share a rank: 1, 1, 3), dropped
+  students left out. Only rows with a reviewed result are touched, so a QC or rank typed by hand or synced from
+  Notion for a batch without reviews is left alone.
+* **Certificates are snapshots.** The name, programme, batch and date are copied onto the certificate when it is
+  issued, so renaming a lead or a batch later never changes a certificate already handed out. Codes are
+  `OC-XXXX-XXXX` from a 31-character alphabet without look-alikes (0/O, 1/I/L), from `crypto.randomBytes`. One
+  certificate per enrolment; graduating again after a revoke reissues it with a new code. The public check page
+  shows only what is printed on the certificate.
+* **Graduating someone who misses the rules needs an owner and a reason**, kept on the certificate and in the
+  audit log. Graduation also opens the alumni profile and the referral code, so a graduate can refer at once.
+* **The student portal has its own session**, never the staff one: cookie `orla_student`, path `/portal`, 14
+  days, signed with purpose `student`. Staff tokens carry purpose `session`; each verifier rejects the other's
+  (and the 2FA pending token), and the guard tests pin that portal code never touches the staff cookie or
+  staff checks and vice versa. Middleware lets `/portal*` through; every portal page and action calls
+  `requireStudent()`, which rechecks the account in the database on every request (switched off, or the
+  password changed since sign-in, means signed out).
+* **Invites store only a hash** of a 32-byte random token, expire in 7 days, are single-use and are only for an
+  enrolled student with a WhatsApp number. The link is shown to staff once. Sign-in is by the WhatsApp number in
+  any format (normalised like leads) and password, rate limited like staff sign-in.
+* **What a student acts on comes from their session, never the form**: work is sent only for an assignment of
+  their own batch (the enrolment is looked up from the signed-in student), and portal pages read only their own
+  lead's records. Money in the portal is their own plan and payments only.
+* **Merges and demo cleanup** move or remove every new table (attendance, submissions, certificates via
+  enrolments; alumni profiles and portal accounts, dropping the loser's duplicate).
+
+Verified: lint, types, unit and integration tests for classes (attendance, check-ins, copy), assignments
+(rubric parsing, reviews, attempts, QC and ranks with ties), graduation (rules, override, revoke, public check),
+the portal (invite, sign-in, rate limit, session separation, own-batch only), the role matrix with the instructor
+role, and the browser suite: every new screen in both themes plus a term end to end (class and attendance, an
+assignment reviewed, graduation, the certificate checked signed out, and the student's portal).

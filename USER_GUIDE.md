@@ -248,6 +248,44 @@ countdown, what the students owe and what has been collected. A batch's page lis
 plan, status, how much is paid and the next installment date. Every deadline anywhere in the CRM and in
 templates comes from these records: templates cannot contain a typed date.
 
+## Programme (classes, assignments, graduation, alumni, student portal)
+
+**Classes** (Programme > Classes): each batch's schedule. Add a class (batch, title, module, date and time in
+Cairo time, length, instructor, place, recording and materials links). **Copy a schedule** repeats another
+batch's classes in the same order and gaps from a first date you choose (recordings are not copied).
+Instructors see **Mine** for their own classes. On a class's page mark each student Present, Late, Absent or
+Excused and press **Save attendance**. After a student's second unexcused absence in a batch, a high-priority
+task "Check in with … (missed classes)" is made once for whoever marked it. The Command centre lists classes
+held in the last 7 days that nobody marked.
+
+**Assignments** (Programme > Assignments): give the batch, a brief, a due date, the pass mark and a rubric, one
+criterion per line as `name | points` (for example `Fit | 60`). Students send their work from the portal, or
+you record it for them (a file or a link) with **Record a submission**. Review it by scoring each criterion and
+writing feedback: at or above the pass mark it is **Passed**, below it **Needs rework**, and the student may send
+again (a new attempt; the old feedback stays visible until the new review). Each review updates the student's
+**QC score** and the batch **leaderboard**. The Command centre counts submissions waiting for review.
+
+**Graduation** (a batch's page > **Graduation**): set the batch's rules (minimum attendance, every assignment
+passed, paid in full) and see each student against them, with what is missing in words. **Graduate and issue
+the certificate** marks them Graduated, issues a certificate with a code like `OC-BSQ8-7JYX`, opens their alumni
+profile and gives them a referral code. A student who does not meet the rules graduates only when an owner
+types the reason; the reason is kept with the certificate. Owners can revoke a certificate (with a reason).
+
+**Certificates**: open one to print it or save it as a PDF. Its QR code and link lead to `/c/<code>`, a public
+page anyone (a clinic, an employer) can use to check it is genuine: it shows the name, programme, batch and date,
+or that it was revoked. It shows nothing else about the student.
+
+**Alumni** (Programme > Alumni): every graduate, with a headline, skills, availability for paid work and a
+portfolio link. Filter by availability or skill to find someone for a job or a case.
+
+**Student portal**: on an enrolled student's page, the **Student portal** card > **Give portal access** shows a
+one-time invite link (valid 7 days; shown once, so copy it and send it on WhatsApp). The student opens it, sets
+a password, and from then on signs in at `/portal/login` with their WhatsApp number. On their phone they see
+their attendance, QC score, rank, what is left to pay, the next classes, their assignments with scores and
+feedback (and can send work), their payments and their certificate. They see only their own things. **Switch
+off** stops their access at once; a new invite resets the password and signs out the old sessions. The portal
+is separate from staff sign-in: a student can never open a staff page.
+
 ## Proof bank
 
 **Proof bank** (sidebar > Programme) lists every quote, QC result, screenshot and video candidates gave, from
@@ -334,10 +372,12 @@ leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `ME
 | **sales** | create and edit leads, activities, follow-ups, consults and enrolments; cannot delete, export the lead list, see revenue, change settings or manage users |
 | **viewer** | read leads only (no revenue, no lead export) |
 | **finance** (Mo) | read everything including revenue, Finance (record payments, costs, withdrawals), export revenue; cannot edit or export leads, or change settings |
+| **instructor** | read leads; run the programme: classes and attendance, assignments and reviews, graduation, alumni, portal invites; add tasks and files. No revenue, no lead editing, no settings |
 
 Tasks and files: owner, sales and finance add and finish them; viewers only look. Growth (campaigns, forms,
 masterclasses, content, referral links): owners and sales. Campaign costs and referral rewards: owners and
-finance.
+finance. Programme (classes, attendance, assignments, graduation, alumni, portal access): owners and instructors;
+graduating a student who does not meet the rules: owners only.
 
 ## Two-factor sign-in
 

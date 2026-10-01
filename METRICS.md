@@ -121,3 +121,16 @@ Rules from the Notion *Finances* page. Every figure reads the ledger (`ledger_en
 | Leads from a content piece | Live leads whose link carried the piece's tag as utm_content |
 | Referred / enrolled (referrals) | Live leads whose referrer is this person / of those, with an enrolment |
 | Campaign ROI tool | Leads = spend ÷ cost per lead, then × rates, each rounded down to whole people; break-even cost per lead = lead-to-consult × consult-to-enrolment × average price |
+
+## Programme (`src/lib/classes.ts`, `assignments.ts`, `graduation.ts`)
+
+| Number | Definition |
+| --- | --- |
+| Attendance rate | (present + late) ÷ (present + late + absent) over the batch's marked classes; excused not counted; blank when nothing was marked |
+| Missed-class check-in | Made at the 2nd unexcused absence in a batch, once per student and batch |
+| Submission result | Sum of criterion scores ÷ sum of criterion maximums, rounded to a whole %; Passed when ≥ the assignment's pass mark, else Needs rework |
+| QC score | Rounded average of the student's reviewed results (latest attempt of each assignment) |
+| Leaderboard rank | Rank by QC score within the batch, highest first, ties share a rank (1, 1, 3); dropped students and those without a reviewed result are not ranked |
+| Ready to graduate | Not dropped, and every rule of the batch met: attendance ≥ the minimum (when any class was marked), every assignment passed (if required), nothing left to pay (if required) |
+| Waiting for review (Command centre) | Submissions with status Waiting for review |
+| Unmarked classes (Command centre) | Classes that started in the last 7 days with no attendance marked |
