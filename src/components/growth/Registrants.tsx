@@ -29,7 +29,7 @@ export function Registrants({ campaignId, rows, defaultMessage, canWrite }: { ca
                 <th scope="col">Name</th>
                 <th scope="col">Reminder</th>
                 <th scope="col">Came?</th>
-                <th scope="col">Since</th>
+                <th scope="col">Afterwards</th>
               </tr>
             </thead>
             <tbody>

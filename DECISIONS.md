@@ -361,3 +361,43 @@ TOTP vectors, the whole two-factor sign-in against a real database, files and th
 matrix), and the browser suite: accessibility of every new screen in both themes, plus a Phase 1 journey
 (targets, a task from creation to done, the offer builder saving on a lead, a file upload and download, and
 two-factor set up and used in a real browser).
+
+## OrlaDent OS, Phase 2 (growth and content)
+
+* **Campaigns hold the money through the ledger.** Spend is the Paid ledger costs tagged with the campaign
+  (Owed shown apart), never a number typed on the campaign, so the books and the campaign report cannot
+  disagree. `saveEntry` only writes the tag when a caller passes it, so editing a cost from the ledger form or the
+  Notion sync keeps its campaign. A campaign with tagged costs cannot be deleted.
+* **One intake for every outside lead.** The public forms and the webhook both go through `intake()`: phone
+  normalised, a known person linked (never duplicated, with a note on their timeline), new leads through
+  `createLead` so routing and the new-lead rules apply, consent recorded as method *form* only when ticked.
+  The public page never reveals whether someone was already a lead.
+* **Public form defences** without a third-party captcha (no extra request, nothing to configure): a hidden
+  honeypot field; a stamp signed with `AUTH_SECRET` that records when the page was shown (no posting without the
+  page, nor within 2 seconds, nor after 6 hours); 5 sign-ups per address per 10 minutes; bots get the normal
+  thank-you so they learn nothing. Addresses are stored only as a keyed hash. If spam gets through at volume,
+  add a captcha then.
+* **The webhook** is off until `INBOUND_LEADS_TOKEN` (24+ characters) is set, compares the token in constant
+  time before reading the body, is rate limited, and keeps only known tracking keys. A guard test pins that order.
+* **Attribution is stored on the lead** (`leads.attribution`: utm_source/medium/campaign/content/term, ref, form),
+  cleaned to known keys and 100 characters each. A content piece's tag is its `utm_content`, which is how leads
+  are counted per post without any platform integration.
+* **Masterclass registrants are derived**, not copied: leads tagged to the campaign, its form sign-ups, plus
+  anyone registered by hand. A row in `event_attendance` exists only once someone acts (reminded, came). Merging
+  two registrants of the same event combines their rows first (came if either came). Reminders open WhatsApp
+  with the text filled in and are logged as a WhatsApp sent; nothing is sent automatically.
+* **Proof-to-post checks consent on the server** with the same rule as the proof bank's Ready badge.
+* **Referral rewards are decisions, not formulas**: a row appears when a referred lead enrols; approving needs
+  an amount typed by a person (QUESTIONS.md 29); Paid writes one ledger cost. Merges move referrals, rewards
+  and the code to the survivor; a code on a merged-away lead still resolves.
+* **Not built in Phase 2, by choice**: the caption and repurposing generators need the AI assistant (Phase 5);
+  sending WhatsApp messages and reading Meta ads data need accounts and decisions (QUESTIONS.md 39–40).
+* **Accessibility**: found and fixed by the automated checks during this phase: the calendar first used grid
+  roles without rows, faint out-of-month dates and a sideways-scrolling area unreachable by keyboard; it is now
+  a list of days with full dates for screen readers, inside a focusable region.
+
+Verified: lint, types, unit and integration tests for every module (including the public form's defences
+through the real action, the webhook through the real route, merges of registrants and referrers, the cost tag
+surviving a ledger edit), the role matrix for every new action, and the browser suite: every new screen in both
+themes plus a masterclass run end to end (campaign, form, a signed-out visitor signing up from a tracked link,
+attendance) and content and referrals.

@@ -68,15 +68,15 @@ export default async function CampaignsPage(props: { searchParams: Promise<{ not
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
-                    <td>
+                    <td className="min-w-[220px]">
                       <Link href={`/growth/campaigns/${r.id}`} className="link font-medium" dir="auto">
                         {r.label}
                       </Link>
                       <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
                         <span className={STATUS_CHIP[r.status]}>{CAMPAIGN_STATUS[r.status]}</span>
                         {CAMPAIGN_KINDS[r.kind]}
-                        {r.eventAt && <span>· {formatCairo(r.eventAt)}</span>}
                       </div>
+                      {r.eventAt && <div className="mt-0.5 text-xs text-muted">{formatCairo(r.eventAt)}</div>}
                     </td>
                     <td className="num text-right">{fmt(r.leads)}</td>
                     <td className="num text-right">{fmt(r.consulted)}</td>

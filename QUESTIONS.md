@@ -72,3 +72,15 @@ Each has a safe default already applied. Answer any and it will be changed.
 37. **Files.** 8 MB each, kept in the database. If you will store many case files or videos, we should move them
     to object storage (a small monthly cost). How much do you expect?
 38. **Who may delete files?** Now: whoever added it, or an owner. Fine?
+
+## OrlaDent OS, Phase 2
+
+39. **WhatsApp sending.** Reminders and follow-ups open WhatsApp with the text filled in, and a person presses
+    send. Sending automatically needs the WhatsApp Business API (a Meta business account, approved templates, a
+    cost per conversation). Do you want that?
+40. **Meta lead ads.** The webhook is ready for Zapier or Make. Do you already use one of them, or should we
+    connect Meta directly (needs a Meta app and its review)?
+41. **Reward rules.** Referral rewards are decided one by one. Once Badr sets the rule (for example a fixed
+    amount per enrolled referral, or a discount for the referrer), it can be pre-filled.
+42. **Public form wording.** The Arabic labels and the consent sentence are a first draft. Please check them,
+    and whether a privacy notice link is needed (Law 151 of 2020).

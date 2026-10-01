@@ -47,6 +47,7 @@ See `.env.example`, which explains every value. The important ones:
 | `SEED_DEMO` | `true`: add demo leads on first start into an empty database. Default `false` (real use) |
 | `COOKIE_SECURE` | `true` when served over HTTPS (production compose forces it) |
 | `DOMAIN` | Production only: the domain Caddy gets a certificate for |
+| `INBOUND_LEADS_TOKEN` | Optional. 24+ random characters; switches on `POST /api/inbound/leads` for Meta lead ads through Zapier or Make (User guide > Growth) |
 | `NOTION_TOKEN` | Optional. Switches on the two-way Notion sync (Batches, Candidates, Ledger, Sessions, Proof bank, Team, CRM Leads). Setup: User guide > Notion |
 | `NOTION_*_DB`, `NOTION_SYNC_LEADS`, `NOTION_SYNC_INTERVAL_SEC`, `APP_URL` | Optional Notion settings, explained in `.env.example` |
 

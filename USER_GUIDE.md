@@ -64,10 +64,56 @@ Patient cases: only upload what the patient agreed to, and prefer files without 
   ready WhatsApp message. Open it from a lead (**Offer builder** on the lead's Offer card) to open WhatsApp with
   the message and **save the offer on the lead**. The message is factual on purpose: no deadlines, incentives or
   results promises unless Badr approved them.
+* **Campaign ROI**: before you spend, what a budget should bring (leads, consults, enrolments, revenue) at a
+  cost per lead and your own rates, and the **break-even cost per lead**: pay more than that per lead and the
+  campaign loses money.
+* **Tracked links**: see Growth above.
 * **Batch planner**: pick a batch; it shows how many new leads and held consults you need, in total and per
   week, to fill the free seats before enrolment closes. The conversion rates and average price start from the
   last 180 days of your own data (or cautious placeholders while there are fewer than 30 leads); change them to
   test a plan.
+
+## Growth (campaigns, forms, masterclasses, content, referrals)
+
+**Campaigns** (Growth > Campaigns): one per masterclass, ad run, collaboration or event. Give it a type,
+status, dates, a budget and a **link name** (like `masterclass-oct-2026`). The list shows what each brought:
+leads, how many held a consult, how many enrolled. Owners and finance also see the money: spend (the ledger
+costs tagged to the campaign, recorded straight from the campaign page with **Record cost**), cost per lead, cost
+per enrolment, revenue from its students and the return on spend.
+
+**Lead forms** (Growth > Lead forms): public sign-up pages at `/f/<address>`, in English and Arabic, for a
+masterclass, an ad or your link in bio. Choose the campaign, the source and the questions. A sign-up arrives as
+a new lead, with the new-lead rules (reply task, notification) and their WhatsApp consent recorded. Someone we
+already have is linked to their existing lead, never duplicated; they see the same thank-you either way.
+Spam protection is built in (a hidden trap field, a page timer, 5 sign-ups per connection per 10 minutes).
+
+**Tracked links** (Tools > Tracked links): make a link (and QR code) for each post, story, ad or flyer. The tags
+in the link travel onto the lead: the lead's page shows *Came from: instagram · story · reel-7*, and a link with
+a campaign's link name files the lead under that campaign.
+
+**Leads from ads tools**: Meta lead ads (through Zapier or Make) or a partner site can send leads to
+`POST /api/inbound/leads` with the token from `INBOUND_LEADS_TOKEN` (whoever runs the server sets it). Same
+handling as the forms.
+
+**Masterclasses** (Growth > Masterclasses): every campaign of type Masterclass or Event. Its page lists the
+registrants (its form sign-ups, its tagged leads, and anyone you register by WhatsApp number). For each person,
+the green button opens WhatsApp with the reminder filled in; the tick marks them reminded (logged as a WhatsApp
+sent). After the event mark who came, press **Save attendance**, then start a cadence for those who came (or did
+not) in one click. The list shows show-up rate, consults after the event and enrolments.
+
+**Content** (Growth > Content): the content calendar. Plan a piece (platform, format, date, owner, campaign,
+brief, caption) on the month view; undated ideas sit beside it. The **Board** moves pieces through idea,
+scripting, filming, editing, scheduled, posted. Each piece has a tag; its page shows a ready tracked link, and
+the leads that came through it. In the **Proof bank**, items marked Ready (consent granted) have **Make content**:
+it creates an idea with the quote word for word and what the consent covers.
+
+**Referrals** (Growth > Referrals): on a student's or graduate's page, **Make referral link** in the Referrals card
+gives them a link with their code. Anyone who signs up through it is marked as referred by them (you can also
+set *Referred by* by phone number). When someone referred enrols, a reward appears to decide: owners and finance
+set the amount (nothing is pre-filled: the reward rules are Badr's), approve it, and mark it **Paid**, which
+records a *Referral rewards* cost in the ledger.
+
+The Command centre also lists content past its publish time and rewards waiting for a decision.
 
 ## The daily routine
 
@@ -289,7 +335,9 @@ leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `ME
 | **viewer** | read leads only (no revenue, no lead export) |
 | **finance** (Mo) | read everything including revenue, Finance (record payments, costs, withdrawals), export revenue; cannot edit or export leads, or change settings |
 
-Tasks and files: owner, sales and finance add and finish them; viewers only look.
+Tasks and files: owner, sales and finance add and finish them; viewers only look. Growth (campaigns, forms,
+masterclasses, content, referral links): owners and sales. Campaign costs and referral rewards: owners and
+finance.
 
 ## Two-factor sign-in
 

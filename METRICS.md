@@ -103,3 +103,21 @@ Rules from the Notion *Finances* page. Every figure reads the ledger (`ledger_en
 | Overdue instalments | Expected income rows dated before today, excluding dropped students |
 | Batch planner | Consults = seats ÷ consult-to-enrolment rate; leads = consults ÷ lead-to-consult rate; per week = total ÷ weeks left (at least 1 week) |
 | Planner defaults | Last 180 days: share of new leads with a held consult; share of those that enrolled; average price after discount excluding free seats. Below 30 leads: 20% and 40%, and the average list price |
+
+## Growth (`src/lib/campaigns.ts`, `events.ts`, `content.ts`, `referrals.ts`)
+
+| Number | Definition |
+| --- | --- |
+| Campaign leads | Live leads whose campaign is this one |
+| Held a consult | Of those, leads with at least one consult marked held |
+| Enrolled | Of those, leads with an enrolment |
+| Spend / owed | Ledger costs tagged to the campaign with status Paid / Owed |
+| Cost per lead / per enrolment | Spend ÷ leads / spend ÷ enrolled (blank without spend) |
+| Revenue from its students | What its enrolled leads owe (same rule as revenue: dropped students what they paid) |
+| Return on spend | (revenue − spend) ÷ spend |
+| Registered (masterclass) | Leads tagged to the campaign, plus its form sign-ups, plus anyone registered by hand |
+| Show-up | Came ÷ (came + did not come); people not marked are left out |
+| Consult after | Of those who came, leads with a held consult on or after the event date |
+| Leads from a content piece | Live leads whose link carried the piece's tag as utm_content |
+| Referred / enrolled (referrals) | Live leads whose referrer is this person / of those, with an enrolment |
+| Campaign ROI tool | Leads = spend ÷ cost per lead, then × rates, each rounded down to whole people; break-even cost per lead = lead-to-consult × consult-to-enrolment × average price |

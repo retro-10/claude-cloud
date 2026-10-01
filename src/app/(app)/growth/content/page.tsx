@@ -90,28 +90,36 @@ export default async function ContentPage(props: { searchParams: Promise<{ month
                 </Link>
               </span>
             }
-            bodyClass="p-0 overflow-x-auto"
+            bodyClass="p-0"
           >
-            <div className="grid min-w-[760px] grid-cols-7 border-t border-line text-xs" role="grid" aria-label={`Content calendar for ${MONTHS[m - 1]} ${y}`}>
-              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-                <div key={d} role="columnheader" className="border-b border-line px-2 py-1.5 font-medium text-muted">
-                  {d}
-                </div>
-              ))}
-              {days.map((d) => {
-                const items = dated.filter((c) => cairoYmd(c.publishAt!) === d);
-                const inMonth = d.startsWith(month);
-                return (
-                  <div key={d} role="gridcell" className={`min-h-[96px] border-b border-r border-line p-1.5 ${inMonth ? "" : "bg-raised/40"}`}>
-                    <div className={`mb-1 text-[11px] ${d === today ? "font-semibold text-accent" : inMonth ? "text-muted" : "text-muted/60"}`}>{Number(d.slice(8))}</div>
-                    <div className="flex flex-col gap-1">
-                      {items.map((c) => (
-                        <Piece key={c.id} c={c} compact />
-                      ))}
-                    </div>
+            {/* scrolls sideways on a phone: focusable so it can be scrolled from the keyboard */}
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={`Content calendar for ${MONTHS[m - 1]} ${y}`}>
+              <div aria-hidden="true" className="grid min-w-[760px] grid-cols-7 border-t border-line text-xs">
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+                  <div key={d} className="border-b border-line px-2 py-1.5 font-medium text-muted">
+                    {d}
                   </div>
-                );
-              })}
+                ))}
+              </div>
+              <ol className="grid min-w-[760px] grid-cols-7 text-xs">
+                {days.map((d) => {
+                  const items = dated.filter((c) => cairoYmd(c.publishAt!) === d);
+                  const inMonth = d.startsWith(month);
+                  return (
+                    <li key={d} className={`min-h-[96px] border-b border-r border-line p-1.5 ${inMonth ? "" : "bg-raised/40"}`}>
+                      <div className={`mb-1 text-[11px] ${d === today ? "font-semibold text-accent" : "text-muted"}`}>
+                        <span aria-hidden="true">{Number(d.slice(8))}</span>
+                        <span className="sr-only">{new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}{items.length ? `, ${items.length} planned` : ""}</span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        {items.map((c) => (
+                          <Piece key={c.id} c={c} compact />
+                        ))}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
             </div>
           </Card>
           <div className="flex flex-col gap-5">
@@ -126,7 +134,7 @@ export default async function ContentPage(props: { searchParams: Promise<{ month
           </div>
         </div>
       ) : (
-        <div className="grid min-w-0 gap-3 overflow-x-auto pb-2 [grid-template-columns:repeat(6,minmax(220px,1fr))]">
+        <div className="grid min-w-0 gap-3 overflow-x-auto pb-2 [grid-template-columns:repeat(6,minmax(220px,1fr))]" tabIndex={0} role="region" aria-label="Content board by status">
           {ORDER.map((st, i) => {
             const col = rows.filter((r) => r.status === st);
             const next = ORDER[i + 1];

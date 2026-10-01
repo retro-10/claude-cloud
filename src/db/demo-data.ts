@@ -79,7 +79,7 @@ export async function insertDemo(
   }
   const [cohortA] = await db.insert(s.cohorts).values({ name: "Demo Cohort A", seatCap: 10, masterclassAt: at(start, 1), enrolmentCloseAt: at(start, 20), startAt: at(start, 30) }).returning();
   const [cohortB] = await db.insert(s.cohorts).values({ name: "Demo Cohort B", seatCap: 10, masterclassAt: at(start, 14), enrolmentCloseAt: at(start, 40), startAt: at(start, 50) }).returning();
-  const [campaign] = await db.insert(s.campaigns).values({ label: "Masterclass Sep", sourceId: src("Masterclass"), startedAt: start }).returning();
+  const [campaign] = await db.insert(s.campaigns).values({ label: "Masterclass Sep", kind: "masterclass", eventAt: at(start, 1), sourceId: src("Masterclass"), startedAt: start }).returning();
 
   const staged = new Map<number, number>();
   for (const l of DEMO_LEADS) {
