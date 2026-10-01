@@ -42,6 +42,7 @@ export async function removeDemoData(db: Db, userId: number | null) {
 
     await run(sql`delete from ledger_entries where id in (select id from demo_ledger)`);
     await run(sql`delete from programme_sessions where id in (select id from demo_sessions)`);
+    await run(sql`update content_items set proof_item_id = null where proof_item_id in (select id from demo_proof)`);
     await run(sql`delete from proof_items where id in (select id from demo_proof)`);
     await run(sql`delete from enrolments where id in (select id from demo_enrol)`);
     await run(sql`delete from consult_objections where consult_id in (select id from consults where lead_id in (select id from demo_leads))`);
@@ -56,7 +57,7 @@ export async function removeDemoData(db: Db, userId: number | null) {
     await run(sql`delete from cohorts where id in (select id from demo_cohorts)`);
     await run(sql`delete from campaigns g where g.label = 'Masterclass Sep' and not exists (select 1 from leads l where l.campaign_id = g.id)
       and not exists (select 1 from ledger_entries x where x.campaign_id = g.id) and not exists (select 1 from lead_forms f where f.campaign_id = g.id)
-      and not exists (select 1 from event_attendance a where a.campaign_id = g.id)`);
+      and not exists (select 1 from event_attendance a where a.campaign_id = g.id) and not exists (select 1 from content_items c where c.campaign_id = g.id)`);
     await audit(tx, { userId, entity: "demo", action: "remove", diff: { leads: Number(leadCount), notionPages: pages.length } });
     return { leads: Number(leadCount), notionPages: [...pages].map((p) => p.page_id) };
   });

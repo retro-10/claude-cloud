@@ -127,6 +127,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/files/actions")),
       ...(await import("@/app/(app)/growth/actions")),
       ...(await import("@/app/(app)/growth/events/actions")),
+      ...(await import("@/app/(app)/growth/content/actions")),
     };
   });
   afterAll(async () => {
@@ -184,6 +185,7 @@ d("role rules on the server", () => {
       const [g] = await db.insert(s.campaigns).values({ label: `Event ${++n}`, kind: "masterclass" }).returning();
       return A.saveAttendanceAction(fd({ campaignId: g.id }));
     }],
+    ["saveContentAction", ["owner", "sales"], () => strict(() => A.saveContentAction(fd({ title: `Reel ${++n}`, platform: "instagram", format: "reel", status: "idea", publishAt: "" })))],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 

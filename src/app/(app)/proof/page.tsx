@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { db } from "@/db";
 import { Flash } from "@/components/Flash";
-import { Card, EmptyState, PageHeader, Stat } from "@/components/ui";
+import { Card, EmptyState, Icon, PageHeader, Stat } from "@/components/ui";
 import { listCohorts } from "@/lib/cohorts";
 import { PROOF_CONSENT, PROOF_TYPES, listProof, publishable } from "@/lib/programme";
+import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
+import { contentFromProofAction } from "../growth/content/actions";
 
 export const metadata = { title: "Proof bank" };
 
@@ -14,7 +16,8 @@ const CONSENT_CHIP: Record<string, string> = { Granted: "chip-ok", Asked: "chip-
 // Only items with consent Granted (and the candidate's consent on file) are marked ready to use.
 export default async function ProofBank(props: { searchParams: Promise<{ consent?: string; type?: string; batch?: string; notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  await requireUser();
+  const user = await requireUser();
+  const canPlan = can(user.role, "growth:write");
   const [rows, batches, all] = await Promise.all([
     listProof(db, { consent: sp.consent, type: sp.type, cohortId: Number(sp.batch) || undefined }),
     listCohorts(db),
@@ -127,6 +130,14 @@ export default async function ProofBank(props: { searchParams: Promise<{ consent
                 </div>
                 {p.consentStatus === "Granted" && contentConsent === false && (
                   <p className="text-xs text-warn">The item says Granted, but the candidate&rsquo;s consent is not on file: check before using.</p>
+                )}
+                {ok && canPlan && (
+                  <form action={contentFromProofAction}>
+                    <input type="hidden" name="proofId" value={p.id} />
+                    <button className="btn btn-secondary btn-sm" aria-label={`Make content from ${p.name}`}>
+                      <Icon name="sparkle" size={14} /> Make content
+                    </button>
+                  </form>
                 )}
               </article>
             );

@@ -711,3 +711,34 @@ export const eventAttendance = pgTable(
   },
   (t) => [uniqueIndex("event_attendance_uq").on(t.campaignId, t.leadId), index("event_attendance_lead_idx").on(t.leadId)],
 );
+
+export const contentPlatformEnum = pgEnum("content_platform", ["instagram", "tiktok", "facebook", "youtube", "linkedin", "whatsapp", "other"]);
+export const contentFormatEnum = pgEnum("content_format", ["reel", "post", "carousel", "story", "live", "video", "broadcast", "other"]);
+export const contentStatusEnum = pgEnum("content_status", ["idea", "scripting", "filming", "editing", "scheduled", "posted"]);
+
+// The content calendar. A piece can come from a proof item (with consent) and belong to a campaign; its tag
+// (utm_content) lets leads from its link be counted against it.
+export const contentItems = pgTable(
+  "content_items",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    platform: contentPlatformEnum("platform").notNull().default("instagram"),
+    format: contentFormatEnum("format").notNull().default("reel"),
+    status: contentStatusEnum("status").notNull().default("idea"),
+    ownerId: integer("owner_id").references(() => users.id),
+    publishAt: ts("publish_at"),
+    postedAt: ts("posted_at"),
+    campaignId: integer("campaign_id").references(() => campaigns.id),
+    proofItemId: integer("proof_item_id").references(() => proofItems.id),
+    brief: text("brief"),
+    caption: text("caption"),
+    postUrl: text("post_url"),
+    tag: text("tag").unique(), // utm_content for its links, e.g. "c12-crown-reel"
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+    deletedAt: ts("deleted_at"),
+  },
+  (t) => [index("content_publish_idx").on(t.publishAt), index("content_status_idx").on(t.status)],
+);
