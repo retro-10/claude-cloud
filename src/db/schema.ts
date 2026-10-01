@@ -127,6 +127,10 @@ export const cohorts = pgTable("cohorts", {
   openAt: ts("open_at"), // enrolment opens
   status: cohortStatusEnum("status").notNull().default("planning"),
   updatedAt: ts("updated_at").notNull().defaultNow(),
+  // graduation rules for this batch
+  gradMinAttendancePct: integer("grad_min_attendance_pct").notNull().default(75),
+  gradRequireAllPassed: boolean("grad_require_all_passed").notNull().default(true),
+  gradRequirePaid: boolean("grad_require_paid").notNull().default(false),
 });
 
 export const leads = pgTable(
@@ -865,3 +869,39 @@ export const submissions = pgTable(
   },
   (t) => [uniqueIndex("submissions_uq").on(t.assignmentId, t.enrolmentId), index("submissions_enrolment_idx").on(t.enrolmentId)],
 );
+
+// A certificate: what it said when it was issued (name, programme, batch) is kept, so later edits never change it.
+export const certificates = pgTable("certificates", {
+  id: serial("id").primaryKey(),
+  enrolmentId: integer("enrolment_id")
+    .notNull()
+    .unique()
+    .references(() => enrolments.id),
+  code: text("code").notNull().unique(), // public verification code, e.g. OC-7K2P-9QX4
+  fullName: text("full_name").notNull(),
+  programme: text("programme").notNull(),
+  batch: text("batch").notNull(),
+  issuedAt: ts("issued_at").notNull().defaultNow(),
+  issuedBy: integer("issued_by").references(() => users.id),
+  override: text("override"), // why it was issued although a rule was not met (owners only)
+  revokedAt: ts("revoked_at"),
+  revokedBy: integer("revoked_by").references(() => users.id),
+  revokeReason: text("revoke_reason"),
+});
+
+export const availabilityEnum = pgEnum("availability", ["open", "busy", "not_looking"]);
+
+// A graduate's profile for placement: what they do well and whether they want paid work.
+export const alumniProfiles = pgTable("alumni_profiles", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id")
+    .notNull()
+    .unique()
+    .references(() => leads.id),
+  headline: text("headline"),
+  skills: text("skills").array().notNull().default(sql`'{}'::text[]`),
+  availability: availabilityEnum("availability").notNull().default("open"),
+  portfolioUrl: text("portfolio_url"),
+  notes: text("notes"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});

@@ -131,6 +131,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/growth/referrals/actions")),
       ...(await import("@/app/(app)/classes/actions")),
       ...(await import("@/app/(app)/assignments/actions")),
+      ...(await import("@/app/(app)/alumni/actions")),
     };
   });
   afterAll(async () => {
@@ -202,6 +203,9 @@ d("role rules on the server", () => {
       return strict(() => A.markAttendanceAction(fd({ classId: c.id, [`st-${enrolmentId}`]: "present" })));
     }],
     ["saveAssignmentAction", ["owner", "instructor"], () => strict(() => A.saveAssignmentAction(fd({ cohortId, title: `Case ${++n}`, rubric: "Fit | 50\nAnatomy | 50", passPct: 70, dueAt: "" })))],
+    ["saveRulesAction", ["owner", "instructor"], () => strict(() => A.saveRulesAction(fd({ cohortId, gradMinAttendancePct: 75, gradRequireAllPassed: "on" })))],
+    ["saveAlumniAction", ["owner", "instructor"], () => strict(() => A.saveAlumniAction(fd({ leadId, skills: "Crowns", availability: "open" })))],
+    ["revokeCertificateAction (nothing to revoke: refused, but reachable)", ["owner"], () => A.revokeCertificateAction(fd({ code: "OC-AAAA-AAAA", reason: "test" }))],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 

@@ -53,11 +53,16 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
         titleDir="auto"
         subtitle={closeLabel(c.enrolmentCloseAt)}
         actions={
-          can(user.role, "revenue:export") ? (
+          <span className="flex flex-wrap gap-2">
+            <Link href={`/cohorts/${c.id}/graduation`} className="btn btn-secondary btn-sm">
+              <Icon name="cohorts" size={14} /> Graduation
+            </Link>
+            {can(user.role, "revenue:export") ? (
             <a href={`/cohorts/${c.id}/export`} className="btn btn-secondary btn-sm">
               <Icon name="download" size={14} /> Export students CSV
             </a>
-          ) : undefined
+          ) : null}
+          </span>
         }
       />
       <Flash error={searchParams.error} notice={searchParams.notice} />

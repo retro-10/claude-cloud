@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { activities, attachments, consentRecords, consults, enrolments, eventAttendance, followUps, formSubmissions, leadMerges, leads, tasks } from "@/db/schema";
+import { activities, alumniProfiles, attachments, consentRecords, consults, enrolments, eventAttendance, followUps, formSubmissions, leadMerges, leads, tasks } from "@/db/schema";
 import { audit } from "./audit";
 
 /**
@@ -47,7 +47,7 @@ export type MergeResult = { ok: true; mergeId: number } | { ok: false; error: st
 
 // Children that move with the person. stage_events stay on their own lead: the funnel counts each lead's
 // own history, and the merged-away lead is excluded from metrics once deleted.
-const CHILDREN = { activities, followUps, consults, enrolments, consentRecords, tasks, attachments, formSubmissions, eventAttendance } as const;
+const CHILDREN = { activities, followUps, consults, enrolments, consentRecords, tasks, attachments, formSubmissions, eventAttendance, alumniProfiles } as const;
 type ChildKey = keyof typeof CHILDREN;
 
 const minDate = (a: Date | null, b: Date | null) => (a && b ? (a < b ? a : b) : (a ?? b));
@@ -106,6 +106,9 @@ export async function mergeLeads(
       await tx.update(leads).set({ referralCode: null }).where(eq(leads.id, l.id));
       await tx.update(leads).set({ referralCode: l.referralCode }).where(eq(leads.id, s.id));
     }
+
+    // one alumni profile per person: the survivor's wins
+    await tx.execute(sql`delete from alumni_profiles where lead_id = ${l.id} and exists (select 1 from alumni_profiles p where p.lead_id = ${s.id})`);
 
     const moved: Record<string, number[]> = {};
     for (const [key, table] of Object.entries(CHILDREN) as [ChildKey, (typeof CHILDREN)[ChildKey]][]) {

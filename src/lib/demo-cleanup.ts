@@ -50,9 +50,10 @@ export async function removeDemoData(db: Db, userId: number | null) {
     await run(sql`delete from submissions where enrolment_id in (select id from demo_enrol)
       or assignment_id in (select id from assignments where cohort_id in (select id from demo_cohorts))`);
     await run(sql`delete from assignments where cohort_id in (select id from demo_cohorts)`);
+    await run(sql`delete from certificates where enrolment_id in (select id from demo_enrol)`);
     await run(sql`delete from enrolments where id in (select id from demo_enrol)`);
     await run(sql`delete from consult_objections where consult_id in (select id from consults where lead_id in (select id from demo_leads))`);
-    for (const t of ["consults", "activities", "follow_ups", "stage_events", "notifications", "workflow_runs", "consent_records", "tasks", "attachments", "form_submissions", "event_attendance"]) {
+    for (const t of ["consults", "activities", "follow_ups", "stage_events", "notifications", "workflow_runs", "consent_records", "tasks", "attachments", "form_submissions", "event_attendance", "alumni_profiles"]) {
       await run(sql`delete from ${sql.raw(t)} where lead_id in (select id from demo_leads)`);
     }
     await run(sql`delete from lead_merges where loser_id in (select id from demo_leads) or survivor_id in (select id from demo_leads)`);
