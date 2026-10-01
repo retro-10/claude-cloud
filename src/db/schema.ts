@@ -691,3 +691,23 @@ export const formSubmissions = pgTable(
   },
   (t) => [index("form_submissions_form_idx").on(t.formId, t.createdAt), index("form_submissions_lead_idx").on(t.leadId)],
 );
+
+// Masterclass (or event) attendance: who was reminded and who came. Registrants themselves are the leads
+// tagged to the campaign or signed up on one of its forms; a row here is made once someone acts on them.
+export const eventAttendance = pgTable(
+  "event_attendance",
+  {
+    id: serial("id").primaryKey(),
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => campaigns.id),
+    leadId: integer("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    attended: boolean("attended"), // null = not marked yet
+    remindedAt: ts("reminded_at"),
+    markedBy: integer("marked_by").references(() => users.id),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("event_attendance_uq").on(t.campaignId, t.leadId), index("event_attendance_lead_idx").on(t.leadId)],
+);
