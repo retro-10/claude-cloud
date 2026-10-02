@@ -1133,3 +1133,56 @@ export const budgets = pgTable(
   },
   (t) => [uniqueIndex("budgets_month_category_uq").on(t.month, t.section, t.category)],
 );
+
+// ---------------- OrlaDent OS · Phase 5: the AI assistant ----------------
+
+// A conversation with Ask OrlaDent, one person's own. Only the readable text is kept (questions and answers);
+// what the assistant looked up is listed with each answer so people can check the figures.
+export const aiThreads = pgTable(
+  "ai_threads",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    title: text("title").notNull(),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("ai_threads_user_idx").on(t.userId, t.updatedAt)],
+);
+
+export type AiLookup = { tool: string; summary: string };
+export const aiMessages = pgTable(
+  "ai_messages",
+  {
+    id: serial("id").primaryKey(),
+    threadId: integer("thread_id")
+      .notNull()
+      .references(() => aiThreads.id),
+    role: text("role").notNull(), // user | assistant
+    content: text("content").notNull(),
+    lookups: jsonb("lookups").$type<AiLookup[]>().notNull().default([]),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ai_messages_thread_idx").on(t.threadId, t.id)],
+);
+
+// Every call to the model: who, for what, and how many tokens (so owners see what it costs). No content.
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").references(() => users.id),
+    feature: text("feature").notNull(), // ask | reply | followup | caption | script | weekly | brief
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    cacheReadTokens: integer("cache_read_tokens").notNull().default(0),
+    cacheWriteTokens: integer("cache_write_tokens").notNull().default(0),
+    ok: boolean("ok").notNull().default(true),
+    error: text("error"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ai_usage_user_day_idx").on(t.userId, t.createdAt)],
+);

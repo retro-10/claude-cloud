@@ -23,6 +23,17 @@ export type Settings = {
   maxOpenStages: number; // P2: warn above this many open stages
   financeSplit: { partners: { name: string; pct: number }[]; capitalPct: number }; // how net income is split
   invoiceDetails: InvoiceDetails; // who invoices and receipts are from, and how to pay
+  ai: AiSettings; // the AI assistant: on or off, what it may read, the brand voice, a daily limit
+};
+export type AiSettings = {
+  enabled: boolean;
+  // what Ask OrlaDent may look up (phone numbers and emails are never sent, whatever is ticked)
+  readLeads: boolean; // names, stages, sources, notes and messages of leads
+  readMoney: boolean; // revenue, payments, costs (and only for people who may see money anyway)
+  readStudents: boolean; // attendance, assignments, QC, graduation
+  readProduction: boolean; // clients, cases, invoices
+  brandVoice: string; // how drafts should sound
+  dailyLimit: number; // requests per person per day
 };
 export type InvoiceDetails = { legalName: string; address: string; taxId: string; phone: string; email: string; paymentInstructions: string; footer: string };
 const INVOICE_LIMITS: Record<keyof InvoiceDetails, number> = { legalName: 120, address: 300, taxId: 60, phone: 40, email: 120, paymentInstructions: 600, footer: 300 };
@@ -51,6 +62,17 @@ export const DEFAULTS: Settings = {
   },
   // only the name is known; the rest is the owners' to fill in (QUESTIONS.md)
   invoiceDetails: { legalName: "OrlaDent", address: "", taxId: "", phone: "", email: "", paymentInstructions: "", footer: "" },
+  // off until an owner switches it on: it sends business data to Anthropic (QUESTIONS.md)
+  ai: {
+    enabled: false,
+    readLeads: true,
+    readMoney: false,
+    readStudents: true,
+    readProduction: true,
+    brandVoice:
+      "Warm, direct and professional, like a senior dental technician who teaches. Short sentences. Egyptian audience: write in English unless the person wrote in Arabic, then reply in Egyptian Arabic. No hype, no invented results, no pressure, no deadlines or discounts that were not given.",
+    dailyLimit: 100,
+  },
 };
 
 type Key = keyof Settings;
@@ -94,6 +116,15 @@ const VALIDATE: { [K in Key]: (v: unknown) => Settings[K] | undefined } = {
       out[k] = val.trim();
     }
     return out.legalName ? out : undefined;
+  }) as never,
+  ai: ((v: unknown) => {
+    const a = v as AiSettings;
+    if (!a || typeof a !== "object") return undefined;
+    const flags = ["enabled", "readLeads", "readMoney", "readStudents", "readProduction"] as const;
+    if (!flags.every((k) => typeof a[k] === "boolean")) return undefined;
+    if (typeof a.brandVoice !== "string" || a.brandVoice.length > 2000) return undefined;
+    if (!Number.isInteger(a.dailyLimit) || a.dailyLimit < 1 || a.dailyLimit > 2000) return undefined;
+    return { enabled: a.enabled, readLeads: a.readLeads, readMoney: a.readMoney, readStudents: a.readStudents, readProduction: a.readProduction, brandVoice: a.brandVoice.trim(), dailyLimit: a.dailyLimit };
   }) as never,
   routes: ((v: unknown) =>
     Array.isArray(v) &&

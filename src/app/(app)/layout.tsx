@@ -29,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   let nav: NavItem[] = [
     { href: "/command", label: "Command centre", icon: "gauge", section: "OrlaDent OS", keys: "G O" },
+    ...(can(user.role, "ai:use") ? [{ href: "/ask", label: "Ask OrlaDent", icon: "chat" as const, section: "OrlaDent OS", keys: "G A" }] : []),
     { href: "/tools", label: "Tools", icon: "sparkle", section: "OrlaDent OS" },
     { href: "/team", label: "Team & ops", icon: "user", section: "OrlaDent OS" },
     { href: "/", label: "Today", icon: "today", section: "Work", count: counts.today, alert: counts.overdue > 0, keys: "G T", exact: true },

@@ -19,6 +19,7 @@ export type Action =
   | "production:work" // work a case assigned to you: start it, add its files, send it to QC (owner and designer)
   | "ops:manage" // responsibilities, the SOP library, meetings and decisions (owner); running a checklist is task:write
   | "stage:override" // move a lead although the stage's exit criteria are not met (with a reason)
+  | "ai:use" // Ask OrlaDent and AI drafts, when an owner has switched the assistant on (not designers)
   | "finance:read"; // revenue anywhere (dashboard, batches, a lead's payments) and the Finance board: owner and finance only
 
 const MATRIX: Record<Role, ReadonlySet<Action>> = {
@@ -42,13 +43,14 @@ const MATRIX: Record<Role, ReadonlySet<Action>> = {
     "production:manage",
     "production:work",
     "ops:manage",
+    "ai:use",
   ]),
-  sales: new Set<Action>(["lead:read", "lead:write", "task:write", "file:write", "growth:write"]),
-  viewer: new Set<Action>(["lead:read"]),
+  sales: new Set<Action>(["lead:read", "lead:write", "task:write", "file:write", "growth:write", "ai:use"]),
+  viewer: new Set<Action>(["lead:read", "ai:use"]),
   // Finance: sees everything, records/edits payments and exports revenue. No lead, settings or user edits.
-  finance: new Set<Action>(["lead:read", "payment:write", "revenue:export", "finance:read", "task:write", "file:write", "production:read"]),
+  finance: new Set<Action>(["lead:read", "payment:write", "revenue:export", "finance:read", "task:write", "file:write", "production:read", "ai:use"]),
   // Instructor: teaches and reviews. Reads students' lead pages, runs classes, attendance, reviews and graduation; no money.
-  instructor: new Set<Action>(["lead:read", "task:write", "file:write", "programme:write"]),
+  instructor: new Set<Action>(["lead:read", "task:write", "file:write", "programme:write", "ai:use"]),
   // Designer: often a Production Partner graduate. Only the production studio, and only the cases assigned to them:
   // no leads, no students, no money other than their own pay per case.
   designer: new Set<Action>(["production:read", "production:work"]),
