@@ -113,6 +113,8 @@ for (const t of ["dark", "light"] as const) {
       if (!(await page.locator("[role=dialog][aria-label='Command palette']").isVisible())) await page.keyboard.press("Control+k");
       await expect(page.locator("[role=dialog][aria-label='Command palette']")).toBeVisible({ timeout: 1000 });
     }).toPass();
+    // the box is focused a frame after the dialog shows: wait for it, or the first keys are lost
+    await expect(page.locator("[role=dialog][aria-label='Command palette'] input").first()).toBeFocused();
     await page.keyboard.type("demo");
     await expect(page.locator("[role=option]").first()).toBeVisible();
     await scan(page, `command palette (${t})`);
