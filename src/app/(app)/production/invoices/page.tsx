@@ -9,6 +9,7 @@ import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 import { createInvoiceAction } from "../actions";
+import { ScrollX } from "@/components/ui/ScrollX";
 
 export const metadata = { title: "Invoices · Production" };
 const egp = (n: number) => `${n.toLocaleString("en-US")} EGP`;
@@ -39,7 +40,7 @@ export default async function InvoicesPage(props: { searchParams: Promise<{ noti
           {!rows.length ? (
             <EmptyState icon="note" title="No invoices yet." />
           ) : (
-            <div className="overflow-x-auto">
+            <ScrollX label={`Invoices (${rows.length})`}>
               <table className="table">
                 <thead>
                   <tr>
@@ -70,7 +71,7 @@ export default async function InvoicesPage(props: { searchParams: Promise<{ noti
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollX>
           )}
         </Card>
         <Card title="Ready to invoice" icon="send">

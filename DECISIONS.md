@@ -504,3 +504,41 @@ who sees what, the pulse and designer figures), invoicing (numbering, part payme
 team and operations, budgets, the forecast and unit economics; the role matrix with the designer role and every
 new action; guard tests for staff pages and print pages; and the browser suite: a case from price list to
 receipt with a designer who sees only her case, plus every new screen in both themes.
+
+## OrlaDent OS, Phase 5 (the AI assistant)
+
+* **Off by default, and two locks.** The assistant runs only when an owner switches it on in Settings and the
+  server has `ANTHROPIC_API_KEY`. Pages show the AI buttons only when both hold and the person may use it
+  (`ai:use`: everyone but designers). Each person has a daily request limit.
+* **One way to call Claude** (`src/lib/ai/core.ts`): the official SDK, model Claude Opus 5.5 (`AI_MODEL`
+  overrides it), with server-side fallback if the model declines, effort set per feature, and the stable
+  instructions cached (`cache_control`) with the per-request facts after them. Refusals, rate limits, a bad key
+  and network failures become messages a person can act on. Only token counts are stored (`ai_usage`), never
+  content; Ask OrlaDent keeps each person's own conversations (`ai_threads`, `ai_messages`), visible only to them.
+* **Ask OrlaDent reads through tools, never SQL.** Claude gets a short list of read-only lookups built on the
+  app's own functions (metrics, alerts, batches, campaigns, leads, a lead's history, students, the books,
+  production). A tool is offered only if the owners allow that kind of data AND the person's role may see it;
+  a tool the person may not use is refused even if Claude asks for it. Money fields are dropped for people who
+  cannot see money. At most 6 lookups per question.
+* **Contact details never leave.** `redact()` removes emails and phone numbers (8+ digits; dates and grouped
+  amounts kept) from notes and messages before they are sent, and the tools never return the phone or email
+  columns. A test caught dates being masked as phone numbers; they are now kept.
+* **Answers link only inside the app.** The answer is rendered by a small markdown renderer that never renders
+  HTML and turns only paths starting with a single "/" into links.
+* **Drafts are never sent.** WhatsApp drafts go into the existing composer (edit → Open in WhatsApp → "I sent
+  it"); captions, scripts and briefs are text to copy; the weekly review is put into the form for an owner to
+  save. Every draft prompt forbids inventing prices, dates, discounts, results or promises and asks for
+  [placeholders] instead; drafts follow the owners' brand voice from Settings. A student's quote is used only
+  when its consent is Granted, word for word.
+* **Early warning needs no AI.** The drop-risk score is plain rules with a reason for every point, so it works
+  with the assistant off and can be checked by hand; Ask OrlaDent's student lookup includes it.
+* **Testing without a key.** Tests replace Claude with scripted fakes (`setAiForTests`); the browser suite uses
+  a deterministic fake that is honoured only when `AI_FAKE=e2e` and the database is a `crm_e2e*` scratch one.
+* **Not built, by choice**: streaming answers (a question takes seconds; the page shows progress), Claude
+  writing to the app (it only reads), and sending drafts automatically.
+
+Verified: lint, types, unit and integration tests for the core (switch, limit, usage, refusal and errors,
+redaction), Ask OrlaDent (tool gating by role and settings, the loop, saving, privacy of conversations),
+every draft (permissions, do-not-contact, consent, the facts given), the drop-risk score and its alert; the
+role matrix with every new action; and the browser suite: switching it on, a question answered with a link,
+a WhatsApp draft, and the new screens in both themes.

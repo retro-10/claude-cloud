@@ -326,6 +326,41 @@ is separate from staff sign-in: a student can never open a staff page.
 **Designers** (role *designer*) see only the production studio and only the cases given to them: no leads, no
 students, no prices; only their own pay per case. Their sign-in opens on their cases.
 
+## The AI assistant (Ask OrlaDent, drafts, briefs)
+
+The assistant is **off until an owner switches it on** in **Settings > AI assistant**, and it needs an
+Anthropic API key on the server (see the README). It uses Claude, made by Anthropic.
+
+* **Ask OrlaDent** (sidebar, under OrlaDent OS): ask about leads, batches, campaigns, students, production or
+  money in plain words, in English or Arabic. It looks the answer up in the app and links to the records, e.g.
+  *"Which source brought the most enrolments this quarter?"*, *"Who is waiting longest for a reply?"*,
+  *"Which students in Batch 7 are likely to drop?"*. Each answer shows what it **looked at**. It only reads: it
+  never changes, moves or sends anything. Your conversations are yours; others cannot see them.
+* **WhatsApp drafts**: in the message composer, choose **AI draft**, then **Draft a reply** (to their last
+  message) or **Draft a follow-up** (they went quiet), in Arabic or English. Edit it, then **Open in
+  WhatsApp** as usual: you press send there.
+* **Hooks and caption** on a content piece, **Run-of-show script** on a masterclass, **Draft this week's
+  review** on the Command centre (then **Put it in the review form**, check it, save), and **Brief me for the
+  call** on a lead with a consult coming up (also from **Brief** next to Today's consults).
+* **Early warning** (no AI, always on): each batch page lists active students likely to drop, with the reasons:
+  attendance under the batch's minimum, missed the last classes, work past due, rework not redone, an overdue
+  instalment (that last one only for owners and finance). Students at risk also show in the Command centre.
+
+**The rules it works by**
+
+* It sees only what **you** may see in the app, and only the kinds of data owners allow (Settings > AI
+  assistant: leads and conversations, money, students, production). Money is off until an owner turns it on,
+  and even then only owners and finance get it.
+* **Phone numbers and email addresses are never sent**, not even inside notes and messages.
+* **Every draft is a draft.** Nothing is sent or posted by the app. Drafts may not add prices, dates, discounts,
+  results or promises that are not in the app; where something is missing they leave a [placeholder].
+* It can be wrong. Check the figures and the linked records before acting on them.
+* Each person has a daily limit (100 requests by default). Owners see requests and the estimated cost per month
+  on the settings page. Only the number of tokens is recorded, not what was asked.
+
+Designers do not have the assistant. Drafting messages and briefs needs permission to work leads (owners and
+sales); captions and scripts need growth (owners and sales); the weekly review is for owners.
+
 ## Team & operations
 
 **Team & ops** (sidebar, under OrlaDent OS):
@@ -446,6 +481,8 @@ leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `ME
 | **instructor** | read leads; run the programme: classes and attendance, assignments and reviews, graduation, alumni, portal invites; add tasks and files. No revenue, no lead editing, no settings |
 | **designer** | only the production studio, and only the cases assigned to them: start, add the design files, send to QC; their own pay per case. No leads, students, prices or settings |
 
+Ask OrlaDent: everyone except designers, each seeing only what their role sees.
+
 Tasks and files: owner, sales and finance add and finish them; viewers only look. Growth (campaigns, forms,
 masterclasses, content, referral links): owners and sales. Campaign costs and referral rewards: owners and
 finance. Programme (classes, attendance, assignments, graduation, alumni, portal access): owners and instructors;
@@ -492,6 +529,8 @@ If the server's `AUTH_SECRET` is ever changed, everyone's two-factor must be res
 * **Finance split**: the partners and percentages that net income is split by (with Capital, 100% in total).
   Below it, **On invoices and receipts**: the business name, address, tax registration number, phone, email,
   how to pay and a footer, printed on every production invoice and payment receipt.
+* **AI assistant**: switch it on or off, choose what it may look up (leads, money, students, production), the
+  brand voice drafts are written in, the daily limit per person, and this month's requests and cost.
 * **Integrations**: the Notion sync status, the run log and **Sync now**.
 * **Sources & reasons**, **Cadences**, **Audit log** as before.
 

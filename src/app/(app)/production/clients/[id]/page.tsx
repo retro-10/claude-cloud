@@ -10,6 +10,7 @@ import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 import { createInvoiceAction } from "../../actions";
+import { ScrollX } from "@/components/ui/ScrollX";
 
 export const metadata = { title: "Client · Production" };
 const egp = (n: number) => `${n.toLocaleString("en-US")} EGP`;
@@ -44,7 +45,7 @@ export default async function ClientPage(props: { params: Promise<{ id: string }
             {!cases.length ? (
               <EmptyState icon="layers" title="No cases yet." />
             ) : (
-              <div className="overflow-x-auto">
+              <ScrollX label={`Cases (${cases.length})`}>
                 <table className="table">
                   <thead>
                     <tr>
@@ -73,7 +74,7 @@ export default async function ClientPage(props: { params: Promise<{ id: string }
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </ScrollX>
             )}
           </Card>
         </div>

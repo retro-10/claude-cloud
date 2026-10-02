@@ -7,6 +7,7 @@ import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { CLIENT_KIND, listClients, seesMoney } from "@/lib/production";
 import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
+import { ScrollX } from "@/components/ui/ScrollX";
 
 export const metadata = { title: "Clients · Production" };
 const egp = (n: number) => `${n.toLocaleString("en-US")} EGP`;
@@ -28,7 +29,7 @@ export default async function ClientsPage(props: { searchParams: Promise<{ notic
           {!rows.length ? (
             <EmptyState icon="user" title="No clients yet." />
           ) : (
-            <div className="overflow-x-auto">
+            <ScrollX label={`Clients (${rows.length})`}>
               <table className="table">
                 <thead>
                   <tr>
@@ -62,7 +63,7 @@ export default async function ClientsPage(props: { searchParams: Promise<{ notic
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollX>
           )}
         </Card>
         {manage && (

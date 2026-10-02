@@ -40,5 +40,13 @@ export async function fakeCreate(p: Params): Promise<BetaMessage> {
   }
   if (p.tools?.some((t) => "name" in t && t.name === "batches"))
     return message([{ type: "tool_use", id: "toolu_fake_1", name: "batches", input: {} }], "tool_use");
-  return message([{ type: "text", text: "Hi doctor, thanks for your message! (test draft)", citations: null }], "end_turn");
+  const sys = JSON.stringify(p.system ?? "");
+  const text = sys.includes("WINS, MISSES and DECISIONS")
+    ? "WINS\n- 12 new leads, up from 9 (test draft)\n\nMISSES\n- No consults held\n\nDECISIONS\n- Book three consults by Thursday"
+    : sys.includes("HOOKS")
+      ? "HOOKS\n1. Your first crown in 10 minutes\n2. What QC looks for\n3. Margins, made simple\n\nCAPTION\nA real crown from start to finish. Link in bio. (test draft)"
+      : sys.includes("WHO THEY ARE")
+        ? "WHO THEY ARE\n- A dentist who came from a masterclass (test draft)\n\nQUESTIONS TO ASK\n- What do you want to be able to do in three months?"
+        : "Hi doctor, thanks for your message! (test draft)";
+  return message([{ type: "text", text, citations: null }], "end_turn");
 }

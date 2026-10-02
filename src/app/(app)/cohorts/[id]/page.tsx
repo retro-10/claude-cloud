@@ -20,6 +20,7 @@ import { studentRisks } from "@/lib/risk";
 import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo, toCairoLocalInput } from "@/lib/time";
 import { updateCohortAction } from "../actions";
+import { ScrollX } from "@/components/ui/ScrollX";
 
 export const metadata = { title: "Batch" };
 
@@ -160,7 +161,7 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
         {students.length === 0 ? (
           <EmptyState icon="cohorts" title="Nobody enrolled yet">Enrol leads from the Pipeline or a lead’s stage bar.</EmptyState>
         ) : (
-          <div className="overflow-x-auto">
+          <ScrollX label={`Students (${students.length})`}>
             <table className="table min-w-[1000px]">
               <thead>
                 <tr>
@@ -217,7 +218,7 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollX>
         )}
       </Card>
 

@@ -10,6 +10,7 @@ import { listCohorts } from "@/lib/cohorts";
 import { TIER_LABEL } from "@/lib/pricing";
 import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
+import { ScrollX } from "@/components/ui/ScrollX";
 
 export const metadata = { title: "Candidate balances" };
 
@@ -74,7 +75,7 @@ export default async function CandidateBalances(props: { searchParams: Promise<{
             Enrolled leads appear here with their plan and balance.
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto">
+          <ScrollX label="Candidates">
             <table className="table min-w-[980px]">
               <thead>
                 <tr>
@@ -119,7 +120,7 @@ export default async function CandidateBalances(props: { searchParams: Promise<{
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollX>
         )}
       </Card>
     </>

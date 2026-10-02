@@ -119,3 +119,20 @@ Each has a safe default already applied. Answer any and it will be changed.
     monthly, or both, and through which method?
 58. **Budgets.** Who sets the monthly budget, and should it be per batch as well as per month?
 
+## OrlaDent OS, Phase 5
+
+59. **Switching it on.** The assistant sends the business data it looks up (never phone numbers or emails) to
+    Anthropic. Under Anthropic's commercial terms that data is not used to train its models. Are you happy to
+    switch it on? Who holds the Anthropic account and pays for it?
+60. **Money in answers.** Money is off by default. Should Ask OrlaDent answer money questions for owners and
+    finance?
+61. **Brand voice.** The default voice is a guess (warm, direct, Egyptian audience, no hype). Please rewrite it
+    in your own words, with one or two real messages you liked.
+62. **Daily limit and budget.** 100 requests per person per day. What monthly spend is fine before someone is
+    told? (A typical question costs a few US cents.)
+63. **Drop-risk rules.** The early warning adds points for low attendance, missed classes, overdue work, stale
+    rework and an overdue instalment. Do these match how students actually drop? Should an instructor be told
+    when someone crosses into "at risk"?
+64. **Prices in drafts.** Drafts never state a price unless it is in the app (an offer on the lead). Should the
+    tier prices be given to the assistant so it can answer "how much is it?"
+

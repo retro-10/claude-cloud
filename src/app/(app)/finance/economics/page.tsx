@@ -5,6 +5,7 @@ import { Card, EmptyState, PageHeader, Stat, Tabs } from "@/components/ui";
 import { unitEconomics } from "@/lib/money";
 import { requirePageCan } from "@/lib/server-auth";
 import { startOfCairoDay } from "@/lib/time";
+import { ScrollX } from "@/components/ui/ScrollX";
 
 export const metadata = { title: "Unit economics · Finance" };
 const egp = (n: number | null) => (n == null ? "—" : `${n < 0 ? "−" : ""}${Math.abs(n).toLocaleString("en-US")} EGP`);
@@ -37,7 +38,7 @@ export default async function EconomicsPage(props: { searchParams: Promise<{ day
           {!u.perBatch.length ? (
             <EmptyState icon="cohorts" title="No batches with students or costs yet." />
           ) : (
-            <div className="overflow-x-auto">
+            <ScrollX label="Batches">
               <table className="table">
                 <thead>
                   <tr>
@@ -72,7 +73,7 @@ export default async function EconomicsPage(props: { searchParams: Promise<{ day
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollX>
           )}
           <p className="border-t border-line px-4 py-3 text-xs text-muted">Costs are the ledger costs tagged to the batch (choose the batch when you record a cost). Revenue is what its students owe after discount.</p>
         </Card>
@@ -80,7 +81,7 @@ export default async function EconomicsPage(props: { searchParams: Promise<{ day
           {!u.perCaseType.length ? (
             <EmptyState icon="layers" title="No cases delivered in this period." />
           ) : (
-            <div className="overflow-x-auto">
+            <ScrollX label={`Production, delivered in the last ${PERIODS[days]}`}>
               <table className="table">
                 <thead>
                   <tr>
@@ -109,7 +110,7 @@ export default async function EconomicsPage(props: { searchParams: Promise<{ day
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollX>
           )}
         </Card>
       </div>

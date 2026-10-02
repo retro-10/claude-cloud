@@ -97,9 +97,16 @@ export default async function AskPage(props: { searchParams: Promise<{ t?: strin
           </Card>
           <Card title="What it can look up for you" icon="eye">
             {sees.length ? (
-              <p className="text-sm text-muted">
-                {sees.join(", ")}. Never phone numbers or email addresses{can(user.role, "finance:read") && status.settings.readMoney ? "" : ", and no money figures"}.
-              </p>
+              <>
+                <ul className="flex flex-wrap gap-2">
+                  {sees.map((x) => (
+                    <li key={x} className="chip">
+                      {x}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-4 text-sm text-muted">Never phone numbers or email addresses{can(user.role, "finance:read") && status.settings.readMoney ? "" : ", and no money figures"}.</p>
+              </>
             ) : (
               <p className="text-sm text-muted">Nothing from your role yet; ask an owner.</p>
             )}

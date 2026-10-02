@@ -3,6 +3,7 @@ import { FinanceNav } from "@/components/finance/FinanceNav";
 import { Card, PageHeader, Stat } from "@/components/ui";
 import { cashForecast } from "@/lib/money";
 import { requirePageCan } from "@/lib/server-auth";
+import { ScrollX } from "@/components/ui/ScrollX";
 
 export const metadata = { title: "Cash forecast · Finance" };
 const egp = (n: number) => `${n < 0 ? "−" : ""}${Math.abs(n).toLocaleString("en-US")} EGP`;
@@ -47,7 +48,7 @@ export default async function ForecastPage(props: { searchParams: Promise<{ open
           </form>
         }
       >
-        <div className="overflow-x-auto">
+        <ScrollX label="13-week cash forecast">
           <table className="table">
             <thead>
               <tr>
@@ -74,7 +75,7 @@ export default async function ForecastPage(props: { searchParams: Promise<{ open
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollX>
         <p className="border-t border-line px-4 py-3 text-xs text-muted">
           Money only moves when it is recorded; this forecast is what the ledger and the budget say today. Enter the cash you hold now to see the balance week by week.
         </p>

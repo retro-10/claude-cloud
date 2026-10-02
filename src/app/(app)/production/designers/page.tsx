@@ -4,6 +4,7 @@ import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { designerStats } from "@/lib/production";
 import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
+import { ScrollX } from "@/components/ui/ScrollX";
 
 export const metadata = { title: "Designers · Production" };
 const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v * 100)}%`);
@@ -22,7 +23,7 @@ export default async function DesignersPage() {
         {!rows.length ? (
           <EmptyState icon="user" title="No cases assigned yet." />
         ) : (
-          <div className="overflow-x-auto">
+          <ScrollX label="Designers">
             <table className="table">
               <thead>
                 <tr>
@@ -51,7 +52,7 @@ export default async function DesignersPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollX>
         )}
       </Card>
     </>

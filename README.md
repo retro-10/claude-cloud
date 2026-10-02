@@ -48,6 +48,7 @@ See `.env.example`, which explains every value. The important ones:
 | `COOKIE_SECURE` | `true` when served over HTTPS (production compose forces it) |
 | `DOMAIN` | Production only: the domain Caddy gets a certificate for |
 | `INBOUND_LEADS_TOKEN` | Optional. 24+ random characters; switches on `POST /api/inbound/leads` for Meta lead ads through Zapier or Make (User guide > Growth) |
+| `ANTHROPIC_API_KEY` | Optional. Lets the AI assistant run (Ask OrlaDent, drafts, consult briefs); an owner must still switch it on in Settings > AI assistant. `AI_MODEL` overrides the model (default `claude-opus-5-5`). See User guide > The AI assistant |
 | `NOTION_TOKEN` | Optional. Switches on the two-way Notion sync (Batches, Candidates, Ledger, Sessions, Proof bank, Team, CRM Leads). Setup: User guide > Notion |
 | `NOTION_*_DB`, `NOTION_SYNC_LEADS`, `NOTION_SYNC_INTERVAL_SEC`, `APP_URL` | Optional Notion settings, explained in `.env.example` |
 

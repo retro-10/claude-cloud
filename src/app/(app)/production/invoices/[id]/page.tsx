@@ -8,6 +8,7 @@ import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 import { cairoYmd, formatCairo } from "@/lib/time";
 import { recordInvoicePaymentAction, voidInvoiceAction } from "../../actions";
+import { ScrollX } from "@/components/ui/ScrollX";
 
 export const metadata = { title: "Invoice · Production" };
 const egp = (n: number) => `${n.toLocaleString("en-US")} EGP`;
@@ -49,7 +50,7 @@ export default async function InvoicePage(props: { params: Promise<{ id: string 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex flex-col gap-6">
           <Card title="Cases" icon="layers" bodyClass="p-0">
-            <div className="overflow-x-auto">
+            <ScrollX label="Cases">
               <table className="table">
                 <thead>
                   <tr>
@@ -78,7 +79,7 @@ export default async function InvoicePage(props: { params: Promise<{ id: string 
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollX>
           </Card>
           {inv.notes && (
             <Card title="Notes" icon="note">

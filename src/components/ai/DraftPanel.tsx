@@ -44,7 +44,9 @@ export function DraftPanel({
   const fill = () => {
     const f = document.getElementById(fillForm!) as HTMLFormElement | null;
     if (!f) return;
-    const parts = splitWeekly(text);
+    const split = splitWeekly(text);
+    // a draft without the three headings goes into Notes whole, rather than nowhere
+    const parts = split.wins || split.misses || split.decisions ? split : { notes: text };
     for (const [k, val] of Object.entries(parts)) {
       const el = f.elements.namedItem(k) as HTMLTextAreaElement | null;
       if (el && val) el.value = val;

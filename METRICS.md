@@ -161,3 +161,13 @@ Rules from the Notion *Finances* page. Every figure reads the ledger (`ledger_en
 | Case type margin | revenue − designer pay of its cases delivered in the period |
 | Pricing scenario | seats = cap × fill; paying = seats − free; revenue = paying × price after discount; costs = batch costs + seats × cost per student; break-even = ⌈(batch costs + free seats × cost per student) ÷ (price after discount − cost per student)⌉ paying students |
 | Cases delivered (pulse) | cases with a delivery time in the last 7 days (and the 7 before) |
+
+## Early warning and the assistant (`src/lib/risk.ts`, `src/lib/ai/`)
+
+| Number | Definition |
+| --- | --- |
+| Drop-risk score | for an active student in a batch that is not closed: attendance under the batch's graduation minimum +30 (+40 if 15 points or more under); the last two marked classes (excused not counted) both absent +25, only the last +10; +15 per assignment past its due date with nothing handed in (at most +30); +10 if an assignment's latest result is rework from more than 7 days ago; +25 for an Expected instalment dated in the past (only for people who see money) |
+| At risk / watch | score 50 or more / 25 to 49; below 25 is not listed |
+| Students likely to drop (alert) | active students with a score of 50 or more, all batches |
+| AI requests today | ai_usage rows for the person since midnight Cairo time (failed ones count) |
+| AI cost (estimate) | input × $4 + output × $20 + cache reads × $0.20 + cache writes × $5, per million tokens, from the recorded token counts |

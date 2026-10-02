@@ -8,6 +8,7 @@ import { budgetVsActual } from "@/lib/money";
 import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 import { copyBudgetAction, saveBudgetAction } from "../actions";
+import { ScrollX } from "@/components/ui/ScrollX";
 
 export const metadata = { title: "Budget · Finance" };
 const egp = (n: number) => `${n.toLocaleString("en-US")} EGP`;
@@ -57,7 +58,7 @@ export default async function BudgetPage(props: { searchParams: Promise<{ month?
       ) : undefined}>
         <form action={saveBudgetAction}>
           <input type="hidden" name="month" value={month} />
-          <div className="overflow-x-auto">
+          <ScrollX label="By category">
             <table className="table">
               <thead>
                 <tr>
@@ -105,7 +106,7 @@ export default async function BudgetPage(props: { searchParams: Promise<{ month?
                 })}
               </tbody>
             </table>
-          </div>
+          </ScrollX>
           {write && (
             <div className="border-t border-line p-4">
               <button className="btn btn-primary btn-sm">Save the budget</button>

@@ -62,8 +62,8 @@ export function AskForm({ action, threadId, disabled }: { action: (f: FormData) 
             }
           }}
         />
-        <div className="flex flex-wrap items-center justify-between gap-3 px-2 pt-2">
-          <p className="text-xs text-muted">Read-only: it looks things up, it never changes or sends anything. Enter to ask, Shift+Enter for a new line.</p>
+        <div className="flex flex-col gap-3 px-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="min-w-0 flex-1 text-xs text-muted">Read-only: it looks things up, it never changes or sends anything. Enter to ask, Shift+Enter for a new line.</p>
           <Send />
         </div>
       </div>

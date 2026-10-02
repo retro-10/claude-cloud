@@ -14,6 +14,7 @@ import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 import { cairoYmd, formatCairo } from "@/lib/time";
 import { deleteEntryAction, settleEntryAction } from "../actions";
+import { ScrollX } from "@/components/ui/ScrollX";
 
 export const metadata = { title: "Ledger" };
 
@@ -117,7 +118,7 @@ export default async function LedgerPage(props: {
             Try another month or clear the filters.
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto">
+          <ScrollX label="Ledger entries">
             <table className="table min-w-[980px]">
               <thead>
                 <tr>
@@ -239,7 +240,7 @@ export default async function LedgerPage(props: {
                 </tr>
               </tfoot>
             </table>
-          </div>
+          </ScrollX>
         )}
       </Card>
     </>
