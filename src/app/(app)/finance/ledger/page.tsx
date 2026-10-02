@@ -167,6 +167,11 @@ export default async function LedgerPage(props: {
                       {write && (
                         <td>
                           <div className="flex items-center justify-end gap-1">
+                            {e.section === "income" && e.status === "received" && e.category !== "Refund" && (
+                              <a href={`/receipts/${e.id}`} className="btn btn-ghost btn-icon btn-sm" title="Receipt" aria-label={`Receipt for ${e.entry}`}>
+                                <Icon name="note" size={14} />
+                              </a>
+                            )}
                             {open && (
                               <form action={settleEntryAction}>
                                 <input type="hidden" name="id" value={e.id} />

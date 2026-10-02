@@ -175,7 +175,18 @@ export default async function CasePage(props: { params: Promise<{ id: string }>;
                 </form>
               )}
               {c.status === "delivered" && <p className="text-sm text-muted">Delivered. It goes on the client&apos;s next invoice.</p>}
-              {c.status === "invoiced" && <p className="text-sm text-muted">Invoiced.</p>}
+              {c.status === "invoiced" && (
+                <p className="text-sm text-muted">
+                  Invoiced
+                  {money && c.invoiceId ? (
+                    <>
+                      {" "}
+                      on <Link href={`/production/invoices/${c.invoiceId}`} className="link">the client&apos;s invoice</Link>
+                    </>
+                  ) : null}
+                  .
+                </p>
+              )}
               {c.status === "cancelled" && <p className="text-sm text-muted">Cancelled.</p>}
               {c.status === "received" && !manage && <p className="text-sm text-muted">Not assigned yet.</p>}
             </div>

@@ -123,6 +123,18 @@ describe("every staff page names the permission it needs", () => {
   }
 });
 
+describe("print pages outside the app shell check the user themselves", () => {
+  it("invoices and receipts: signed in, and allowed to see the money", () => {
+    const pages = files.filter((f) => /app[\\/](invoices|receipts)[\\/].*page\.tsx$/.test(f));
+    expect(pages.length).toBe(2);
+    for (const f of pages) {
+      const src = readFileSync(f, "utf8");
+      expect(src, rel(f)).toContain("getCurrentUser(");
+      expect(src, rel(f)).toMatch(/if \(!can\(user\.role, "finance:read"\)\) notFound\(\)/);
+    }
+  });
+});
+
 describe("no secrets or personal data in logs", () => {
   it("source never logs with console.*", () => {
     const offenders = files.filter((f) => /\.(ts|tsx)$/.test(f) && !/db[\\/](seed|migrate)\.ts$/.test(f) && /console\.(log|error|warn|info)\(/.test(readFileSync(f, "utf8")));

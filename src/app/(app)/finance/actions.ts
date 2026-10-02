@@ -116,3 +116,15 @@ export async function saveSplitAction(form: FormData) {
   const r = await saveSettings(db, { financeSplit: { partners, capitalPct: Number(form.get("capitalPct")) } }, user.id);
   back(form, r.ok ? r : { ok: false, error: "The shares must be names with percentages that add up to 100 together with Capital." }, "Split saved");
 }
+
+export async function saveInvoiceDetailsAction(form: FormData) {
+  const user = await requireCan("settings:write");
+  const f = (k: string) => String(form.get(k) ?? "");
+  const r = await saveSettings(
+    db,
+    { invoiceDetails: { legalName: f("legalName"), address: f("address"), taxId: f("taxId"), phone: f("phone"), email: f("email"), paymentInstructions: f("paymentInstructions"), footer: f("footer") } },
+    user.id,
+  );
+  revalidatePath("/settings/finance");
+  redirect(r.ok ? "/settings/finance?notice=Invoice+details+saved" : `/settings/finance?error=${encodeURIComponent("Give the business name; keep each field short")}`);
+}

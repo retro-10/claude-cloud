@@ -255,6 +255,20 @@ d("role rules on the server", () => {
       const id = await newCase("received");
       return strict(() => A.cancelCaseAction(fd({ id, reason: "withdrawn" })));
     }],
+    ["createInvoiceAction", ["owner", "finance"], async () => {
+      await newCase("received", { status: "delivered", deliveredAt: new Date(), designerId: null });
+      return strict(() => A.createInvoiceAction(fd({ clientId })));
+    }],
+    ["recordInvoicePaymentAction", ["owner", "finance"], async () => {
+      const [inv] = await db.insert(s.invoices).values({ number: `INV-T-${++n}`, clientId, clientName: "Roles Clinic", dueAt: new Date(), totalEgp: 900, lines: [] }).returning();
+      await db.insert(s.ledgerEntries).values({ entry: "x", amountEgp: 900, section: "income", category: "OrlaDent client work", status: "expected", invoiceId: inv.id });
+      return strict(() => A.recordInvoicePaymentAction(fd({ id: inv.id, amountEgp: 900, date: "" })));
+    }],
+    ["voidInvoiceAction", ["owner", "finance"], async () => {
+      const [inv] = await db.insert(s.invoices).values({ number: `INV-T-${++n}`, clientId, clientName: "Roles Clinic", dueAt: new Date(), totalEgp: 900, lines: [] }).returning();
+      return strict(() => A.voidInvoiceAction(fd({ id: inv.id, reason: "mistake" })));
+    }],
+    ["saveInvoiceDetailsAction", ["owner"], () => strict(() => A.saveInvoiceDetailsAction(fd({ legalName: "OrlaDent", address: "Cairo" })))],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 

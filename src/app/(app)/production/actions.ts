@@ -18,6 +18,7 @@ import {
   startCase,
   updateCaseDetails,
 } from "@/lib/production";
+import { createInvoice, recordInvoicePayment, voidInvoice } from "@/lib/invoices";
 import { safePath } from "@/lib/safe-path";
 import { requireCan } from "@/lib/server-auth";
 import { cairoLocalToDate } from "@/lib/time";
@@ -160,4 +161,29 @@ export async function cancelCaseAction(form: FormData) {
   const user = await requireCan("production:manage");
   const p = z.object({ id, reason: z.string().max(400) }).parse(Object.fromEntries(form));
   done(`/production/cases/${p.id}`, await cancelCase(db, p.id, p.reason, user.id), "Case cancelled");
+}
+
+// ---------------- invoices (owners and finance) ----------------
+
+export async function createInvoiceAction(form: FormData) {
+  const user = await requireCan("payment:write");
+  const clientId = id.parse(form.get("clientId"));
+  const caseIds = form.getAll("caseId").map((v) => id.parse(v));
+  const r = await createInvoice(db, clientId, caseIds.length ? caseIds : null, String(form.get("notes") ?? "") || null, user.id);
+  const back = safePath(form.get("back"), "/production/invoices");
+  done(r.ok ? `/production/invoices/${r.id}` : back, r, r.ok ? `Invoice ${r.number} issued` : "");
+}
+
+export async function recordInvoicePaymentAction(form: FormData) {
+  const user = await requireCan("payment:write");
+  const p = z.object({ id, amountEgp: int, date: z.preprocess(blank, z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable()), reference: z.string().max(200).optional() }).safeParse(Object.fromEntries(form));
+  if (!p.success) done(`/production/invoices/${form.get("id")}`, { ok: false, error: "Give the amount in whole EGP" }, "");
+  const r = await recordInvoicePayment(db, p.data.id, { amountEgp: p.data.amountEgp, date: p.data.date ? cairoLocalToDate(`${p.data.date}T12:00`) : null, reference: p.data.reference }, user.id);
+  done(`/production/invoices/${p.data.id}`, r, r.ok ? (r.owed ? `Payment recorded; ${r.owed.toLocaleString("en-US")} EGP still owed` : "Paid in full") : "");
+}
+
+export async function voidInvoiceAction(form: FormData) {
+  const user = await requireCan("payment:write");
+  const p = z.object({ id, reason: z.string().max(400) }).parse(Object.fromEntries(form));
+  done(`/production/invoices/${p.id}`, await voidInvoice(db, p.id, p.reason, user.id), "Invoice void; its cases can be invoiced again");
 }

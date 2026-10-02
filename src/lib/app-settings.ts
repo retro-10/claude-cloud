@@ -22,7 +22,10 @@ export type Settings = {
   routes: Route[]; // A3: first matching route decides the owner
   maxOpenStages: number; // P2: warn above this many open stages
   financeSplit: { partners: { name: string; pct: number }[]; capitalPct: number }; // how net income is split
+  invoiceDetails: InvoiceDetails; // who invoices and receipts are from, and how to pay
 };
+export type InvoiceDetails = { legalName: string; address: string; taxId: string; phone: string; email: string; paymentInstructions: string; footer: string };
+const INVOICE_LIMITS: Record<keyof InvoiceDetails, number> = { legalName: 120, address: 300, taxId: 60, phone: 40, email: 120, paymentInstructions: 600, footer: 300 };
 
 export const DEFAULTS: Settings = {
   neglectDays: 14,
@@ -46,6 +49,8 @@ export const DEFAULTS: Settings = {
     ],
     capitalPct: 20,
   },
+  // only the name is known; the rest is the owners' to fill in (QUESTIONS.md)
+  invoiceDetails: { legalName: "OrlaDent", address: "", taxId: "", phone: "", email: "", paymentInstructions: "", footer: "" },
 };
 
 type Key = keyof Settings;
@@ -78,6 +83,17 @@ const VALIDATE: { [K in Key]: (v: unknown) => Settings[K] | undefined } = {
     const total = f.partners.reduce((a, p) => a + p.pct, 0) + f.capitalPct;
     if (Math.abs(total - 100) > 0.001) return undefined; // the split must account for all of net income
     return { partners: f.partners.map((p) => ({ name: p.name.trim(), pct: p.pct })), capitalPct: f.capitalPct };
+  }) as never,
+  invoiceDetails: ((v: unknown) => {
+    const d = v as InvoiceDetails;
+    if (!d || typeof d !== "object") return undefined;
+    const out = {} as InvoiceDetails;
+    for (const [k, max] of Object.entries(INVOICE_LIMITS) as [keyof InvoiceDetails, number][]) {
+      const val = d[k] ?? "";
+      if (typeof val !== "string" || val.length > max) return undefined;
+      out[k] = val.trim();
+    }
+    return out.legalName ? out : undefined;
   }) as never,
   routes: ((v: unknown) =>
     Array.isArray(v) &&
