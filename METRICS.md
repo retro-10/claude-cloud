@@ -134,3 +134,30 @@ Rules from the Notion *Finances* page. Every figure reads the ledger (`ledger_en
 | Ready to graduate | Not dropped, and every rule of the batch met: attendance ≥ the minimum (when any class was marked), every assignment passed (if required), nothing left to pay (if required) |
 | Waiting for review (Command centre) | Submissions with status Waiting for review |
 | Unmarked classes (Command centre) | Classes that started in the last 7 days with no attendance marked |
+
+## Production, invoices and money (`src/lib/production.ts`, `invoices.ts`, `money.ts`, `production-quote.ts`)
+
+| Number | Definition |
+| --- | --- |
+| Case price | units × unit price; × (1 + rush surcharge) when rushed; × (1 − client discount); rounded to whole EGP at each step |
+| Due date | the given number of working days (Saturday–Thursday) after the day received, at 18:00 Cairo time |
+| Late (case) | open and past its due time, or delivered after it |
+| First-time QC pass rate | delivered cases with no QC fail ÷ delivered cases (last 90 days) |
+| On time | delivered cases delivered by their due time ÷ delivered cases |
+| Average turnaround | mean of delivered − received, in days |
+| Designer pay earned | sum of designer pay on cases delivered in the period |
+| Invoice owed / paid | its Expected / Received client-work ledger rows |
+| Invoice overdue | issued, something still owed, past its due date (issue day + the client's payment terms) |
+| Client owes | the Expected rows of their issued invoices |
+| Budget used | paid + owed costs dated in the month ÷ the month's budget for the category |
+| Over budget / unplanned | paid + owed above a budget / spent in a category with no budget |
+| Forecast in / out | Expected income / Owed costs, withdrawals and refunds, dated in the week (dropped students' instalments left out) |
+| Forecast budget still to spend | per month, budget − paid − owed (if positive), spread evenly over the month's days from today |
+| Late (forecast) | Expected or Owed rows dated before today, shown apart |
+| Batch revenue / margin | what its students owe (same rule as revenue) / revenue − costs tagged to the batch (paid and owed) |
+| Marketing spend | paid costs in Ads & promotion or Referral rewards, or tagged to a campaign, dated in the period |
+| Cost per lead / per enrolment | marketing spend ÷ leads created / enrolments made in the period |
+| Revenue per enrolment | the price after discount of enrolments made in the period (free seats as 0) ÷ their number |
+| Case type margin | revenue − designer pay of its cases delivered in the period |
+| Pricing scenario | seats = cap × fill; paying = seats − free; revenue = paying × price after discount; costs = batch costs + seats × cost per student; break-even = ⌈(batch costs + free seats × cost per student) ÷ (price after discount − cost per student)⌉ paying students |
+| Cases delivered (pulse) | cases with a delivery time in the last 7 days (and the 7 before) |

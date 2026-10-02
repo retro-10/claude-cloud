@@ -449,3 +449,58 @@ Verified: lint, types, unit and integration tests for classes (attendance, check
 the portal (invite, sign-in, rate limit, session separation, own-batch only), the role matrix with the instructor
 role, and the browser suite: every new screen in both themes plus a term end to end (class and attendance, an
 assignment reviewed, graduation, the certificate checked signed out, and the student's portal).
+
+## OrlaDent OS, Phase 4 (production studio, team and money)
+
+* **Production work is a separate world from leads.** Clients (clinics and labs) are their own records, not
+  leads: a clinic is a business with terms and invoices, not a person in a sales funnel. Designers are staff
+  users with the new **designer** role, so a Production Partner graduate can be given an account without seeing
+  the lead list, students or prices.
+* **The designer role made every staff page state its permission.** Until now every role could read leads, so
+  pages only checked the sign-in. Every page under the app now calls `requirePageCan(...)`, a guard test fails
+  the build for a page that does not, Today sends people without the lead list to the studio, and the sidebar
+  shows designers only the studio. A case's files open for whoever may see the case (a designer only their own);
+  anyone else gets "not found", not "forbidden".
+* **Price and pay are fixed at intake**: price = units × unit price, plus the rush surcharge, less the client's
+  discount, in whole EGP at each step; designer pay = units × pay per unit. Later price-list changes never
+  rewrite a case. Turnaround is counted in working days with Fridays off, due 18:00 Cairo time; one pure
+  function (`quote`) serves both intake and the quote tool, so they cannot disagree.
+* **QC is a checklist, checked by someone else.** The designer cannot pass their own case. Everything ticked
+  passes; anything unticked needs a note and sends the case back (`qc_fails` + 1). The first-time pass rate is
+  delivered cases with no fails ÷ delivered cases. Files can be changed only while assigned or designing, so
+  what QC saw is what is delivered.
+* **Money stays in the ledger.** Delivery books the designer's pay as an Owed cost (Production designers,
+  linked to the case). An invoice is a document (number, lines and total as issued); what is owed is one
+  Expected "OrlaDent client work" row, settled by full or part payments into Received rows. So the Finance
+  board, the coming-up list, the forecast and client balances needed no new money logic. Invoices are numbered
+  per Cairo year (INV-2026-0001) inside a transaction that locks the cases; a clash on the number retries.
+  Voiding is only possible before any payment; numbers are never reused.
+* **Receipts come from any received income row** (students' payments too), numbered by the ledger row. Invoice
+  and receipt pages sit outside the app shell (they print as they show) and check the user themselves; a guard
+  test pins that. The business details on them are a setting, because only the name is known.
+* **Playbooks are copied into each checklist** when it starts, so editing a playbook never changes a checklist
+  under way. A checklist completes itself when every step is ticked and reopens if one is unticked.
+* **Decisions** are closed by their owner or an owner of the business, with an outcome. Overdue open decisions,
+  overdue checklists and jobs nobody does are alerts.
+* **Budgets are per month and cost category**; a zero removes the line. Actual = Paid + Owed rows dated in the
+  month, so a bill booked but not yet paid already uses the budget.
+* **The cash forecast never assumes late money.** Expected or owed rows already past their date are shown apart.
+  Unbooked budget (budget − paid − owed, if positive) is spread evenly over the month's remaining days. There is
+  no bank balance in the app, so the running balance starts from a number the person types.
+* **Unit economics**: a batch's revenue uses the same rule as everywhere (what students owe; dropped students
+  what they kept paid); its costs are ledger costs tagged to the batch, so the ledger form now lets a cost be
+  tagged to a batch (and editing a cost no longer drops the batch the Notion sync gave it). Marketing spend =
+  paid costs in Ads & promotion or Referral rewards, or tagged to a campaign.
+* **Not built in Phase 4, by choice**: a payment gateway (needs the owners' choice of Paymob, Fawry or another,
+  and an account), clients signing in (no ask yet), and designer pay runs (pay stays an Owed row per case,
+  settled from the ledger).
+* **Found while building**: in the select list of a query without a join, drizzle leaves column names
+  unqualified, so `${table.id}` inside a correlated subquery meant the subquery's own `id`. The new client list
+  had it (wrong counts, then an error) and was fixed by writing the table name out; the existing code was
+  checked and only uses it in joined queries or WHERE clauses, where drizzle qualifies it.
+
+Verified: lint, types, unit and integration tests for the studio (prices and turnaround, the whole case flow,
+who sees what, the pulse and designer figures), invoicing (numbering, part payments, void, balances, the books),
+team and operations, budgets, the forecast and unit economics; the role matrix with the designer role and every
+new action; guard tests for staff pages and print pages; and the browser suite: a case from price list to
+receipt with a designer who sees only her case, plus every new screen in both themes.

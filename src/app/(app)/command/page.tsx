@@ -78,7 +78,7 @@ export default async function CommandCentre(props: { searchParams: Promise<{ wee
       />
       <Flash notice={sp.notice} error={sp.error} />
 
-      <section aria-label="Pulse, last 7 days" className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <section aria-label="Pulse, last 7 days" className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
         {pulseItems.map((k) => (
           <div key={k.key} className="card p-4">
             <div className="text-xs font-medium text-muted">{k.label}</div>
@@ -173,7 +173,7 @@ export default async function CommandCentre(props: { searchParams: Promise<{ wee
               </Link>
             )}
           </div>
-          <dl className="mb-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
+          <dl className="mb-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 xl:grid-cols-6">
             {pulseItems.map((k) => (
               <div key={k.key} className="well px-3 py-2">
                 <dt className="text-muted">{k.label}</dt>

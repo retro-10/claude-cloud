@@ -101,3 +101,21 @@ Each has a safe default already applied. Answer any and it will be changed.
 50. **Alumni for hire.** The alumni directory is staff-only. Do you want a public page of graduates open to work
     (each graduate opting in)?
 
+## OrlaDent OS, Phase 4
+
+51. **Production scope.** The studio assumes OrlaDent sells design work to clinics and labs (the plan's open
+    question). If it does not, it can be hidden from the menu. Who runs it day to day: an owner, or someone
+    who should get its own role?
+52. **The price list.** None is filled in: please give each kind of case, its price per unit, the designer's pay
+    per unit, the turnaround (standard and rush) and the rush surcharge.
+53. **Working days.** Turnaround skips Fridays only. Are Saturdays off too, and should public holidays count?
+54. **Who checks QC.** Now: owners, and never the case's own designer. Should a senior designer be able to QC
+    other designers' cases?
+55. **Invoice details.** Business name, address, tax registration number and how clients pay are empty
+    (Settings > Finance). Do invoices need VAT (14%) or an e-invoice through the Tax Authority's system?
+56. **Payment gateway.** Paid links need Paymob, Fawry or another provider (an account and fees). Which one,
+    and for students, clients or both?
+57. **Designer pay.** Each delivered case books the designer's pay as owed. Are designers paid per case,
+    monthly, or both, and through which method?
+58. **Budgets.** Who sets the monthly budget, and should it be per batch as well as per month?
+

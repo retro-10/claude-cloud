@@ -22,11 +22,14 @@ when the buyer moved, and log everything** so the numbers are true.
 The first screen of **OrlaDent OS**. Open it every morning.
 
 * **Pulse**: the last 7 days against the 7 before: new leads, consults held, enrolments, cash collected (owners and
-  finance only) and tasks done. A rolling week, so Monday and Thursday compare the same way.
+  finance only), tasks done and production cases delivered. A rolling week, so Monday and Thursday compare the same way.
 * **Needs a person**: one list of everything waiting on someone, urgent first. It includes new leads past the red
   time, replies waiting on us, overdue follow-ups, decisions due, leads with no next step, overdue tasks, and
   batches whose enrolment closes within 14 days with seats left. Owners and finance also see overdue instalments
   and bills past due; owners see Notion sync problems. Click a line to go straight to the list behind it.
+  Phase 4 adds: decisions and checklists past their date (everyone); jobs nobody does (owners); production
+  cases past due (owners and finance), waiting for QC or for a designer (owners); client invoices overdue and
+  categories over this month's budget (owners and finance).
 * **Targets**: this quarter's targets with a bar each and pace: *on track* (at or above where an even quarter
   would be), *at risk* (within 20% of it), *behind*, *reached*, *missed* (quarter over). Owners set them in
   **Settings > Targets**.
@@ -68,6 +71,11 @@ Patient cases: only upload what the patient agreed to, and prefer files without 
   cost per lead and your own rates, and the **break-even cost per lead**: pay more than that per lead and the
   campaign loses money.
 * **Tracked links**: see Growth above.
+* **Pricing scenarios** (owners and finance): a batch "as it is" next to "what if": price, average discount,
+  seat cap, seats filled, free seats, the batch's costs and a cost per student. You see revenue, costs, margin,
+  the margin if every seat fills, and how many paying students cover the costs. **Start from a batch** fills
+  the left side with that batch's real numbers.
+* **Turnaround quote**: see Production studio below.
 * **Batch planner**: pick a batch; it shows how many new leads and held consults you need, in total and per
   week, to fill the free seats before enrolment closes. The conversion rates and average price start from the
   last 180 days of your own data (or cautious placeholders while there are fewer than 30 leads); change them to
@@ -286,6 +294,57 @@ feedback (and can send work), their payments and their certificate. They see onl
 off** stops their access at once; a new invite resets the password and signs out the old sessions. The portal
 is separate from staff sign-in: a student can never open a staff page.
 
+## Production studio (client work)
+
+**Production** in the sidebar is OrlaDent's design work for clinics and labs.
+
+* **Price list**: each kind of case (a crown, a bridge unit, a smile design) with its price per unit, the
+  designer's pay per unit, the turnaround in working days (standard and rush; Fridays are off), the rush
+  surcharge and the **QC checklist** it is checked against (one item per line).
+* **Clients**: each clinic or lab with contacts, their discount on the price list and how many days they have
+  to pay an invoice. A client's page shows their cases, invoices and what they owe.
+* **Cases**: the board, by stage: Received → Assigned → Designing → QC → Delivered (then Invoiced). **Take a
+  case in** with the client, case type, units, rush or not, and the client's own reference (never a patient's
+  name). The price (price list, rush surcharge, client discount) and the due date (working days from the day it
+  arrived, by 18:00) are fixed then; change the due date on the case if you agreed another.
+* **A case's page**: assign it to a designer; the designer presses **Start designing**, adds the design files
+  (STL, PLY, OBJ, ZIP… up to 8 MB each) and **Send to QC**. Someone other than the designer ticks the QC
+  checklist: all ticked passes it; anything not ticked sends it back to the designer with what to fix (it counts
+  against their first-time pass rate). **Mark delivered** once it is sent to the client; the designer's pay is
+  then added to the ledger as owed (Production designers).
+* **Designers**: each designer's open cases, and over the last 90 days: delivered, passed QC the first time,
+  delivered on time, average turnaround and pay earned.
+* **Quote**: before taking a case in, a client's price and delivery date for a case type, units and rush, with
+  a message ready to send.
+* **Invoices** (owners and finance): **Invoice** a client's delivered cases (all of them from the Invoices tab,
+  or the ones you tick on the client's page). Each invoice is numbered INV-year-0001, due after the client's
+  terms, and is in the ledger as expected client work. **Record payment** for all or part of it; each payment
+  has a receipt. **Print or PDF** gives the invoice to send. An invoice issued by mistake can be voided before
+  anything is paid on it; its cases go back to Delivered. Owners set the business name, address, tax number and
+  how to pay in **Settings > Finance**: they are printed on every invoice and receipt.
+
+**Designers** (role *designer*) see only the production studio and only the cases given to them: no leads, no
+students, no prices; only their own pay per case. Their sign-in opens on their cases.
+
+## Team & operations
+
+**Team & ops** (sidebar, under OrlaDent OS):
+
+* **Responsibilities**: each recurring job (reply to new leads, post daily, QC every case, chase instalments)
+  with how often, who **does it** and who **answers for it** (and who is consulted or kept informed). A job
+  with nobody active doing it is flagged, here and in the Command centre.
+* **Playbooks**: how we do the jobs that come back (onboard a student, run a masterclass, close a batch,
+  deliver a case), one step per line. **Start the checklist** for a batch, from a playbook's page, or for a
+  person from **Run a playbook** on their lead page. Tick each step as it is done; the checklist completes when
+  every step is ticked. Changing a playbook later does not change checklists already started.
+* **Checklists**: the playbooks being run now (with how far along) and those finished; **Mine** for yours.
+* **Meetings**: the date, who was there, the agenda, notes, and the **decisions** taken.
+* **Decisions**: what was decided, its owner and the date it should be done by. Open decisions past their date
+  show in the Command centre. The decision's owner (or an owner of the business) closes it as **Done** (with
+  what happened) or **Dropped**.
+
+Owners write responsibilities, playbooks, meetings and decisions; anyone who works runs checklists.
+
 ## Proof bank
 
 **Proof bank** (sidebar > Programme) lists every quote, QC result, screenshot and video candidates gave, from
@@ -315,6 +374,18 @@ Three tabs:
   owing, overdue, paid in full.
 * **Ledger**: every row, searchable and filtered by month, kind and status; add, edit, mark done, delete (it
   asks first). **+ Payment / Client work / Expense / Withdrawal** buttons add the common rows in one step.
+  A cost can be tagged to a batch (**For batch**) so it counts in that batch's margin. Received payments have a
+  **Receipt** button: a printable receipt (save it as a PDF to send).
+* **Budget**: for each month, what each cost category may spend. Next to it: what was paid and what is owed in
+  that month, what is left, and a bar per category. Over budget, or spent with no budget, shows in red and in
+  the Command centre. **Copy last month's budget** starts a new month.
+* **Cash forecast**: the next 13 weeks from today, week by week: money due in (instalments, open invoices),
+  money owed out (costs, withdrawals), and the part of each month's budget not booked yet. Type the cash you
+  hold today to see the balance week by week and its lowest point. Rows already past their date and still open
+  are listed apart, not assumed.
+* **Unit economics**: for the last 30 days, 90 days or 12 months: marketing spend (ads, referral rewards and
+  any cost tagged to a campaign), cost per lead and per enrolment, revenue per enrolment; each batch's revenue,
+  tagged costs and margin; each kind of production case's revenue, designer pay and margin.
 
 Money is never moved by the CRM: it only records what happened. Candidates pay OrlaDent directly (InstaPay or
 bank transfer); keep the transfer or receipt reference on the payment.
@@ -373,11 +444,15 @@ leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `ME
 | **viewer** | read leads only (no revenue, no lead export) |
 | **finance** (Mo) | read everything including revenue, Finance (record payments, costs, withdrawals), export revenue; cannot edit or export leads, or change settings |
 | **instructor** | read leads; run the programme: classes and attendance, assignments and reviews, graduation, alumni, portal invites; add tasks and files. No revenue, no lead editing, no settings |
+| **designer** | only the production studio, and only the cases assigned to them: start, add the design files, send to QC; their own pay per case. No leads, students, prices or settings |
 
 Tasks and files: owner, sales and finance add and finish them; viewers only look. Growth (campaigns, forms,
 masterclasses, content, referral links): owners and sales. Campaign costs and referral rewards: owners and
 finance. Programme (classes, attendance, assignments, graduation, alumni, portal access): owners and instructors;
-graduating a student who does not meet the rules: owners only.
+graduating a student who does not meet the rules: owners only. Production studio: owners run it (clients, price
+list, intake, assignment, QC, delivery); finance sees it and invoices; designers work their own cases. Team &
+ops: owners write it; everyone who works runs checklists and closes their own decisions. Budgets: owners and
+finance.
 
 ## Two-factor sign-in
 
@@ -415,6 +490,8 @@ If the server's `AUTH_SECRET` is ever changed, everyone's two-factor must be res
 * **Message templates**: add, edit, archive; see how often each is used. Prices, incentives and claims need
   Badr's approval before they go into a template.
 * **Finance split**: the partners and percentages that net income is split by (with Capital, 100% in total).
+  Below it, **On invoices and receipts**: the business name, address, tax registration number, phone, email,
+  how to pay and a footer, printed on every production invoice and payment receipt.
 * **Integrations**: the Notion sync status, the run log and **Sync now**.
 * **Sources & reasons**, **Cadences**, **Audit log** as before.
 

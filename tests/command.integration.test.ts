@@ -105,6 +105,37 @@ d("Command centre", () => {
     expect(sales).toContain("past_red");
   });
 
+  it("Phase 4 alerts: late and waiting cases, overdue invoices, decisions, checklists, jobs nobody does, over budget — each for who can act", async () => {
+    const [client_] = await db.insert(s.productionClients).values({ name: "Clinic" }).returning();
+    const [type] = await db.insert(s.caseTypes).values({ name: "Crown", unitPriceEgp: 900 }).returning();
+    const base = { clientId: client_.id, caseTypeId: type.id, priceEgp: 900 };
+    await db
+      .insert(s.productionCases)
+      .values([
+        { ...base, status: "designing" as const, dueAt: new Date(now.getTime() - 3600_000) }, // late
+        { ...base, status: "qc" as const, dueAt: new Date(now.getTime() + 86_400_000) },
+        { ...base, status: "received" as const, dueAt: new Date(now.getTime() + 86_400_000) },
+        { ...base, status: "invoiced" as const, dueAt: now, deliveredAt: new Date(now.getTime() - 2 * 86_400_000) },
+      ]);
+    const [inv] = await db.insert(s.invoices).values({ number: "INV-2026-0001", clientId: client_.id, clientName: "Clinic", dueAt: new Date(now.getTime() - 86_400_000), totalEgp: 900, lines: [] }).returning();
+    await db.insert(s.ledgerEntries).values({ entry: "INV-2026-0001", amountEgp: 900, date: inv.dueAt, section: "income", category: "OrlaDent client work", status: "expected", invoiceId: inv.id });
+    await db.insert(s.decisions).values({ title: "Decide", dueAt: new Date(now.getTime() - 86_400_000) });
+    await db.insert(s.responsibilities).values({ area: "QC every case" });
+    await db.insert(s.budgets).values({ month: "2026-11", section: "variable_costs", category: "Ads & promotion", amountEgp: 100 });
+    await db.insert(s.ledgerEntries).values({ entry: "Ads", amountEgp: 500, date: now, section: "variable_costs", category: "Ads & promotion", status: "paid" });
+    const owner = (await alerts(db, "owner", now)).map((a) => a.key);
+    expect(owner).toEqual(expect.arrayContaining(["cases_late", "cases_qc", "cases_unassigned", "invoices", "decisions_overdue", "gaps", "budget"]));
+    const sales = (await alerts(db, "sales", now)).map((a) => a.key);
+    expect(sales).toContain("decisions_overdue");
+    for (const k of ["cases_late", "cases_qc", "invoices", "gaps", "budget"]) expect(sales).not.toContain(k);
+    const finance = (await alerts(db, "finance", now)).map((a) => a.key);
+    expect(finance).toEqual(expect.arrayContaining(["cases_late", "invoices", "budget"]));
+    expect(finance).not.toContain("cases_qc");
+    // delivered cases count in the pulse
+    expect((await pulse(db, now)).cases_delivered.now).toBe(1);
+    await client.unsafe("delete from ledger_entries where invoice_id is not null or category = 'Ads & promotion'; delete from production_cases; delete from invoices; delete from production_clients; delete from case_types; delete from decisions; delete from responsibilities; delete from budgets");
+  });
+
   it("a weekly review saves that week's numbers with it, and saving again updates it", async () => {
     const week = weekStartOf(now); // 2026-11-09
     expect(await saveReview(db, "2026-11-10", { wins: "x" }, userId)).toEqual({ ok: false, error: "Pick the Monday of a week" });

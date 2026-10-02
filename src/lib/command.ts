@@ -2,6 +2,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { notionSyncRuns, weeklyReviews } from "@/db/schema";
 import { getSettings } from "./app-settings";
+import { budgetVsActual } from "./money";
 import { audit } from "./audit";
 import { navCounts } from "./nav-counts";
 import { can, type Role } from "./rbac";
@@ -16,6 +17,7 @@ export const PULSE = [
   { key: "enrolments", label: "Enrolments", money: false },
   { key: "cash_egp", label: "Cash collected", money: true },
   { key: "tasks_done", label: "Tasks done", money: false },
+  { key: "cases_delivered", label: "Cases delivered", money: false },
 ] as const;
 export type PulseKey = (typeof PULSE)[number]["key"];
 export type Pulse = Record<PulseKey, { now: number; before: number }>;
@@ -23,9 +25,11 @@ export type Pulse = Record<PulseKey, { now: number; before: number }>;
 async function window(db: Db, start: Date, end: Date): Promise<Record<PulseKey, number>> {
   const [a, [t]] = await Promise.all([
     actuals(db, start, end),
-    db.execute<{ n: number }>(sql`select count(*)::int as n from tasks where done_at >= ${start.toISOString()}::timestamptz and done_at < ${end.toISOString()}::timestamptz`),
+    db.execute<{ n: number; cases: number }>(sql`select
+      (select count(*) from tasks where done_at >= ${start.toISOString()}::timestamptz and done_at < ${end.toISOString()}::timestamptz)::int as n,
+      (select count(*) from production_cases where delivered_at >= ${start.toISOString()}::timestamptz and delivered_at < ${end.toISOString()}::timestamptz)::int as cases`),
   ]);
-  return { leads: a.leads, consults_held: a.consults_held, enrolments: a.enrolments, cash_egp: a.cash_egp, tasks_done: Number(t.n) };
+  return { leads: a.leads, consults_held: a.consults_held, enrolments: a.enrolments, cash_egp: a.cash_egp, tasks_done: Number(t.n), cases_delivered: Number(t.cases) };
 }
 
 /** Rolling 7 days up to now, and the 7 days before, so the comparison never depends on the weekday. */
@@ -48,10 +52,15 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
   const soon = new Date(now.getTime() + 14 * 86_400_000).toISOString();
   const money = can(role, "finance:read");
   const owner = can(role, "settings:write");
+  const studio = can(role, "production:manage");
 
-  const [counts, [r], batches, [lastRun], progress] = await Promise.all([
+  const [counts, [r], batches, [lastRun], progress, budget] = await Promise.all([
     navCounts(db, now),
-    db.execute<{ past_red: number; tasks_overdue: number; instalments_overdue: number; instalments_egp: number; owed_overdue: number; replies: number; content_late: number; rewards_pending: number; to_review: number; unmarked: number }>(sql`
+    db.execute<{
+      past_red: number; tasks_overdue: number; instalments_overdue: number; instalments_egp: number; owed_overdue: number; replies: number; content_late: number; rewards_pending: number;
+      to_review: number; unmarked: number; cases_late: number; cases_qc: number; cases_unassigned: number; invoices_overdue: number; invoices_egp: number;
+      decisions_overdue: number; runs_overdue: number; gaps: number;
+    }>(sql`
       select
         (select count(*) from leads l join stages s on s.key = l.stage
           where l.deleted_at is null and s.kind = 'open' and l.first_contact_at is null and not l.do_not_contact
@@ -71,7 +80,18 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
         (select count(*) from submissions x join assignments a on a.id = x.assignment_id and a.deleted_at is null where x.status = 'submitted')::int as to_review,
         (select count(*) from batch_classes b where b.deleted_at is null and b.starts_at < ${now.toISOString()}::timestamptz
            and b.starts_at > ${new Date(now.getTime() - 7 * 86_400_000).toISOString()}::timestamptz
-           and not exists (select 1 from class_attendance x where x.class_id = b.id))::int as unmarked`),
+           and not exists (select 1 from class_attendance x where x.class_id = b.id))::int as unmarked,
+        (select count(*) from production_cases where status in ('received', 'assigned', 'designing', 'qc') and due_at < ${now.toISOString()}::timestamptz)::int as cases_late,
+        (select count(*) from production_cases where status = 'qc' and qc_passed_at is null)::int as cases_qc,
+        (select count(*) from production_cases where status = 'received')::int as cases_unassigned,
+        (select count(distinct i.id) from invoices i join ledger_entries x on x.invoice_id = i.id and x.deleted_at is null and x.status = 'expected'
+          where i.status = 'issued' and i.due_at < ${now.toISOString()}::timestamptz)::int as invoices_overdue,
+        (select coalesce(sum(x.amount_egp), 0) from invoices i join ledger_entries x on x.invoice_id = i.id and x.deleted_at is null and x.status = 'expected'
+          where i.status = 'issued' and i.due_at < ${now.toISOString()}::timestamptz)::int as invoices_egp,
+        (select count(*) from decisions where status = 'open' and due_at < ${now.toISOString()}::timestamptz)::int as decisions_overdue,
+        (select count(*) from sop_runs where completed_at is null and cancelled_at is null and due_at < ${now.toISOString()}::timestamptz)::int as runs_overdue,
+        (select count(*) from responsibilities r left join users u on u.id = r.responsible_id
+          where r.deleted_at is null and (r.responsible_id is null or not u.active))::int as gaps`),
     db.execute<{ id: number; name: string; seat_cap: number; used: number; close_at: string }>(sql`
       select c.id, c.name, c.seat_cap, count(e.id)::int as used, c.enrolment_close_at as close_at
       from cohorts c left join enrolments e on e.cohort_id = c.id and e.status is distinct from 'dropped'
@@ -79,6 +99,7 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
       group by c.id order by c.enrolment_close_at limit 3`),
     db.select().from(notionSyncRuns).orderBy(desc(notionSyncRuns.id)).limit(1),
     progressFor(db, quarterOf(now), now),
+    money ? budgetVsActual(db, cairoYmd(now).slice(0, 7)) : Promise.resolve(null),
   ]);
 
   const out: Alert[] = [];
@@ -93,10 +114,22 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
   add({ key: "to_review", severity: "warn", title: "Student work waiting for review", detail: `${plural(Number(r.to_review), "submission")} sent and not reviewed yet`, count: Number(r.to_review), href: "/assignments" });
   add({ key: "unmarked", severity: "info", title: "Attendance not taken", detail: `${plural(Number(r.unmarked), "class", "classes")} held this week without attendance`, count: Number(r.unmarked), href: "/classes" });
   add({ key: "content_late", severity: "warn", title: "Content past its publish time", detail: `${plural(Number(r.content_late), "piece")} planned for earlier and not marked posted`, count: Number(r.content_late), href: "/growth/content?view=board" });
+  add({ key: "decisions_overdue", severity: "warn", title: "Decisions past their date", detail: `${plural(Number(r.decisions_overdue), "open decision")} past the date agreed`, count: Number(r.decisions_overdue), href: "/team/decisions" });
+  add({ key: "runs_overdue", severity: "info", title: "Checklists past their date", detail: `${plural(Number(r.runs_overdue), "checklist")} not finished by the date set`, count: Number(r.runs_overdue), href: "/team/runs" });
+  if (can(role, "ops:manage"))
+    add({ key: "gaps", severity: "info", title: "Jobs nobody does", detail: `${plural(Number(r.gaps), "responsibility", "responsibilities")} with no active person doing it`, count: Number(r.gaps), href: "/team" });
+  if (studio || money) add({ key: "cases_late", severity: "danger", title: "Production cases past due", detail: `${plural(Number(r.cases_late), "case")} not delivered by the time promised`, count: Number(r.cases_late), href: "/production" });
+  if (studio) {
+    add({ key: "cases_qc", severity: "warn", title: "Cases waiting for QC", detail: `${plural(Number(r.cases_qc), "case")} designed and waiting to be checked`, count: Number(r.cases_qc), href: "/production" });
+    add({ key: "cases_unassigned", severity: "warn", title: "Cases without a designer", detail: `${plural(Number(r.cases_unassigned), "case")} taken in and not assigned`, count: Number(r.cases_unassigned), href: "/production" });
+  }
   add({ key: "tasks_overdue", severity: "warn", title: "Overdue tasks", detail: `${plural(Number(r.tasks_overdue), "task")} past due across the team`, count: Number(r.tasks_overdue), href: "/tasks?who=all&due=overdue" });
   if (money) {
     add({ key: "instalments", severity: "danger", title: "Overdue instalments", detail: `${plural(Number(r.instalments_overdue), "payment")}, ${new Intl.NumberFormat("en-US").format(Number(r.instalments_egp))} EGP expected and not received`, count: Number(r.instalments_overdue), href: "/finance" });
     add({ key: "rewards", severity: "info", title: "Referral rewards to decide", detail: `${plural(Number(r.rewards_pending), "referred student")} enrolled; their referrer's reward is waiting`, count: Number(r.rewards_pending), href: "/growth/referrals" });
+    add({ key: "invoices", severity: "danger", title: "Client invoices overdue", detail: `${plural(Number(r.invoices_overdue), "invoice")}, ${new Intl.NumberFormat("en-US").format(Number(r.invoices_egp))} EGP past its due date`, count: Number(r.invoices_overdue), href: "/production/invoices" });
+    const over = budget?.rows.filter((x) => x.over || x.unplanned) ?? [];
+    add({ key: "budget", severity: "warn", title: "Spending over budget this month", detail: over.map((x) => x.category).slice(0, 3).join(", ") + (over.length > 3 ? ` and ${over.length - 3} more` : ""), count: over.length, href: "/finance/budget" });
     add({ key: "owed", severity: "warn", title: "Bills past due", detail: `${plural(Number(r.owed_overdue), "cost")} marked Owed with a date in the past`, count: Number(r.owed_overdue), href: "/finance/ledger" });
   }
   for (const b of batches) {

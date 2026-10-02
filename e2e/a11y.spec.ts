@@ -41,6 +41,8 @@ for (const t of ["dark", "light"] as const) {
   });
 
   test(`every signed-in screen has no accessibility violations (${t})`, async ({ page }) => {
+    // some 60 screens, each scanned in full: about a minute on a quiet machine, so more room than one journey gets
+    test.setTimeout(240_000);
     await signIn(page, "retro@orladent.local");
     await page.goto("/leads");
     await ready(page);
