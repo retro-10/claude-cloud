@@ -270,6 +270,8 @@ d("role rules on the server", () => {
       return strict(() => A.voidInvoiceAction(fd({ id: inv.id, reason: "mistake" })));
     }],
     ["saveInvoiceDetailsAction", ["owner"], () => strict(() => A.saveInvoiceDetailsAction(fd({ legalName: "OrlaDent", address: "Cairo" })))],
+    ["saveBudgetAction", ["owner", "finance"], () => strict(() => A.saveBudgetAction(fd({ month: "2030-01", "b:variable_costs:Ads & promotion": "5000" })))],
+    ["copyBudgetAction", ["owner", "finance"], () => strict(() => A.copyBudgetAction(fd({ month: "2030-02" })))],
     ["saveResponsibilityAction", ["owner"], () => strict(() => A.saveResponsibilityAction(fd({ area: `Job ${++n}`, cadence: "daily", responsibleId: "", accountableId: "" })))],
     ["saveSopAction", ["owner"], () => strict(() => A.saveSopAction(fd({ title: `SOP ${++n}`, steps: "One\nTwo" })))],
     ["startRunAction", ["owner", "sales", "finance", "instructor"], async () => {

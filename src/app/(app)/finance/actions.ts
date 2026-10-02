@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
 import { saveSettings } from "@/lib/app-settings";
+import { copyBudget, saveBudget } from "@/lib/money";
 import { SECTIONS, deleteEntry, recordPayment, saveEntry, settleEntry, updateCandidate, type Section, type Status } from "@/lib/finance";
 import { requireCan } from "@/lib/server-auth";
 import { safePath } from "@/lib/safe-path";
@@ -43,6 +44,7 @@ const entrySchema = z.object({
   notes: z.string().max(5000).optional(),
   enrolmentId: optId,
   teamMemberId: optId,
+  cohortId: optId,
 });
 
 export async function saveEntryAction(form: FormData) {
@@ -127,4 +129,28 @@ export async function saveInvoiceDetailsAction(form: FormData) {
   );
   revalidatePath("/settings/finance");
   redirect(r.ok ? "/settings/finance?notice=Invoice+details+saved" : `/settings/finance?error=${encodeURIComponent("Give the business name; keep each field short")}`);
+}
+
+// The budget form posts one field per cost category: b:<section>:<category> = amount in EGP (empty = no budget).
+export async function saveBudgetAction(form: FormData) {
+  const user = await requireCan("payment:write");
+  const month = String(form.get("month") ?? "");
+  const lines: { section: "fixed_costs" | "variable_costs"; category: string; amountEgp: number }[] = [];
+  for (const [k, v] of form.entries()) {
+    const m = /^b:(fixed_costs|variable_costs):(.{1,80})$/.exec(k);
+    if (!m) continue;
+    const raw = String(v).replace(/[,\s]/g, "");
+    lines.push({ section: m[1] as "fixed_costs" | "variable_costs", category: m[2], amountEgp: raw === "" ? 0 : Number(raw) });
+  }
+  const r = await saveBudget(db, month, lines, user.id);
+  revalidatePath("/finance/budget");
+  redirect(r.ok ? `/finance/budget?month=${month}&notice=Budget+saved` : `/finance/budget?month=${month}&error=${encodeURIComponent(r.error)}`);
+}
+
+export async function copyBudgetAction(form: FormData) {
+  const user = await requireCan("payment:write");
+  const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).parse(form.get("month"));
+  const r = await copyBudget(db, month, user.id);
+  revalidatePath("/finance/budget");
+  redirect(`/finance/budget?month=${month}&notice=${encodeURIComponent(r.copied ? `Copied ${r.copied} lines from last month` : "Nothing to copy")}`);
 }

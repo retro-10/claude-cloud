@@ -1116,3 +1116,20 @@ export const decisions = pgTable(
   },
   (t) => [index("decisions_open_idx").on(t.dueAt).where(sql`${t.status} = 'open'`), index("decisions_meeting_idx").on(t.meetingId)],
 );
+
+// ---------------- OrlaDent OS · Phase 4: money and decisions ----------------
+
+// What the owners plan to spend each month per cost category, set next to what the ledger shows was spent.
+export const budgets = pgTable(
+  "budgets",
+  {
+    id: serial("id").primaryKey(),
+    month: text("month").notNull(), // YYYY-MM, Cairo calendar
+    section: ledgerSectionEnum("section").notNull(), // fixed_costs | variable_costs
+    category: text("category").notNull(),
+    amountEgp: integer("amount_egp").notNull(),
+    updatedBy: integer("updated_by").references(() => users.id),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("budgets_month_category_uq").on(t.month, t.section, t.category)],
+);

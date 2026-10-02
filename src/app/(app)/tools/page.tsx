@@ -10,6 +10,7 @@ const TOOLS: { href: string; title: string; body: string; icon: IconName; need?:
   { href: "/tools/roi", title: "Campaign ROI", body: "What a budget should bring at your rates, and the most a lead may cost before a campaign loses money.", icon: "trend" },
   { href: "/tools/links", title: "Tracked links", body: "A link and QR code for each post, story, ad or flyer, so every lead says where it came from.", icon: "send" },
   { href: "/tools/planner", title: "Batch planner", body: "Seats to fill, worked back to consults and leads per week, at your own conversion rates.", icon: "target" },
+  { href: "/tools/pricing", title: "Pricing scenarios", body: "A batch at another price, discount, seat cap or cost: revenue, margin and the paying students that cover the costs.", icon: "gauge", need: "finance:read" },
   { href: "/production/quote", title: "Turnaround quote", body: "A production client's price and delivery date for a case, before you take it in.", icon: "clock", need: "production:manage" },
 ];
 

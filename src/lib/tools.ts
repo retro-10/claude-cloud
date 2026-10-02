@@ -147,3 +147,60 @@ export function campaignRoi(p: RoiInput): RoiResult {
     breakEvenCostPerLead: Math.floor(p.leadToConsult * p.consultToEnrol * p.avgPriceEgp),
   };
 }
+
+export type PricingInput = {
+  listPriceEgp: number;
+  discountPct: number; // average discount given
+  seatCap: number;
+  fillPct: number; // seats expected to fill, 0..100
+  freeSeats: number; // of the filled seats, how many are free
+  fixedCostsEgp: number; // the batch's own costs whatever the size (instructors, venue, ads)
+  variablePerStudentEgp: number; // per student, free seats too (materials, software, certificate)
+};
+export type PricingResult =
+  | {
+      ok: true;
+      seats: number;
+      paying: number;
+      netPriceEgp: number;
+      revenueEgp: number;
+      costsEgp: number;
+      marginEgp: number;
+      marginPct: number | null;
+      breakEvenPaying: number | null; // paying students needed to cover the costs; null = never, at this price
+      fullMarginEgp: number; // the margin with every seat filled
+    }
+  | { ok: false; error: string };
+
+/**
+ * A batch at a price: revenue from paying seats (list price less the average discount), costs (fixed plus a
+ * cost per student, free seats included), the margin, and how many paying students cover the costs.
+ */
+export function pricingScenario(p: PricingInput): PricingResult {
+  if (!(p.listPriceEgp > 0)) return { ok: false, error: "Enter the price" };
+  if (!(p.discountPct >= 0 && p.discountPct < 100)) return { ok: false, error: "The discount is 0 to 99%" };
+  if (!(Number.isInteger(p.seatCap) && p.seatCap > 0)) return { ok: false, error: "Enter the seat cap" };
+  if (!(p.fillPct >= 0 && p.fillPct <= 100)) return { ok: false, error: "Seats filled is 0 to 100%" };
+  if (!(Number.isInteger(p.freeSeats) && p.freeSeats >= 0 && p.freeSeats <= p.seatCap)) return { ok: false, error: "Free seats are between 0 and the cap" };
+  if (!(p.fixedCostsEgp >= 0) || !(p.variablePerStudentEgp >= 0)) return { ok: false, error: "Costs cannot be negative" };
+  const netPriceEgp = Math.round((p.listPriceEgp * (100 - p.discountPct)) / 100);
+  const at = (seats: number) => {
+    const paying = Math.max(0, seats - p.freeSeats);
+    const revenueEgp = paying * netPriceEgp;
+    const costsEgp = Math.round(p.fixedCostsEgp + seats * p.variablePerStudentEgp);
+    return { paying, revenueEgp, costsEgp, marginEgp: revenueEgp - costsEgp };
+  };
+  const seats = Math.round((p.seatCap * p.fillPct) / 100);
+  const now = at(seats);
+  const perSeat = netPriceEgp - p.variablePerStudentEgp; // what each paying student adds
+  const need = perSeat > 0 ? Math.ceil((p.fixedCostsEgp + p.freeSeats * p.variablePerStudentEgp) / perSeat) : null;
+  return {
+    ok: true,
+    seats,
+    ...now,
+    netPriceEgp,
+    marginPct: now.revenueEgp ? now.marginEgp / now.revenueEgp : null,
+    breakEvenPaying: need,
+    fullMarginEgp: at(p.seatCap).marginEgp,
+  };
+}

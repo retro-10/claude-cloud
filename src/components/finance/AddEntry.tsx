@@ -27,6 +27,7 @@ export type EntryDraft = {
   notes?: string | null;
   enrolmentId?: number | null;
   teamMemberId?: number | null;
+  cohortId?: number | null;
 };
 
 /** Add or edit one ledger row in a dialog. The form posts to the server action; nothing is saved client-side. */
@@ -37,6 +38,7 @@ export function AddEntry({
   partners,
   candidates,
   team = [],
+  batches = [],
   back,
   variant = "btn btn-secondary",
 }: {
@@ -46,6 +48,7 @@ export function AddEntry({
   partners: string[];
   candidates: { id: number; name: string }[];
   team?: { id: number; name: string; role: string | null }[];
+  batches?: { id: number; name: string }[];
   back: string;
   variant?: string;
 }) {
@@ -161,6 +164,19 @@ export function AddEntry({
                     {candidates.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {(section === "fixed_costs" || section === "variable_costs") && batches.length > 0 && (
+                <label className="field col-span-2">
+                  For batch (optional: counts in that batch&apos;s margin)
+                  <select name="cohortId" defaultValue={initial?.cohortId ?? ""} className="input">
+                    <option value="">The business as a whole</option>
+                    {batches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
                       </option>
                     ))}
                   </select>

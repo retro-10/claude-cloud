@@ -184,13 +184,15 @@
   .table thead th {
     @apply sticky top-0 z-[1] border-b border-line bg-surface px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted;
   }
-  .table tbody td {
+  .table tbody td,
+  .table tbody th {
     @apply border-b border-line/70 px-3 py-2.5 align-middle;
   }
   .table tbody tr {
     @apply transition-colors hover:bg-raised/70;
   }
-  .table tbody tr:last-child td {
+  .table tbody tr:last-child td,
+  .table tbody tr:last-child th {
     @apply border-b-0;
   }
 

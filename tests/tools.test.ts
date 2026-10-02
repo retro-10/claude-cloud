@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonthsYmd, buildOffer, campaignRoi, offerMessage, planBatch, type OfferInput } from "@/lib/tools";
+import { addMonthsYmd, buildOffer, campaignRoi, offerMessage, planBatch, pricingScenario, type OfferInput } from "@/lib/tools";
 
 describe("offer builder", () => {
   const base: OfferInput = { tier: "freelance_ready", priceEgp: 15000, discountEgp: 1000, plan: "installments", depositEgp: 4000, instalments: 3, firstDue: "2026-10-31" };
@@ -87,5 +87,24 @@ describe("campaign ROI", () => {
   it("too little spend for one enrolment shows no cost per enrolment and a loss", () => {
     expect(campaignRoi({ spendEgp: 500, costPerLead: 200, leadToConsult: 0.2, consultToEnrol: 0.4, avgPriceEgp: 7500 })).toMatchObject({ enrolments: 0, costPerEnrolment: null, roi: -1 });
     expect(campaignRoi({ spendEgp: 0, costPerLead: 1, leadToConsult: 0.2, consultToEnrol: 0.4, avgPriceEgp: 1 }).ok).toBe(false);
+  });
+});
+
+describe("pricing scenario and break-even", () => {
+  const base = { listPriceEgp: 7500, discountPct: 10, seatCap: 40, fillPct: 75, freeSeats: 2, fixedCostsEgp: 60000, variablePerStudentEgp: 500 };
+  it("revenue from paying seats, costs for every seat, margin and break-even", () => {
+    const r = pricingScenario(base);
+    if (!r.ok) throw new Error(r.error);
+    // 30 seats, 28 paying at 6,750 = 189,000; costs 60,000 + 30 × 500 = 75,000
+    expect(r).toMatchObject({ seats: 30, paying: 28, netPriceEgp: 6750, revenueEgp: 189000, costsEgp: 75000, marginEgp: 114000 });
+    // (60,000 + 2 × 500) / (6,750 − 500) = 9.76 → 10 paying students
+    expect(r.breakEvenPaying).toBe(10);
+    expect(r.fullMarginEgp).toBe(38 * 6750 - (60000 + 40 * 500));
+  });
+  it("never breaks even when a student costs more than they pay; checks the inputs", () => {
+    const r = pricingScenario({ ...base, listPriceEgp: 400, discountPct: 0 });
+    expect(r.ok && r.breakEvenPaying).toBeNull();
+    expect(pricingScenario({ ...base, freeSeats: 41 })).toMatchObject({ ok: false });
+    expect(pricingScenario({ ...base, fillPct: 120 })).toMatchObject({ ok: false });
   });
 });
