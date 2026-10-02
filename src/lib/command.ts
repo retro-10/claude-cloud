@@ -6,6 +6,7 @@ import { budgetVsActual } from "./money";
 import { audit } from "./audit";
 import { navCounts } from "./nav-counts";
 import { can, type Role } from "./rbac";
+import { studentRisks } from "./risk";
 import { actuals, progressFor, quarterOf } from "./targets";
 import { addDaysYmd, cairoLocalToDate, cairoYmd, startOfCairoDay } from "./time";
 
@@ -54,7 +55,7 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
   const owner = can(role, "settings:write");
   const studio = can(role, "production:manage");
 
-  const [counts, [r], batches, [lastRun], progress, budget] = await Promise.all([
+  const [counts, [r], batches, [lastRun], progress, budget, risks] = await Promise.all([
     navCounts(db, now),
     db.execute<{
       past_red: number; tasks_overdue: number; instalments_overdue: number; instalments_egp: number; owed_overdue: number; replies: number; content_late: number; rewards_pending: number;
@@ -100,6 +101,7 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
     db.select().from(notionSyncRuns).orderBy(desc(notionSyncRuns.id)).limit(1),
     progressFor(db, quarterOf(now), now),
     money ? budgetVsActual(db, cairoYmd(now).slice(0, 7)) : Promise.resolve(null),
+    studentRisks(db, { money, now }),
   ]);
 
   const out: Alert[] = [];
@@ -112,6 +114,18 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
   add({ key: "no_next_step", severity: "warn", title: "Leads with no next step", detail: `${plural(v.no_next_step, "open lead")} with nothing scheduled`, count: v.no_next_step, href: "/leads?view=no_next_step" });
   add({ key: "neglected", severity: "info", title: "Neglected leads", detail: `no activity for ${settings.neglectDays}+ days`, count: v.neglected, href: "/leads?view=neglected" });
   add({ key: "to_review", severity: "warn", title: "Student work waiting for review", detail: `${plural(Number(r.to_review), "submission")} sent and not reviewed yet`, count: Number(r.to_review), href: "/assignments" });
+  const atRisk = risks.filter((x) => x.level === "risk");
+  if (atRisk.length) {
+    const batchesAtRisk = [...new Set(atRisk.map((x) => x.cohort))];
+    add({
+      key: "students_at_risk",
+      severity: "warn",
+      title: "Students likely to drop",
+      detail: `${atRisk.slice(0, 3).map((x) => x.fullName).join(", ")}${atRisk.length > 3 ? ` and ${atRisk.length - 3} more` : ""} (${batchesAtRisk.join(", ")})`,
+      count: atRisk.length,
+      href: `/cohorts/${atRisk[0].cohortId}#risk`,
+    });
+  }
   add({ key: "unmarked", severity: "info", title: "Attendance not taken", detail: `${plural(Number(r.unmarked), "class", "classes")} held this week without attendance`, count: Number(r.unmarked), href: "/classes" });
   add({ key: "content_late", severity: "warn", title: "Content past its publish time", detail: `${plural(Number(r.content_late), "piece")} planned for earlier and not marked posted`, count: Number(r.content_late), href: "/growth/content?view=board" });
   add({ key: "decisions_overdue", severity: "warn", title: "Decisions past their date", detail: `${plural(Number(r.decisions_overdue), "open decision")} past the date agreed`, count: Number(r.decisions_overdue), href: "/team/decisions" });

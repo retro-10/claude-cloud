@@ -8,6 +8,9 @@ import { DoneMenu, SnoozeMenu } from "@/components/crm/FollowUpActions";
 import { LiveWait } from "@/components/crm/LiveWait";
 import { StageStepper } from "@/components/crm/StageStepper";
 import { ConsultsPanel } from "@/components/ConsultsPanel";
+import { DraftPanel } from "@/components/ai/DraftPanel";
+import { draftBriefAction } from "@/app/(app)/ask/drafts";
+import { aiOffered } from "@/lib/ai/core";
 import { CandidateMoney } from "@/components/finance/CandidateMoney";
 import { TaskForm, TaskList } from "@/components/tasks/TaskPanel";
 import { listTasks } from "@/lib/tasks";
@@ -148,6 +151,11 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
   ].sort((x, y) => y.at.getTime() - x.at.getTime());
 
   const canWrite = can(user.role, "lead:write") && !lead.deletedAt;
+  // the consult brief: offered while a consult is coming up (or waits for its result)
+  const briefOn =
+    canWrite &&
+    (await db.select({ id: consults.id }).from(consults).where(and(eq(consults.leadId, lead.id), isNull(consults.outcome), eq(consults.held, false))).limit(1)).length > 0 &&
+    (await aiOffered(db, user.role));
   const owner = ownerList.find((o) => o.id === lead.ownerId)?.name;
   const source = sourceList.find((s) => s.id === lead.sourceId)?.label;
   const offerTier = TIERS.find(([k]) => k === lead.offerTier)?.[1];
@@ -506,6 +514,13 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
           </Card>
 
           <ConsultsPanel leadId={lead.id} canWrite={canWrite} />
+
+          {briefOn && (
+            <Card title="Consult brief" icon="sparkle" label="Consult brief">
+              <div id="brief" className="scroll-mt-24" />
+              <DraftPanel action={draftBriefAction.bind(null, lead.id)} button="Brief me for the call" rows={16} />
+            </Card>
+          )}
 
           <Card title="Tasks" icon="list" label="Tasks">
             <TaskList rows={leadTasks} back={`/leads/${lead.id}`} canWrite={can(user.role, "task:write")} showLinks={false} empty="No tasks on this lead." />

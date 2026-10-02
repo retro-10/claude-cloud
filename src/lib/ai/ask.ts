@@ -12,6 +12,7 @@ import { getMetrics } from "../metrics";
 import { budgetVsActual } from "../money";
 import { designerStats, productionPulse } from "../production";
 import { can, type Role } from "../rbac";
+import { studentRisks } from "../risk";
 import { cairoYmd, formatCairo } from "../time";
 import { VIEWS } from "../views";
 import { AiError, callClaude, redact, textOf, type BetaMessageParam, type BetaTool } from "./core";
@@ -140,13 +141,15 @@ export function toolsFor(db: Db, v: Viewer, ai: AiSettings): ToolDef[] {
     out.push({
       tool: {
         name: "students",
-        description: "A batch's students against its graduation rules: attendance rate, assignments passed, what is missing, certificate" + (money ? ", and what each still owes." : "."),
+        description: "A batch's students against its graduation rules: attendance rate, assignments passed, what is missing, certificate, early-warning drop risk with reasons" + (money ? ", and what each still owes." : "."),
         input_schema: obj({ batch_id: { type: "integer" } }, ["batch_id"]),
       },
       run: async (i) => {
-        const s = await standings(db, int(i.batch_id, 1, 2 ** 31 - 1, 0));
+        const batch = int(i.batch_id, 1, 2 ** 31 - 1, 0);
+        const [s, risks] = await Promise.all([standings(db, batch), studentRisks(db, { cohortId: batch, money })]);
+        const risk = new Map(risks.map((r) => [r.enrolmentId, r]));
         return {
-          data: { rules: s.rules, students: s.rows.map((r) => ({ name: r.fullName, status: r.status, attendance: r.attendance, passed: `${r.passed}/${r.assignments}`, missing: r.missing, certificate: r.certificate?.code ?? null, link: `/leads/${r.leadId}`, ...(money ? { stillOwesEgp: r.remaining } : {}) })) },
+          data: { rules: s.rules, students: s.rows.map((r) => ({ dropRisk: risk.get(r.enrolmentId) ? { level: risk.get(r.enrolmentId)!.level, reasons: risk.get(r.enrolmentId)!.reasons } : "none", name: r.fullName, status: r.status, attendance: r.attendance, passed: `${r.passed}/${r.assignments}`, missing: r.missing, certificate: r.certificate?.code ?? null, link: `/leads/${r.leadId}`, ...(money ? { stillOwesEgp: r.remaining } : {}) })) },
           summary: "Students of a batch",
         };
       },

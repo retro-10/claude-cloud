@@ -5,6 +5,7 @@ import { ComposeButton } from "@/components/crm/Composer";
 import { DoneMenu, NextStepMenu, SnoozeMenu } from "@/components/crm/FollowUpActions";
 import { LiveWait } from "@/components/crm/LiveWait";
 import { Avatar, EmptyState, Icon, type IconName } from "@/components/ui";
+import { aiOffered } from "@/lib/ai/core";
 import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
 import { TZ, formatCairo } from "@/lib/time";
@@ -125,6 +126,7 @@ export default async function TodayPage(props: { searchParams: Promise<{ mine?: 
   void runScheduledRules(db).catch(() => 0);
   const t = await getToday(db, { ownerId: mine ? user.id : undefined });
   const canWrite = can(user.role, "lead:write");
+  const aiOn = canWrite && (await aiOffered(db, user.role));
   const now = new Date();
   const s = t.settings;
   const todo = t.totals.queue + t.totals.overdue + t.totals.dueToday;
@@ -261,6 +263,11 @@ export default async function TodayPage(props: { searchParams: Promise<{ mine?: 
                       )}
                     </div>
                   </div>
+                  {aiOn && !c.held && !c.outcome && (
+                    <Link href={`/leads/${c.leadId}#brief`} className="btn btn-ghost btn-sm" title="Read an AI brief before the call">
+                      <Icon name="sparkle" size={14} /> Brief
+                    </Link>
+                  )}
                   {canWrite && <ComposeButton leadId={c.leadId} phone={c.phone} label="" />}
                 </li>
               );

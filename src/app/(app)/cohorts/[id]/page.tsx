@@ -16,6 +16,7 @@ import { getCohort } from "@/lib/cohorts";
 import { PAYMENT_PLAN_LABEL, STUDENT_STATUS_LABEL } from "@/lib/finance";
 import { TIER_LABEL } from "@/lib/pricing";
 import { can } from "@/lib/rbac";
+import { studentRisks } from "@/lib/risk";
 import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo, toCairoLocalInput } from "@/lib/time";
 import { updateCohortAction } from "../actions";
@@ -41,6 +42,7 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
   const over = c.seatsUsed > c.seatCap;
   const remaining = students.reduce((a, s) => a + s.remaining, 0);
   const seeMoney = can(user.role, "finance:read");
+  const risks = await studentRisks(db, { cohortId: c.id, money: seeMoney });
 
   return (
     <>
@@ -105,6 +107,39 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
               return next ? ` · next: ${next.title}, ${formatCairo(next.startsAt)}` : "";
             })()}
           </p>
+        )}
+      </Card>
+
+      <div id="risk" className="scroll-mt-24" />
+      <Card title="Early warning" icon="alert" label="Early warning: students likely to drop" className="mb-6">
+        {risks.length === 0 ? (
+          <p className="text-sm text-muted">No active student shows warning signs: attendance, the last two classes, work past due{seeMoney ? " and payments" : ""} all look fine.</p>
+        ) : (
+          <>
+            <ul className="grid gap-3 md:grid-cols-2">
+              {risks.map((r) => (
+                <li key={r.enrolmentId} className="rounded-xl border border-line p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <Link href={`/leads/${r.leadId}#programme`} className="font-medium hover:text-accent" dir="auto">
+                      {r.fullName}
+                    </Link>
+                    <span className={`chip ${r.level === "risk" ? "chip-danger" : "chip-warn"}`}>
+                      {r.level === "risk" ? "At risk" : "Watch"} · {r.score}
+                    </span>
+                  </div>
+                  <ul className="mt-2 grid gap-1 text-sm text-muted">
+                    {r.reasons.map((x) => (
+                      <li key={x} className="flex items-start gap-2">
+                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden />
+                        {x}
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-xs text-muted">A simple score from attendance, missed classes, overdue work{seeMoney ? ", stale rework and overdue instalments" : " and stale rework"}. 50 or more is at risk, 25 to 49 worth watching. Reach out early: a check-in call works better than a reminder.</p>
+          </>
         )}
       </Card>
 

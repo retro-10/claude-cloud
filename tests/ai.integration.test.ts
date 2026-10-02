@@ -9,7 +9,7 @@ import type { Db } from "@/db";
 import { ask, deleteThread, listThreads, threadMessages, toolsFor } from "@/lib/ai/ask";
 import { AiError, aiStatus, callClaude, redact, setAiForTests, type BetaMessage } from "@/lib/ai/core";
 import { DEFAULTS, getSettings, saveSettings } from "@/lib/app-settings";
-import { draftCaption, draftLeadMessage, draftScript, draftWeekly } from "@/lib/ai/drafts";
+import { draftCaption, draftConsultBrief, draftLeadMessage, draftScript, draftWeekly } from "@/lib/ai/drafts";
 import { splitWeekly } from "@/lib/ai/split";
 import { weekStartOf } from "@/lib/command";
 import { createUser } from "@/lib/settings";
@@ -225,5 +225,19 @@ d("the AI assistant", () => {
     await draftWeekly(db, viewer(owner, "owner"), weekStartOf(new Date()), ai);
     sys = (sent[0].system as { text: string }[]).map((b) => b.text).join("\n");
     expect(sys).toContain("Cash collected");
+  });
+  it("a consult brief draws on past consults and the objections that usually come up", async () => {
+    const { ai } = await getSettings(db);
+    const [o] = await db.insert(s.objections).values({ label: "Price too high" }).onConflictDoNothing().returning();
+    const objId = o?.id ?? (await db.select().from(s.objections).where(eq(s.objections.label, "Price too high")))[0].id;
+    const [c] = await db.insert(s.consults).values({ leadId, scheduledAt: new Date(), held: true, outcome: "thinking", notes: "Worried about time; call 01001234567" }).returning();
+    await db.insert(s.consultObjections).values({ consultId: c.id, objectionId: objId });
+    const sent = script(text("WHO THEY ARE\n- Mona"));
+    expect(await draftConsultBrief(db, viewer(sales, "sales"), leadId, ai)).toBe("WHO THEY ARE\n- Mona");
+    const sys = (sent[0].system as { text: string }[]).map((b) => b.text).join("\n");
+    expect(sys).toContain("Price too high");
+    expect(sys).toContain("Worried about time");
+    expect(sys).not.toContain("01001234567");
+    await expect(draftConsultBrief(db, { id: owner, name: "I", role: "instructor" }, leadId, ai)).rejects.toThrow(/Only people who run consults/);
   });
 });

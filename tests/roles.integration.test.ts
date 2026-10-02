@@ -118,6 +118,9 @@ d("role rules on the server", () => {
     // import the actions only now, after DATABASE_URL is set (they import the shared db client)
     A = {
       ...(await import("@/app/(app)/leads/actions")),
+      ...(await import("@/app/(app)/ask/actions")),
+      ...(await import("@/app/(app)/ask/drafts")),
+      ...(await import("@/app/(app)/settings/ai/actions")),
       ...(await import("@/app/(app)/pipeline/actions")),
       ...(await import("@/app/(app)/followups/actions")),
       ...(await import("@/app/(app)/consults/actions")),
@@ -290,6 +293,13 @@ d("role rules on the server", () => {
       const [dec] = await db.insert(s.decisions).values({ title: `D${++n}`, ownerId: me ?? null }).returning();
       return strict(() => A.closeDecisionAction(fd({ id: dec.id, status: "done", outcome: "" })));
     }],
+    ["saveAiSettingsAction", ["owner"], () => strict(() => A.saveAiSettingsAction(fd({ readLeads: "on", brandVoice: "Warm and direct", dailyLimit: 100 })))],
+    // the assistant is off in these tests: the action is reached and explains why, which is all the role gate needs
+    ["askAction (assistant off: explained, but reachable)", ["owner", "sales", "viewer", "finance", "instructor"], () => A.askAction(fd({ question: "How many leads?" }))],
+    ["deleteThreadAction", ["owner", "sales", "viewer", "finance", "instructor"], () => A.deleteThreadAction(fd({ threadId: 999999 }))],
+    ["draftLeadMessageAction (assistant off)", ["owner", "sales", "viewer", "finance", "instructor"], () => A.draftLeadMessageAction(leadId, fd({ lang: "en", kind: "reply" }))],
+    ["draftBriefAction (assistant off)", ["owner", "sales", "viewer", "finance", "instructor"], () => A.draftBriefAction(leadId, fd({}))],
+    ["draftWeeklyAction (assistant off)", ["owner", "sales", "viewer", "finance", "instructor"], () => A.draftWeeklyAction("2026-09-28", fd({}))],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 

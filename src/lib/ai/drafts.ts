@@ -1,6 +1,6 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { activities, campaigns, contentItems, decisions, leads, proofItems, stages } from "@/db/schema";
+import { activities, campaigns, consultObjections, consults, contentItems, decisions, eventAttendance, leads, objections, proofItems, sources, stages } from "@/db/schema";
 import type { AiSettings } from "../app-settings";
 import { PULSE, weekNumbers } from "../command";
 import { registrants } from "../events";
@@ -155,5 +155,57 @@ export async function draftWeekly(db: Db, v: Viewer, weekStart: string, ai: AiSe
     ),
     facts,
     "Draft this week's review.",
+  );
+}
+
+/** A one-page brief to read before a consult call: who they are, what they want, what may hold them back, what to ask. */
+export async function draftConsultBrief(db: Db, v: Viewer, leadId: number, ai: AiSettings) {
+  if (!can(v.role, "lead:write")) throw new AiError("Only people who run consults can draft briefs");
+  const [row] = await db
+    .select({ l: leads, stage: stages.label, source: sources.label, campaign: campaigns.label })
+    .from(leads)
+    .leftJoin(stages, eq(stages.key, leads.stage))
+    .leftJoin(sources, eq(sources.id, leads.sourceId))
+    .leftJoin(campaigns, eq(campaigns.id, leads.campaignId))
+    .where(eq(leads.id, leadId));
+  if (!row || row.l.deletedAt) throw new AiError("Lead not found");
+  const [ctx, recent, past, theirs, common, came] = await Promise.all([
+    templateContext(db, leadId, "en"),
+    db.select().from(activities).where(eq(activities.leadId, leadId)).orderBy(desc(activities.at)).limit(15),
+    db.select().from(consults).where(eq(consults.leadId, leadId)).orderBy(desc(consults.scheduledAt)),
+    db
+      .select({ label: objections.label })
+      .from(consultObjections)
+      .innerJoin(consults, eq(consults.id, consultObjections.consultId))
+      .innerJoin(objections, eq(objections.id, consultObjections.objectionId))
+      .where(eq(consults.leadId, leadId)),
+    db
+      .select({ label: objections.label, n: sql<number>`count(*)::int` })
+      .from(consultObjections)
+      .innerJoin(objections, eq(objections.id, consultObjections.objectionId))
+      .groupBy(objections.label)
+      .orderBy(desc(sql`count(*)`))
+      .limit(5),
+    db.select({ attended: eventAttendance.attended, event: campaigns.label }).from(eventAttendance).innerJoin(campaigns, eq(campaigns.id, eventAttendance.campaignId)).where(eq(eventAttendance.leadId, leadId)),
+  ]);
+  const facts = json({
+    lead: { firstName: ctx.first_name, stage: row.stage ?? row.l.stage, segment: row.l.segment, city: row.l.city, came_from: row.source, campaign: row.campaign, interestedIn: ctx.tier ?? "not sure yet", createdAt: cairoYmd(row.l.createdAt), notes: row.l.notes ? redact(row.l.notes).slice(0, 1500) : null },
+    masterclasses: came.map((c) => ({ event: c.event, came: c.attended })),
+    consults: past.map((c) => ({ at: formatCairo(c.scheduledAt), held: c.held, outcome: c.outcome, notes: c.notes ? redact(c.notes).slice(0, 600) : null })),
+    theirObjections: theirs.map((o) => o.label),
+    commonObjectionsAcrossAllConsults: common.map((o) => ({ objection: o.label, times: Number(o.n) })),
+    nextBatch: ctx.cohort_name ? { name: ctx.cohort_name, enrolmentCloses: ctx.cohort_close_date ?? null } : null,
+    conversation: recent.reverse().map((a) => ({ at: formatCairo(a.at), from: a.direction === "in" ? "lead" : a.direction === "out" ? "us" : "internal note", type: a.type, text: a.body ? redact(a.body).slice(0, 500) : null })),
+  });
+  return draft(
+    db,
+    v,
+    "brief",
+    system(
+      ai,
+      "Write a consult brief in English for the person about to call this lead. Output exactly these sections, each 2 to 4 short bullets: WHO THEY ARE, WHAT THEY WANT, WHAT MAY HOLD THEM BACK, QUESTIONS TO ASK, NEXT STEP TO AIM FOR. Base everything on the facts; where the facts are thin, say so (\"not known yet\") and turn it into a question to ask. Recommend a tier only if the facts support it, and say why.",
+    ),
+    facts,
+    "Draft the consult brief.",
   );
 }

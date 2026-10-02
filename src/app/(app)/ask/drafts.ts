@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { AiError, aiStatus } from "@/lib/ai/core";
-import { draftCaption, draftLeadMessage, draftScript, draftWeekly } from "@/lib/ai/drafts";
+import { draftCaption, draftConsultBrief, draftLeadMessage, draftScript, draftWeekly } from "@/lib/ai/drafts";
 import { requireCan } from "@/lib/server-auth";
 
 export type DraftResult = { ok: true; text: string } | { ok: false; error: string };
@@ -30,4 +30,7 @@ export async function draftScriptAction(campaignId: number, form: FormData) {
 }
 export async function draftWeeklyAction(weekStart: string, _form: FormData) {
   return run((v, ai) => draftWeekly(db, v, weekStart, ai));
+}
+export async function draftBriefAction(leadId: number, _form: FormData) {
+  return run((v, ai) => draftConsultBrief(db, v, leadId, ai));
 }
