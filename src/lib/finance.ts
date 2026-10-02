@@ -25,7 +25,7 @@ export const SECTIONS: Record<Section, { label: string; statuses: Status[]; cate
   variable_costs: {
     label: "Variable costs",
     statuses: ["paid", "owed", "cancelled"],
-    categories: ["Freelancers & sales", "Video production", "Content creator", "Equipment", "Ads & promotion", "Referral rewards"],
+    categories: ["Freelancers & sales", "Video production", "Content creator", "Equipment", "Ads & promotion", "Referral rewards", "Production designers"],
   },
   partner_withdrawals: { label: "Partner withdrawals", statuses: ["paid", "owed", "cancelled"], categories: ["Partner withdrawal"] },
 };
@@ -53,6 +53,8 @@ export type EntryInput = {
   cohortId?: number | null;
   teamMemberId?: number | null;
   campaignId?: number | null; // undefined = leave as is (forms and the Notion sync that do not know campaigns)
+  invoiceId?: number | null; // client work income for a production invoice (undefined = leave as is)
+  caseId?: number | null; // a designer's pay for a production case (undefined = leave as is)
 };
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -97,6 +99,8 @@ export async function saveEntry(db: Db, id: number | null, e: EntryInput, userId
     cohortId,
     teamMemberId: e.section === "income" ? null : (e.teamMemberId ?? null),
     ...(e.campaignId !== undefined ? { campaignId: e.campaignId } : {}),
+    ...(e.invoiceId !== undefined ? { invoiceId: e.invoiceId } : {}),
+    ...(e.caseId !== undefined ? { caseId: e.caseId } : {}),
     updatedAt: new Date(),
   };
   return db.transaction(async (tx) => {

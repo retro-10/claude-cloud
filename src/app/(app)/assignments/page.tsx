@@ -6,7 +6,7 @@ import { Card, EmptyState, PageHeader, Stat } from "@/components/ui";
 import { listAssignments } from "@/lib/assignments";
 import { listCohorts } from "@/lib/cohorts";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 
 export const metadata = { title: "Assignments" };
@@ -14,7 +14,7 @@ export const metadata = { title: "Assignments" };
 // Cases students design, reviewed against a rubric. Reviews feed each student's QC score and the leaderboard.
 export default async function AssignmentsPage(props: { searchParams: Promise<{ batch?: string; notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const batch = Number(sp.batch) || undefined;
   const [rows, batches] = await Promise.all([listAssignments(db, { cohortId: batch }), listCohorts(db)]);
   const waiting = rows.reduce((a, r) => a + r.waiting, 0);

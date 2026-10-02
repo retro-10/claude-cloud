@@ -5,12 +5,12 @@ import { LinkBuilder } from "@/components/tools/LinkBuilder";
 import { PageHeader } from "@/components/ui";
 import { listForms } from "@/lib/lead-forms";
 import { publicBaseUrl } from "@/lib/public-url";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 
 export const metadata = { title: "Tracked links · Tools" };
 
 export default async function LinksPage() {
-  await requireUser();
+  await requirePageCan("lead:read");
   const [forms, camps, base] = await Promise.all([
     listForms(db),
     db.select({ slug: campaigns.slug, label: campaigns.label }).from(campaigns).where(isNotNull(campaigns.slug)),

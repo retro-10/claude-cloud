@@ -27,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // people who see the money get a standing reminder until two-factor is on
   const nudge2fa = user.passwordChanged && !tf.enabled && can(user.role, "finance:read");
 
-  const nav: NavItem[] = [
+  let nav: NavItem[] = [
     { href: "/command", label: "Command centre", icon: "gauge", section: "OrlaDent OS", keys: "G O" },
     { href: "/tools", label: "Tools", icon: "sparkle", section: "OrlaDent OS" },
     { href: "/", label: "Today", icon: "today", section: "Work", count: counts.today, alert: counts.overdue > 0, keys: "G T", exact: true },
@@ -46,6 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/proof", label: "Proof bank", icon: "sparkle", section: "Programme" },
     { href: "/dashboard", label: "Dashboard", icon: "dashboard", section: "Insight", keys: "G D" },
   ];
+  if (can(user.role, "production:read")) nav.splice(nav.findIndex((n) => n.section === "Insight"), 0, { href: "/production", label: "Production", icon: "layers", section: "Studio", keys: "G R" });
   if (can(user.role, "finance:read")) nav.push({ href: "/finance", label: "Finance", icon: "trend", section: "Insight", keys: "G F" });
   // V1: smart views with live counts; the ones that are warnings use the attention colour
   for (const k of VIEW_ORDER) {
@@ -53,6 +54,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     nav.push({ href: `/leads?view=${k}`, label: v.label, icon: v.icon, section: "Views", count: counts.views[k], alert: ["no_next_step", "neglected"].includes(k) && counts.views[k] > 0 });
   }
   if (can(user.role, "settings:write")) nav.push({ href: "/settings", label: "Settings", icon: "settings", section: "Admin", keys: "G S" });
+
+  // Designers have no lead list: their app is the production studio.
+  if (!can(user.role, "lead:read")) nav = nav.filter((n) => n.href.startsWith("/production"));
 
   const goKeys: GoKey[] = nav.filter((n) => n.keys).map((n) => ({ key: n.keys!.slice(-1).toLowerCase(), href: n.href, label: n.label }));
 

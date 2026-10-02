@@ -16,7 +16,7 @@ import { getCohort } from "@/lib/cohorts";
 import { PAYMENT_PLAN_LABEL, STUDENT_STATUS_LABEL } from "@/lib/finance";
 import { TIER_LABEL } from "@/lib/pricing";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo, toCairoLocalInput } from "@/lib/time";
 import { updateCohortAction } from "../actions";
 
@@ -24,7 +24,7 @@ export const metadata = { title: "Batch" };
 
 export default async function CohortPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; notice?: string }> }) {
   const [params, searchParams] = await Promise.all([props.params, props.searchParams]);
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const id = Number(params.id);
   if (!Number.isInteger(id)) notFound();
   const [data, batchTasks, people, files, attendance, classes] = await Promise.all([

@@ -5,7 +5,7 @@ import { Card, EmptyState, PageHeader, Stat } from "@/components/ui";
 import { AVAILABILITY, listAlumni } from "@/lib/graduation";
 import { TIER_LABEL } from "@/lib/pricing";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { saveAlumniAction } from "./actions";
 
 export const metadata = { title: "Alumni" };
@@ -15,7 +15,7 @@ const CHIP = { open: "chip chip-ok", busy: "chip chip-warn", not_looking: "chip"
 // Graduates and what they do well, for placement: who is free for paid work, with which skills.
 export default async function AlumniPage(props: { searchParams: Promise<{ availability?: string; skill?: string; notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const availability = sp.availability && sp.availability in AVAILABILITY ? (sp.availability as keyof typeof AVAILABILITY) : undefined;
   const skill = sp.skill?.trim() || undefined;
   const [rows, all] = await Promise.all([listAlumni(db, { availability, skill }), listAlumni(db)]);

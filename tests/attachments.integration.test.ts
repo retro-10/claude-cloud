@@ -53,8 +53,8 @@ d("files on leads and batches", () => {
     for (const name of ["run.exe", "page.html", "logo.svg", "noext"]) expect((await addAttachment(db, { name, bytes: pdf }, { leadId }, owner)).ok, name).toBe(false);
     expect(await addAttachment(db, { name: "a.pdf", bytes: Buffer.alloc(0) }, { leadId }, owner)).toEqual({ ok: false, error: "The file is empty" });
     expect((await addAttachment(db, { name: "a.pdf", bytes: Buffer.alloc(MAX_FILE_BYTES + 1) }, { leadId }, owner)).ok).toBe(false);
-    expect(await addAttachment(db, { name: "a.pdf", bytes: pdf }, {}, owner)).toEqual({ ok: false, error: "Attach the file to a lead or a batch" });
-    expect(await addAttachment(db, { name: "a.pdf", bytes: pdf }, { leadId, cohortId }, owner)).toEqual({ ok: false, error: "Attach the file to a lead or a batch" });
+    expect(await addAttachment(db, { name: "a.pdf", bytes: pdf }, {}, owner)).toEqual({ ok: false, error: "Attach the file to a lead, a batch or a case" });
+    expect(await addAttachment(db, { name: "a.pdf", bytes: pdf }, { leadId, cohortId }, owner)).toEqual({ ok: false, error: "Attach the file to a lead, a batch or a case" });
 
     const list = await listAttachments(db, { leadId });
     expect(list.map((f) => [f.fileName, f.contentType, f.size])).toEqual([

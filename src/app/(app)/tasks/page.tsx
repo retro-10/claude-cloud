@@ -6,7 +6,7 @@ import { TaskForm, TaskList } from "@/components/tasks/TaskPanel";
 import { Card, PageHeader, Stat, Tabs } from "@/components/ui";
 import { listCohorts } from "@/lib/cohorts";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { listTasks, taskCounts, type TaskFilter } from "@/lib/tasks";
 
 export const metadata = { title: "Tasks" };
@@ -24,7 +24,7 @@ const DUE = [
 // The team's to-do list: tasks on leads, students and batches, or on nothing in particular.
 export default async function TasksPage(props: { searchParams: Promise<Search> }) {
   const sp = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const who = sp.who ?? "mine";
   const due = DUE.some(([k]) => k === sp.due) ? (sp.due as TaskFilter["due"] | "") : "";
   const filter: TaskFilter = {

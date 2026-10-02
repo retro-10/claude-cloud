@@ -3,13 +3,13 @@ import { RoiCalculator } from "@/components/tools/RoiCalculator";
 import { PageHeader } from "@/components/ui";
 import { campaignStats } from "@/lib/campaigns";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { plannerDefaults } from "@/lib/tools-data";
 
 export const metadata = { title: "Campaign ROI · Tools" };
 
 export default async function RoiPage() {
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const [d, camps] = await Promise.all([plannerDefaults(db), can(user.role, "finance:read") ? campaignStats(db) : Promise.resolve([])]);
   // actual average cost per lead across campaigns with spend (owners and finance only: it is spend data)
   const spent = camps.filter((c) => c.spendEgp > 0 && c.leads > 0);

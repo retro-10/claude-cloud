@@ -7,14 +7,14 @@ import { Card, EmptyState, Icon, PageHeader } from "@/components/ui";
 import { listForms } from "@/lib/lead-forms";
 import { publicBaseUrl } from "@/lib/public-url";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 
 export const metadata = { title: "Lead forms · Growth" };
 
 // Public sign-up pages. Each submission becomes a lead (or is linked to the person we already have).
 export default async function FormsPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const write = can(user.role, "growth:write");
   const [forms, camps, src, base] = await Promise.all([
     listForms(db),

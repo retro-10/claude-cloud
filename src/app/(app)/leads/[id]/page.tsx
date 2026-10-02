@@ -31,7 +31,7 @@ import { undoableMerges } from "@/lib/merge";
 import { TIER_LABEL } from "@/lib/pricing";
 import { listProof, listSessions } from "@/lib/programme";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo, toCairoLocalInput } from "@/lib/time";
 import { healthOf } from "@/lib/views";
 import {
@@ -57,7 +57,7 @@ const egp = (n: number) => `${new Intl.NumberFormat("en-US").format(n)} EGP`;
 
 export default async function LeadPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; notice?: string }> }) {
   const [params, searchParams] = await Promise.all([props.params, props.searchParams]);
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const id = Number(params.id);
   if (!Number.isInteger(id)) notFound();
   const [lead] = await db.select().from(leads).where(eq(leads.id, id));

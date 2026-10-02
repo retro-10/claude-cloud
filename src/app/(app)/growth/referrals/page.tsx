@@ -4,7 +4,7 @@ import { Flash } from "@/components/Flash";
 import { Card, EmptyState, PageHeader, Stat } from "@/components/ui";
 import { can } from "@/lib/rbac";
 import { REWARD_STATUS, listReferrers, listRewards, syncRewards } from "@/lib/referrals";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { decideRewardAction } from "./actions";
 
 export const metadata = { title: "Referrals · Growth" };
@@ -15,7 +15,7 @@ const CHIP = { pending: "chip chip-warn", approved: "chip chip-brand", paid: "ch
 // Who brings people in. A reward is decided by a person when someone they referred enrols.
 export default async function ReferralsPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const money = can(user.role, "finance:read");
   const pay = can(user.role, "payment:write");
   await syncRewards(db);

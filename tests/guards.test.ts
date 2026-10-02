@@ -106,6 +106,23 @@ describe("settings pages enforce their own permission (a layout check alone can 
   }
 });
 
+describe("every staff page names the permission it needs", () => {
+  // Not every role may read leads (designers see only the production studio), so a sign-in check is not enough.
+  // Exceptions: your own account; Today, which sends people without the lead list elsewhere; the settings index
+  // (a redirect; the settings layout and pages check settings:write).
+  const OPEN = new Set(["app/(app)/account/page.tsx", "app/(app)/settings/page.tsx"]);
+  const pages = files.filter((f) => /app[\\/]\(app\)[\\/].*page\.tsx$/.test(f));
+  it("finds the staff pages", () => expect(pages.length).toBeGreaterThanOrEqual(40));
+  for (const f of pages) {
+    if (OPEN.has(rel(f))) continue;
+    it(`${rel(f)} calls requirePageCan (or checks lead:read itself)`, () => {
+      const src = readFileSync(f, "utf8");
+      if (rel(f) === "app/(app)/page.tsx") return expect(src).toMatch(/if \(!can\(user\.role, "lead:read"\)\) redirect\(/);
+      expect(src).toMatch(/requirePageCan\("[a-z]+:[a-z]+"\)/);
+    });
+  }
+});
+
 describe("no secrets or personal data in logs", () => {
   it("source never logs with console.*", () => {
     const offenders = files.filter((f) => /\.(ts|tsx)$/.test(f) && !/db[\\/](seed|migrate)\.ts$/.test(f) && /console\.(log|error|warn|info)\(/.test(readFileSync(f, "utf8")));

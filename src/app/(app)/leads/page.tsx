@@ -8,7 +8,7 @@ import { SelectAll } from "@/components/SelectAll";
 import { Avatar, EmptyState, Icon, PageHeader, pretty } from "@/components/ui";
 import { VIEW_KEYS, listLeads, type LeadFilters } from "@/lib/lead-list";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { formatMinutes, speedBadge } from "@/lib/speed";
 import { formatCairo } from "@/lib/time";
 import { VIEWS, healthOf, isViewKey } from "@/lib/views";
@@ -23,7 +23,7 @@ const FILTER_KEYS = ["stage", "source", "segment", "tier", "owner", "from", "to"
 
 export default async function LeadsPage(props: { searchParams: Promise<Record<string, string | undefined> & { notice?: string }> }) {
   const searchParams = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const f = searchParams as LeadFilters;
   const [{ rows, total, page, pages, settings }, stageList, sourceList, userList, views, reasons, tpls] = await Promise.all([
     listLeads(db, f),

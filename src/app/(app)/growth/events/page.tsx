@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/db";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { listEvents } from "@/lib/events";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 
 export const metadata = { title: "Masterclasses Â· Growth" };
@@ -11,7 +11,7 @@ const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "â€
 
 // Masterclasses and events: who registered, who was reminded, who came, and who went on to a consult.
 export default async function EventsPage() {
-  await requireUser();
+  await requirePageCan("lead:read");
   const rows = await listEvents(db);
   return (
     <>

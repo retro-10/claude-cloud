@@ -9,7 +9,7 @@ import { Card, EmptyState, Icon, PageHeader, Stat, StageChip } from "@/component
 import { CAMPAIGN_KINDS, CAMPAIGN_STATUS, campaignCosts, campaignStats } from "@/lib/campaigns";
 import { STATUS_LABEL } from "@/lib/finance";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 import { addCampaignCostAction } from "../../actions";
 
@@ -21,7 +21,7 @@ const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "â€
 
 export default async function CampaignPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const [params, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) notFound();
   const money = can(user.role, "finance:read");

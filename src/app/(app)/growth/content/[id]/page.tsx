@@ -10,7 +10,7 @@ import { Card, Icon, PageHeader } from "@/components/ui";
 import { FORMATS, PLATFORMS, STATUSES, getContent } from "@/lib/content";
 import { publicBaseUrl } from "@/lib/public-url";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 import { deleteContentAction } from "../actions";
 
@@ -20,7 +20,7 @@ const UTM_SOURCE: Record<string, string> = { instagram: "instagram", tiktok: "ti
 
 export default async function ContentItemPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const [params, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) notFound();
   const c = await getContent(db, id);

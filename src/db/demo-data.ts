@@ -202,6 +202,8 @@ export async function insertDemo(
     ]);
   }
 
+  await insertDemoProduction(db, opts.now ?? new Date(), owner("Badr"));
+
   if (opts.withFollowUps && opts.now) {
     // a few open items relative to "now" so the Today screen has something to show
     const now = opts.now;
@@ -215,6 +217,48 @@ export async function insertDemo(
     ]);
     await db.insert(s.consults).values({ leadId: id(15), scheduledAt: day(0, 17) });
   }
+}
+
+/** The production studio: two clients, a small price list and four cases at different stages (all named DEMO). */
+async function insertDemoProduction(db: Db, now: Date, designerId: number) {
+  if ((await db.select({ id: s.productionClients.id }).from(s.productionClients).where(eq(s.productionClients.name, "DEMO Smile Clinic"))).length) return;
+  const [smile, nile] = await db
+    .insert(s.productionClients)
+    .values([
+      { name: "DEMO Smile Clinic", kind: "clinic", contactName: "Dr Demo", discountPct: 10, paymentTermsDays: 14 },
+      { name: "DEMO Nile Lab", kind: "lab", contactName: "Lab manager", paymentTermsDays: 30 },
+    ])
+    .returning();
+  const [crown, bridge, smileDesign] = await db
+    .insert(s.caseTypes)
+    .values([
+      { name: "DEMO Crown", unitPriceEgp: 900, designerPayEgp: 350, standardDays: 2, rushDays: 1, rushSurchargePct: 50 },
+      { name: "DEMO Bridge unit", unitPriceEgp: 800, designerPayEgp: 300, standardDays: 3, rushDays: 1, rushSurchargePct: 50 },
+      { name: "DEMO Smile design", unitPriceEgp: 2500, designerPayEgp: 1000, standardDays: 4, rushDays: 2, rushSurchargePct: 40, qcChecklist: ["Facial and dental midlines", "Proportions and symmetry", "Mock-up exported"] },
+    ])
+    .returning();
+  const dayAt = (d: number) => new Date(now.getTime() + d * DAY);
+  const price = (t: typeof crown, units: number, discount: number) => Math.round((t.unitPriceEgp * units * (100 - discount)) / 100);
+  await db.insert(s.productionCases).values([
+    { clientId: smile.id, caseTypeId: crown.id, reference: "DEMO job 101", units: 2, status: "received", receivedAt: now, dueAt: dayAt(2), priceEgp: price(crown, 2, 10), designerPayEgp: 700 },
+    { clientId: nile.id, caseTypeId: bridge.id, reference: "DEMO job 102", units: 3, status: "assigned", receivedAt: dayAt(-1), dueAt: dayAt(2), designerId, priceEgp: price(bridge, 3, 0), designerPayEgp: 900 },
+    { clientId: smile.id, caseTypeId: smileDesign.id, reference: "DEMO job 103", units: 1, status: "designing", receivedAt: dayAt(-2), dueAt: dayAt(1), designerId, priceEgp: price(smileDesign, 1, 10), designerPayEgp: 1000 },
+    {
+      clientId: nile.id,
+      caseTypeId: crown.id,
+      reference: "DEMO job 100",
+      units: 1,
+      status: "delivered",
+      receivedAt: dayAt(-6),
+      dueAt: dayAt(-4),
+      designerId,
+      priceEgp: price(crown, 1, 0),
+      designerPayEgp: 350,
+      qcFails: 1,
+      qcPassedAt: dayAt(-4.2),
+      deliveredAt: dayAt(-4.1),
+    },
+  ]);
 }
 
 export async function demoLeadIds(db: Db) {

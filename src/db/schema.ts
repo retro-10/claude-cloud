@@ -19,7 +19,7 @@ import {
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const createdAt = () => ts("created_at").notNull().defaultNow();
 
-export const roleEnum = pgEnum("role", ["owner", "sales", "viewer", "finance", "instructor"]);
+export const roleEnum = pgEnum("role", ["owner", "sales", "viewer", "finance", "instructor", "designer"]);
 export const segmentEnum = pgEnum("segment", ["fresh_graduate", "technician", "dentist", "other"]);
 export const tierEnum = pgEnum("tier", ["foundation", "freelance_ready", "production_partner"]);
 export const tierInterestEnum = pgEnum("tier_interest", [
@@ -493,6 +493,8 @@ export const ledgerEntries = pgTable(
     cohortId: integer("cohort_id").references(() => cohorts.id),
     teamMemberId: integer("team_member_id").references(() => teamMembers.id), // who a salary / freelance cost was paid to
     campaignId: integer("campaign_id").references(() => campaigns.id), // a marketing cost: which campaign it paid for
+    invoiceId: integer("invoice_id").references(() => invoices.id), // client work income: the production invoice it is for
+    caseId: integer("case_id").references(() => productionCases.id), // a designer's pay for a production case
     createdBy: integer("created_by").references(() => users.id),
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
@@ -656,11 +658,12 @@ export const attachments = pgTable(
     note: text("note"),
     leadId: integer("lead_id").references(() => leads.id),
     cohortId: integer("cohort_id").references(() => cohorts.id),
+    caseId: integer("case_id").references(() => productionCases.id), // a production case's design files
     uploadedBy: integer("uploaded_by").references(() => users.id),
     createdAt: createdAt(),
     deletedAt: ts("deleted_at"),
   },
-  (t) => [index("attachments_lead_idx").on(t.leadId), index("attachments_cohort_idx").on(t.cohortId)],
+  (t) => [index("attachments_lead_idx").on(t.leadId), index("attachments_cohort_idx").on(t.cohortId), index("attachments_case_idx").on(t.caseId)],
 );
 
 // Public sign-up forms (/f/<slug>): a masterclass registration, an "apply" page, a link in bio. Each submission
@@ -922,3 +925,105 @@ export const studentAccounts = pgTable("student_accounts", {
   createdBy: integer("created_by").references(() => users.id),
   createdAt: createdAt(),
 });
+
+// ---------------- OrlaDent OS · Phase 4: production studio ----------------
+
+export const clientKindEnum = pgEnum("client_kind", ["clinic", "lab", "other"]);
+
+// Clinics and labs that send design work.
+export const productionClients = pgTable("production_clients", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  kind: clientKindEnum("kind").notNull().default("clinic"),
+  contactName: text("contact_name"),
+  phone: text("phone"),
+  email: text("email"),
+  address: text("address"),
+  discountPct: integer("discount_pct").notNull().default(0), // their agreed discount on the price list
+  paymentTermsDays: integer("payment_terms_days").notNull().default(14), // invoice due this many days after issue
+  notes: text("notes"),
+  active: boolean("active").notNull().default(true),
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+// The price list: what one unit of each kind of case costs, pays the designer, takes, and is checked against.
+export const caseTypes = pgTable("case_types", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  unitPriceEgp: integer("unit_price_egp").notNull(),
+  designerPayEgp: integer("designer_pay_egp").notNull().default(0), // per unit
+  standardDays: integer("standard_days").notNull().default(2), // working days
+  rushDays: integer("rush_days").notNull().default(1),
+  rushSurchargePct: integer("rush_surcharge_pct").notNull().default(50),
+  qcChecklist: jsonb("qc_checklist").$type<string[]>().notNull().default([]),
+  active: boolean("active").notNull().default(true),
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export type InvoiceLine = { caseId: number; code: string; description: string; units: number; amountEgp: number };
+export const invoiceStatusEnum = pgEnum("invoice_status", ["issued", "void"]);
+
+// One invoice per client for a set of delivered cases. What it said is kept (lines, total); the money owed and
+// received lives in the ledger (income, "OrlaDent client work", linked by invoice_id).
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: serial("id").primaryKey(),
+    number: text("number").notNull().unique(), // INV-2026-0001
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => productionClients.id),
+    clientName: text("client_name").notNull(), // as on the invoice
+    issuedAt: ts("issued_at").notNull().defaultNow(),
+    dueAt: ts("due_at").notNull(),
+    totalEgp: integer("total_egp").notNull(),
+    lines: jsonb("lines").$type<InvoiceLine[]>().notNull(),
+    status: invoiceStatusEnum("status").notNull().default("issued"),
+    notes: text("notes"),
+    voidReason: text("void_reason"),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index("invoices_client_idx").on(t.clientId)],
+);
+
+export const caseStatusEnum = pgEnum("case_status", ["received", "assigned", "designing", "qc", "delivered", "invoiced", "cancelled"]);
+export type QcCheck = { item: string; ok: boolean };
+
+// A design job from a client: received → assigned → designing → QC → delivered → invoiced.
+// Price and designer pay are fixed when the case is taken in, so price list changes never rewrite old cases.
+export const productionCases = pgTable(
+  "production_cases",
+  {
+    id: serial("id").primaryKey(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => productionClients.id),
+    caseTypeId: integer("case_type_id")
+      .notNull()
+      .references(() => caseTypes.id),
+    reference: text("reference"), // the client's own reference; never a patient's name
+    units: integer("units").notNull().default(1),
+    rush: boolean("rush").notNull().default(false),
+    status: caseStatusEnum("status").notNull().default("received"),
+    receivedAt: ts("received_at").notNull().defaultNow(),
+    dueAt: ts("due_at").notNull(),
+    designerId: integer("designer_id").references(() => users.id),
+    priceEgp: integer("price_egp").notNull(),
+    designerPayEgp: integer("designer_pay_egp").notNull().default(0),
+    qcChecks: jsonb("qc_checks").$type<QcCheck[]>(),
+    qcNote: text("qc_note"),
+    qcFails: integer("qc_fails").notNull().default(0),
+    qcPassedAt: ts("qc_passed_at"),
+    qcBy: integer("qc_by").references(() => users.id),
+    deliveredAt: ts("delivered_at"),
+    invoiceId: integer("invoice_id").references(() => invoices.id),
+    notes: text("notes"),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("production_cases_status_idx").on(t.status), index("production_cases_designer_idx").on(t.designerId), index("production_cases_client_idx").on(t.clientId)],
+);

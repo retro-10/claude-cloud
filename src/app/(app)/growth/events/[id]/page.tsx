@@ -9,7 +9,7 @@ import { Card, Icon, PageHeader, Stat } from "@/components/ui";
 import { listEvents, registrants } from "@/lib/events";
 import { publicBaseUrl } from "@/lib/public-url";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 import { addRegistrantAction, followUpEventAction } from "../actions";
 
@@ -19,7 +19,7 @@ const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "â€
 
 export default async function EventPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const [params, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) notFound();
   const [[c], all, people, forms, cadences, base] = await Promise.all([

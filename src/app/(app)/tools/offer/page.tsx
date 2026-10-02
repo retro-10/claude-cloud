@@ -7,7 +7,7 @@ import { OfferBuilder } from "@/components/tools/OfferBuilder";
 import { Icon, PageHeader } from "@/components/ui";
 import { LIST_PRICE_EGP, TIER_LABEL } from "@/lib/pricing";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { cairoYmd } from "@/lib/time";
 import type { Tier } from "@/lib/tools";
 
@@ -18,7 +18,7 @@ const TIERS = new Set(["foundation", "freelance_ready", "production_partner"]);
 // Opened from a lead (?lead=ID) it knows the name and phone, starts from their tier, and can save the offer on them.
 export default async function OfferPage(props: { searchParams: Promise<{ lead?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const leadId = Number(sp.lead);
   const [row] = Number.isInteger(leadId) && leadId > 0 ? await db.select().from(leads).where(eq(leads.id, leadId)) : [];
   const lead =

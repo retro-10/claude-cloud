@@ -9,7 +9,7 @@ import { SUBMISSION_STATUS, getAssignment, submissionsFor } from "@/lib/assignme
 import { ALLOWED_EXT } from "@/lib/attachments";
 import { listCohorts } from "@/lib/cohorts";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 import { deleteAssignmentAction, recordSubmissionAction, reviewSubmissionAction } from "../actions";
 
@@ -20,7 +20,7 @@ const ACCEPT = Object.keys(ALLOWED_EXT).map((e) => `.${e}`).join(",");
 
 export default async function AssignmentPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const [params, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) notFound();
   const a = await getAssignment(db, id);

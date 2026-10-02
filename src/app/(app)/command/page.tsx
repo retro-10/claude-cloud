@@ -5,7 +5,7 @@ import { TaskList } from "@/components/tasks/TaskPanel";
 import { Card, EmptyState, Icon, PageHeader, type IconName } from "@/components/ui";
 import { PULSE, alerts, getReview, isWeek, listReviews, pulse, weekNumbers, weekStartOf, type Alert } from "@/lib/command";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { listTasks } from "@/lib/tasks";
 import { progressFor, quarterOf, type TargetProgress } from "@/lib/targets";
 import { addDaysYmd } from "@/lib/time";
@@ -45,7 +45,7 @@ function Delta({ now, before }: { now: number; before: number }) {
 // targets, my tasks, and the owners' weekly review.
 export default async function CommandCentre(props: { searchParams: Promise<{ week?: string; notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const now = new Date();
   const money = can(user.role, "finance:read");
   const owner = can(user.role, "settings:write");

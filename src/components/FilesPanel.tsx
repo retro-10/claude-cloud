@@ -6,8 +6,8 @@ import { formatCairo } from "@/lib/time";
 
 const ACCEPT = Object.keys(ALLOWED_EXT).map((e) => `.${e}`).join(",");
 
-/** Files on a lead or a batch: list, download, add, delete (the uploader or an owner). */
-export function FilesPanel({ rows, back, leadId, cohortId, canWrite, me, isOwner }: { rows: AttachmentRow[]; back: string; leadId?: number; cohortId?: number; canWrite: boolean; me: number; isOwner: boolean }) {
+/** Files on a lead, a batch or a production case: list, download, add, delete (the uploader or an owner). */
+export function FilesPanel({ rows, back, leadId, cohortId, caseId, canWrite, me, isOwner }: { rows: AttachmentRow[]; back: string; leadId?: number; cohortId?: number; caseId?: number; canWrite: boolean; me: number; isOwner: boolean }) {
   return (
     <>
       {rows.length === 0 ? (
@@ -44,6 +44,7 @@ export function FilesPanel({ rows, back, leadId, cohortId, canWrite, me, isOwner
           <input type="hidden" name="back" value={back} />
           {leadId && <input type="hidden" name="leadId" value={leadId} />}
           {cohortId && <input type="hidden" name="cohortId" value={cohortId} />}
+          {caseId && <input type="hidden" name="caseId" value={caseId} />}
           <label className="field min-w-0 flex-1">
             Add a file (up to 8 MB)
             <input type="file" name="file" required accept={ACCEPT} className="input input-sm" />

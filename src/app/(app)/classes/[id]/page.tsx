@@ -10,7 +10,7 @@ import { Card, EmptyState, Icon, PageHeader } from "@/components/ui";
 import { ATTENDANCE, getClass, roster } from "@/lib/classes";
 import { listCohorts } from "@/lib/cohorts";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 import { deleteClassAction, markAttendanceAction } from "../actions";
 
@@ -18,7 +18,7 @@ export const metadata = { title: "Class" };
 
 export default async function ClassPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const [params, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) notFound();
   const c = await getClass(db, id);

@@ -75,10 +75,15 @@ const fd = (o: Record<string, string | number>) => {
 d("role rules on the server", () => {
   const client = postgres(url ?? "postgres://x", { max: 4, onnotice: () => {} });
   const db = drizzle(client, { schema: s }) as unknown as Db;
-  const ROLES = ["owner", "sales", "viewer", "finance", "instructor"] as const;
+  const ROLES = ["owner", "sales", "viewer", "finance", "instructor", "designer"] as const;
   const email = (r: string) => `${r}@roles.local`;
   let n = 0;
-  let cohortId: number, enrolmentId: number, leadId: number;
+  let cohortId: number, enrolmentId: number, leadId: number, clientId: number, caseTypeId: number, designerId: number;
+  // a production case at a given stage, assigned to the designer
+  const newCase = async (status: "received" | "assigned" | "designing" | "qc", extra: Partial<typeof s.productionCases.$inferInsert> = {}) => {
+    const [c] = await db.insert(s.productionCases).values({ clientId, caseTypeId, status, dueAt: new Date(Date.now() + 86_400_000), priceEgp: 900, designerId: status === "received" ? null : designerId, ...extra }).returning();
+    return c.id;
+  };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let A: Record<string, any> = {};
 
@@ -106,6 +111,9 @@ d("role rules on the server", () => {
     const l = await freshLead();
     await db.insert(s.enrolments).values({ leadId: l, cohortId, tier: "foundation", amountEgp: 7500 });
     enrolmentId = (await db.select().from(s.enrolments))[0].id;
+    designerId = (await db.select().from(s.users).where(eq(s.users.email, email("designer"))))[0].id;
+    [{ id: clientId }] = await db.insert(s.productionClients).values({ name: "Roles Clinic" }).returning();
+    [{ id: caseTypeId }] = await db.insert(s.caseTypes).values({ name: "Roles Crown", unitPriceEgp: 900, designerPayEgp: 300 }).returning();
 
     // import the actions only now, after DATABASE_URL is set (they import the shared db client)
     A = {
@@ -133,6 +141,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/assignments/actions")),
       ...(await import("@/app/(app)/alumni/actions")),
       ...(await import("@/app/(app)/leads/portal-actions")),
+      ...(await import("@/app/(app)/production/actions")),
     };
   });
   afterAll(async () => {
@@ -215,6 +224,37 @@ d("role rules on the server", () => {
       return r;
     }],
     ["setPortalActiveAction", ["owner", "instructor"], () => A.setPortalActiveAction(fd({ leadId, active: "on" }))],
+    ["saveClientAction", ["owner"], () => strict(() => A.saveClientAction(fd({ name: `Client ${++n}`, kind: "clinic", discountPct: 0, paymentTermsDays: 14 })))],
+    ["saveCaseTypeAction", ["owner"], () => strict(() => A.saveCaseTypeAction(fd({ name: `Type ${++n}`, unitPriceEgp: 900, designerPayEgp: 300, standardDays: 2, rushDays: 1, rushSurchargePct: 50, qcChecklist: "" })))],
+    ["createCaseAction", ["owner"], () => strict(() => A.createCaseAction(fd({ clientId, caseTypeId, units: 1, receivedAt: "", dueAt: "", designerId: "" })))],
+    ["assignCaseAction", ["owner"], async () => strict(() => newCase("received").then((id) => A.assignCaseAction(fd({ id, designerId }))))],
+    ["startCaseAction", ["owner", "designer"], async () => {
+      const id = await newCase("assigned");
+      return strict(() => A.startCaseAction(fd({ id })));
+    }],
+    ["uploadFileAction (a production case)", ["owner", "designer"], async () => {
+      const id = await newCase("designing");
+      const f = fd({ caseId: id, back: `/production/cases/${id}` });
+      f.set("file", new File([Buffer.from("solid x")], "crown.stl"));
+      return strict(() => A.uploadFileAction(f));
+    }],
+    ["sendToQcAction", ["owner", "designer"], async () => {
+      const id = await newCase("designing");
+      await db.insert(s.attachments).values({ fileName: "crown.stl", contentType: "model/stl", size: 1, sha256: "x", data: Buffer.from("x"), caseId: id });
+      return strict(() => A.sendToQcAction(fd({ id })));
+    }],
+    ["reviewQcAction", ["owner"], async () => {
+      const id = await newCase("qc");
+      return strict(() => A.reviewQcAction(fd({ id, count: 4, "qc-0": "on", "qc-1": "on", "qc-2": "on", "qc-3": "on" })));
+    }],
+    ["deliverCaseAction", ["owner"], async () => {
+      const id = await newCase("qc", { qcPassedAt: new Date() });
+      return strict(() => A.deliverCaseAction(fd({ id })));
+    }],
+    ["cancelCaseAction", ["owner"], async () => {
+      const id = await newCase("received");
+      return strict(() => A.cancelCaseAction(fd({ id, reason: "withdrawn" })));
+    }],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 
@@ -311,7 +351,7 @@ d("role rules on the server", () => {
     expect((await leadExport(req())).status).toBe(401);
     expect((await cohortExport(req(), { params: Promise.resolve({ id: String(cohortId) }) })).status).toBe(401);
 
-    const expected: Record<string, number> = { owner: 200, finance: 200, sales: 403, viewer: 403, instructor: 403 };
+    const expected: Record<string, number> = { owner: 200, finance: 200, sales: 403, viewer: 403, instructor: 403, designer: 403 };
     for (const role of ROLES) {
       await signInAs(email(role));
       expect((await leadExport(req())).status, `lead export as ${role}`).toBe(role === "owner" ? 200 : 403);
@@ -336,8 +376,22 @@ d("role rules on the server", () => {
     expect((await get(png.id)).status).toBe(401);
     for (const role of ROLES) {
       await signInAs(email(role));
-      expect((await get(png.id)).status, role).toBe(200);
+      // designers cannot read leads, so a lead's file does not exist for them
+      expect((await get(png.id)).status, role).toBe(role === "designer" ? 404 : 200);
     }
+    // a production case's files: whoever may see the case (the designer only their own)
+    const mine = await newCase("designing");
+    const theirs = await newCase("designing", { designerId: null, status: "received" });
+    const [stl] = await db.insert(s.attachments).values({ fileName: "crown.stl", contentType: "model/stl", size: 1, sha256: "x", data: Buffer.from("x"), caseId: mine }).returning();
+    const [stl2] = await db.insert(s.attachments).values({ fileName: "other.stl", contentType: "model/stl", size: 1, sha256: "x", data: Buffer.from("x"), caseId: theirs }).returning();
+    // people without the studio (who can read leads) are told the file does not exist
+    const caseFile: Record<string, number> = { owner: 200, finance: 200, designer: 200, sales: 404, viewer: 404, instructor: 404 };
+    for (const role of ROLES) {
+      await signInAs(email(role));
+      expect((await get(stl.id)).status, `case file as ${role}`).toBe(caseFile[role]);
+      expect((await get(stl2.id)).status, `someone else's case file as ${role}`).toBe(role === "designer" ? 404 : caseFile[role]);
+    }
+    await signInAs(email("owner"));
     let res = await get(png.id);
     expect(res.headers.get("content-type")).toBe("image/png");
     expect(res.headers.get("content-disposition")).toMatch(/^inline;/);

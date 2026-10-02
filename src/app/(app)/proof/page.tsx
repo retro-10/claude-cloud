@@ -5,7 +5,7 @@ import { Card, EmptyState, Icon, PageHeader, Stat } from "@/components/ui";
 import { listCohorts } from "@/lib/cohorts";
 import { PROOF_CONSENT, PROOF_TYPES, listProof, publishable } from "@/lib/programme";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { contentFromProofAction } from "../growth/content/actions";
 
 export const metadata = { title: "Proof bank" };
@@ -16,7 +16,7 @@ const CONSENT_CHIP: Record<string, string> = { Granted: "chip-ok", Asked: "chip-
 // Only items with consent Granted (and the candidate's consent on file) are marked ready to use.
 export default async function ProofBank(props: { searchParams: Promise<{ consent?: string; type?: string; batch?: string; notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const canPlan = can(user.role, "growth:write");
   const [rows, batches, all] = await Promise.all([
     listProof(db, { consent: sp.consent, type: sp.type, cohortId: Number(sp.batch) || undefined }),

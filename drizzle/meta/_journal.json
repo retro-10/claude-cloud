@@ -155,6 +155,20 @@
       "when": 1790861466235,
       "tag": "0021_student_portal",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790944108774,
+      "tag": "0022_designer_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790944110276,
+      "tag": "0023_production_studio",
+      "breakpoints": true
     }
   ]
 }

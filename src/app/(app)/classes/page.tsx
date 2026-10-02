@@ -8,7 +8,7 @@ import { Card, EmptyState, PageHeader, Tabs } from "@/components/ui";
 import { listClasses, type ClassRow } from "@/lib/classes";
 import { listCohorts } from "@/lib/cohorts";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { cairoYmd, formatCairo } from "@/lib/time";
 import { copyScheduleAction } from "./actions";
 
@@ -39,7 +39,7 @@ function ClassList({ rows, empty }: { rows: ClassRow[]; empty: string }) {
 // Every batch's class schedule. Instructors see theirs with "Mine".
 export default async function ClassesPage(props: { searchParams: Promise<{ batch?: string; mine?: string; notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const write = can(user.role, "programme:write");
   const batch = Number(sp.batch) || undefined;
   const mine = sp.mine === "1";

@@ -5,7 +5,7 @@ import { campaigns, cohorts, sources, users } from "@/db/schema";
 import { getMetrics, type MetricFilters } from "@/lib/metrics";
 import { fmtDays, fmtEgp, fmtMinutes, fmtRate } from "@/lib/metrics-format";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { BarList, Columns, Split } from "@/components/charts";
 import { Card, Icon, PageHeader, pretty, type IconName } from "@/components/ui";
 import { addDaysYmd, cairoYmd } from "@/lib/time";
@@ -50,7 +50,7 @@ export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage(props: { searchParams: Promise<SP> }) {
   const searchParams = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const seeMoney = can(user.role, "finance:read");
   const today = cairoYmd(new Date());
   const explicit = searchParams.from || searchParams.to || searchParams.all;

@@ -4,7 +4,8 @@ import { audit } from "./audit";
 
 // Demo rows are recognisable by construction (see src/db/demo-data.ts): leads named "Demo Lead 01".."Demo Lead 20"
 // with numbers +20108000000xx, batches "Demo Cohort A/B" (and the empty placeholder "Demo cohort"), the
-// "Masterclass Sep" demo campaign, and ledger / session / proof rows whose name starts with "DEMO ".
+// "Masterclass Sep" demo campaign, ledger / session / proof rows whose name starts with "DEMO ", and production
+// clients and case types named "DEMO …" (with their cases, invoices and the ledger rows those made).
 const DEMO_LEAD = sql`(full_name ~ '^Demo Lead [0-9]{2}$' and (phone_whatsapp like '+2010800000__' or phone_whatsapp is null))`;
 
 export async function demoCounts(db: Db) {
@@ -27,7 +28,11 @@ export async function removeDemoData(db: Db, userId: number | null) {
       and not exists (select 1 from ledger_entries x where x.cohort_id = c.id and x.id not in (select id from demo_ledger))`;
     await run(sql`create temp table demo_leads on commit drop as select id from leads where ${DEMO_LEAD}`);
     await run(sql`create temp table demo_enrol on commit drop as select id from enrolments where lead_id in (select id from demo_leads)`);
-    await run(sql`create temp table demo_ledger on commit drop as select id from ledger_entries where enrolment_id in (select id from demo_enrol) or entry like 'DEMO %'`);
+    await run(sql`create temp table demo_clients on commit drop as select id from production_clients where name like 'DEMO %'`);
+    await run(sql`create temp table demo_cases on commit drop as select id from production_cases where client_id in (select id from demo_clients)`);
+    await run(sql`create temp table demo_invoices on commit drop as select id from invoices where client_id in (select id from demo_clients)`);
+    await run(sql`create temp table demo_ledger on commit drop as select id from ledger_entries where enrolment_id in (select id from demo_enrol) or entry like 'DEMO %'
+      or case_id in (select id from demo_cases) or invoice_id in (select id from demo_invoices)`);
     await run(sql`create temp table demo_sessions on commit drop as select id from programme_sessions where enrolment_id in (select id from demo_enrol) or name like 'DEMO %'`);
     await run(sql`create temp table demo_proof on commit drop as select id from proof_items where enrolment_id in (select id from demo_enrol) or name like 'DEMO %'`);
     await run(sql`create temp table demo_cohorts on commit drop as select id from cohorts c where ${DEMO_COHORT}`);
@@ -41,6 +46,11 @@ export async function removeDemoData(db: Db, userId: number | null) {
       returning page_id`);
 
     await run(sql`delete from ledger_entries where id in (select id from demo_ledger)`);
+    await run(sql`delete from attachments where case_id in (select id from demo_cases)`);
+    await run(sql`delete from production_cases where id in (select id from demo_cases)`);
+    await run(sql`delete from invoices where id in (select id from demo_invoices)`);
+    await run(sql`delete from production_clients where id in (select id from demo_clients)`);
+    await run(sql`delete from case_types t where t.name like 'DEMO %' and not exists (select 1 from production_cases c where c.case_type_id = t.id)`);
     await run(sql`delete from programme_sessions where id in (select id from demo_sessions)`);
     await run(sql`update content_items set proof_item_id = null where proof_item_id in (select id from demo_proof)`);
     await run(sql`delete from proof_items where id in (select id from demo_proof)`);
