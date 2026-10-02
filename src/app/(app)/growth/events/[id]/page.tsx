@@ -53,7 +53,7 @@ export default async function EventPage(props: { params: Promise<{ id: string }>
         }
       />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat label="Registered" value={e.registered} icon="leads" tone="brand" />
         <Stat label="Reminded" value={e.reminded} hint={pct(e.reminded, e.registered)} icon="chat" />
         <Stat label="Came" value={e.attended} hint={`show-up ${pct(e.attended, e.attended + e.noShow)}`} icon="check" />
@@ -61,7 +61,7 @@ export default async function EventPage(props: { params: Promise<{ id: string }>
         <Stat label="Enrolled" value={e.enrolled} hint={pct(e.enrolled, e.registered) + " of registrants"} icon="cohorts" />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <Card title={`Registrants (${people.length})`} icon="leads">
           <Registrants
             campaignId={c.id}
@@ -70,7 +70,7 @@ export default async function EventPage(props: { params: Promise<{ id: string }>
             rows={people.map((p) => ({ id: p.id, fullName: p.fullName, phone: p.phone, doNotContact: p.doNotContact, attended: p.attended, reminded: !!p.remindedAt, consultedAfter: p.consultedAfter, enrolled: p.enrolled }))}
           />
         </Card>
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           <Card title="Sign-up" icon="send">
             {forms.length ? (
               <ul className="flex flex-col gap-2 text-sm">

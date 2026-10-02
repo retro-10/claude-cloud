@@ -55,7 +55,7 @@ export default async function CohortsPage(props: { searchParams: Promise<{ error
                   </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-raised" role="progressbar" aria-label={`${c.name} seats taken`} aria-valuenow={c.seatsUsed} aria-valuemin={0} aria-valuemax={c.seatCap}>
-                  <div className={`h-full rounded-full ${full ? "bg-warn" : "bg-gradient-to-r from-brand-deep to-brand"}`} style={{ width: `${pct}%` }} />
+                  <div className={`h-full rounded-full ${full ? "bg-warn" : "bg-brand"}`} style={{ width: `${pct}%` }} />
                 </div>
               </div>
               {can(user.role, "finance:read") && (

@@ -154,14 +154,14 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
         </Link>
       </form>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {seeMoney && <Tile label="Revenue" value={fmtEgp(m.revenue.totalEgp)} hint={`${fmtEgp(m.revenue.collectedEgp)} collected`} icon="trend" hero />}
         <Tile label="Leads" value={String(m.totalLeads)} icon="leads" />
         <Tile label="Enrolments" value={String(m.revenue.enrolments)} hint={`${fmtDays(m.cycle.medianDays)} median sales cycle`} icon="cohorts" />
         <Tile label="Median first contact" value={fmtMinutes(m.speed.medianMinutes)} hint={`${fmtRate(m.speed.within5)} within 5 min`} icon="bolt" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <Card title="Funnel · leads that ever reached each stage" icon="pipeline" label="Funnel">
           <BarList
             rows={m.funnel.map((s) => ({ label: s.label, value: s.count, note: s.conversion ? `${fmtRate(s.conversion)} of the previous stage` : undefined }))}
@@ -176,7 +176,7 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
           </p>
         </Card>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           <Card title="Speed to lead" icon="bolt">
             <List
               rows={[

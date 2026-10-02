@@ -204,8 +204,12 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
 
       <form action={bulkAction}>
         {canWrite && f.deleted !== "1" && !reviewing && (
-          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-line bg-surface/70 px-3 py-2 text-xs">
-            <span className="eyebrow">With selected</span>
+          <details className="group mb-4 rounded-2xl border border-line bg-surface/70">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3.5 text-sm font-medium text-muted hover:text-fg">
+              <Icon name="layers" size={16} /> Bulk actions on the leads you tick
+              <Icon name="chevronDown" size={14} className="ml-auto transition group-open:rotate-180" />
+            </summary>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line px-5 py-4">
             <span className="flex items-center gap-1">
               <select name="stage" className="input input-sm w-auto" aria-label="Stage">
                 <option value="">Stage…</option>
@@ -255,10 +259,11 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
                 Start cadence
               </button>
             </span>
-          </div>
+            </div>
+          </details>
         )}
         <div className="card overflow-x-auto">
-          <table className="table min-w-[860px]">
+          <table className="table">
             <thead>
               <tr>
                 {canWrite && !reviewing && (
@@ -276,10 +281,10 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
                     Stage{sortMark("stage")}
                   </Link>
                 </th>
-                <th>Source</th>
-                <th>Owner</th>
-                <th className="whitespace-nowrap">Next follow-up</th>
-                <th>
+                <th className="hidden lg:table-cell">Source</th>
+                <th className="hidden md:table-cell">Owner</th>
+                <th className="hidden whitespace-nowrap md:table-cell">Next follow-up</th>
+                <th className="hidden xl:table-cell">
                   <Link href={sortHref("created")} className="hover:text-fg">
                     Created{sortMark("created")}
                   </Link>
@@ -302,7 +307,9 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
                     )}
                     <td>
                       <div className="flex items-center gap-3">
-                        <Avatar name={l.fullName} size={30} />
+                        <span className="hidden sm:inline-flex">
+                          <Avatar name={l.fullName} size={34} />
+                        </span>
                         <div className="min-w-0">
                           <Link href={`/leads/${l.id}`} className="font-medium hover:text-accent" dir="auto">
                             {l.fullName}
@@ -332,10 +339,10 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
                       <span className={`chip ${l.stageKind === "won" ? "chip-ok" : l.stageKind === "lost" ? "chip-danger" : l.stageKind === "open" ? "chip-brand" : ""}`}>{l.stageLabel}</span>
                       <span className="num ml-1.5 text-xs text-muted">{h.daysInStage}d</span>
                     </td>
-                    <td className="whitespace-nowrap text-muted">{l.source ?? "—"}</td>
-                    <td className="text-muted">{l.owner ?? "—"}</td>
-                    <td className="num whitespace-nowrap">{l.nextFollowUp ? formatCairo(new Date(l.nextFollowUp), false) : <span className="text-muted">—</span>}</td>
-                    <td className="num whitespace-nowrap text-muted">{formatCairo(l.createdAt, false)}</td>
+                    <td className="hidden whitespace-nowrap text-muted lg:table-cell">{l.source ?? "—"}</td>
+                    <td className="hidden text-muted md:table-cell">{l.owner ?? "—"}</td>
+                    <td className="num hidden whitespace-nowrap md:table-cell">{l.nextFollowUp ? formatCairo(new Date(l.nextFollowUp), false) : <span className="text-muted">—</span>}</td>
+                    <td className="num hidden whitespace-nowrap text-muted xl:table-cell">{formatCairo(l.createdAt, false)}</td>
                     <td>
                       <div className="flex justify-end gap-1">
                         {reviewing && canWrite ? (

@@ -37,7 +37,7 @@ export default async function DecisionsPage(props: { searchParams: Promise<{ not
           { href: "/team/decisions?show=closed", label: "Closed" },
         ]}
       />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card bodyClass="p-0">
           <DecisionList rows={rows} me={user.id} manage={manage} back={here} />
         </Card>

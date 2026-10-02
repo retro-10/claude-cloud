@@ -46,7 +46,7 @@ export default async function TasksPage(props: { searchParams: Promise<Search> }
     <>
       <PageHeader eyebrow="Work" title="Tasks" subtitle="Everything the team has to do, on a lead, a student, a batch, or on its own. Follow-ups with leads stay on Today." />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="My open tasks" value={counts.mine} icon="check" tone="brand" />
         <Stat label="Mine overdue" value={counts.mineOverdue} icon="alert" />
         <Stat label="Overdue, whole team" value={counts.overdue} icon="hourglass" />
@@ -61,7 +61,7 @@ export default async function TasksPage(props: { searchParams: Promise<Search> }
           { href: qs("done"), label: "Done" },
         ]}
       />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card
           title={who === "done" ? "Recently done" : "Open tasks"}
           icon="list"

@@ -76,7 +76,7 @@ export default async function ContentPage(props: { searchParams: Promise<{ month
       />
 
       {view === "calendar" ? (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
           <Card
             title={`${MONTHS[m - 1]} ${y}`}
             icon="calendar"
@@ -122,7 +122,7 @@ export default async function ContentPage(props: { searchParams: Promise<{ month
               </ol>
             </div>
           </Card>
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-6">
             <Card title={`Ideas without a date (${ideas.length})`} icon="sparkle">
               {ideas.length === 0 ? <p className="text-sm text-muted">None.</p> : <div className="flex flex-col gap-2">{ideas.map((c) => <Piece key={c.id} c={c} />)}</div>}
             </Card>

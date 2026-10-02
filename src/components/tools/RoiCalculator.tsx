@@ -25,7 +25,7 @@ export function RoiCalculator({ d }: { d: { costPerLead: number | null; leadToCo
     </label>
   );
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-2">
       <div className="card grid gap-3 p-4 sm:grid-cols-2">
         {field("Spend (EGP)", spend, setSpend)}
         {field("Cost per lead (EGP)", cpl, setCpl)}

@@ -23,7 +23,7 @@ export default async function ClientsPage(props: { searchParams: Promise<{ notic
       <PageHeader eyebrow="Production studio" title="Clients" subtitle="The clinics and labs that send design work, their discount and payment terms." />
       <ProductionTabs role={user.role} current="/production/clients" />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card title={`Clients (${rows.length})`} icon="user" bodyClass="p-0">
           {!rows.length ? (
             <EmptyState icon="user" title="No clients yet." />

@@ -30,7 +30,7 @@ export function OfferBuilder({ lead, prices, labels, today, canSave }: { lead: L
   const wa = lead && !lead.doNotContact ? whatsappPrefill(lead.phone, message) : null;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-2">
       <div className="card p-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="field sm:col-span-2">
@@ -103,7 +103,7 @@ export function OfferBuilder({ lead, prices, labels, today, canSave }: { lead: L
         </div>
       </div>
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-6">
         <div className="card p-4" aria-live="polite">
           {!result.ok ? (
             <p role="alert" className="text-sm text-danger">

@@ -56,7 +56,7 @@ export default async function RunsPage(props: { searchParams: Promise<{ notice?:
       <TeamTabs current="/team/runs" />
       <Flash notice={sp.notice} error={sp.error} />
       <Tabs label="Whose checklists" current={mine ? "/team/runs?mine=1" : "/team/runs"} items={[{ href: "/team/runs", label: "Everyone" }, { href: "/team/runs?mine=1", label: "Mine" }]} />
-      <div className="grid gap-5">
+      <div className="grid gap-6">
         <Card title={`Running (${open.length})`} icon="flag" bodyClass="p-0">
           <RunList rows={open} empty="Nothing running." />
         </Card>

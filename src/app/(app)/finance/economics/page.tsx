@@ -26,13 +26,13 @@ export default async function EconomicsPage(props: { searchParams: Promise<{ day
       <FinanceNav />
       <Tabs label="Period" current={`/finance/economics?days=${days}`} items={Object.entries(PERIODS).map(([k, v]) => ({ href: `/finance/economics?days=${k}`, label: v }))} />
       <h2 className="mb-3 text-sm font-medium text-muted">Marketing, last {PERIODS[days]}</h2>
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Marketing spend" value={egp(u.marketing.spend)} icon="target" hint={`${u.marketing.leads} leads · ${u.marketing.enrolments} enrolments`} />
         <Stat label="Cost per lead" value={egp(u.marketing.costPerLead)} icon="leads" />
         <Stat label="Cost per enrolment" value={egp(u.marketing.costPerEnrolment)} icon="check" />
         <Stat label="Revenue per enrolment" value={egp(u.marketing.revenuePerEnrolment)} icon="trend" hint="after discount, free seats as 0" />
       </div>
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-2">
         <Card title="Batches" icon="cohorts" bodyClass="p-0">
           {!u.perBatch.length ? (
             <EmptyState icon="cohorts" title="No batches with students or costs yet." />

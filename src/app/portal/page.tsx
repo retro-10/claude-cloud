@@ -43,7 +43,7 @@ export default async function PortalHome() {
     >
       {mine.length === 0 && <p className="card p-5 text-sm">You are not enrolled in a batch right now. · لست مسجلًا في دفعة حاليًا.</p>}
       {mine.map(({ enrolment: e, upcoming, past, attendance, work, certificate, payments }) => (
-        <div key={e.enrolmentId} className="mb-10 flex flex-col gap-5">
+        <div key={e.enrolmentId} className="mb-10 flex flex-col gap-6">
           <div>
             <div className="eyebrow">{e.cohort}</div>
             <h1 className="page-title">{TIER_LABEL[e.tier] ?? e.tier}</h1>

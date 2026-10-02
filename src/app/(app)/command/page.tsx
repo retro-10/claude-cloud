@@ -78,7 +78,7 @@ export default async function CommandCentre(props: { searchParams: Promise<{ wee
       />
       <Flash notice={sp.notice} error={sp.error} />
 
-      <section aria-label="Pulse, last 7 days" className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
+      <section aria-label="Pulse, last 7 days" className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-3 2xl:grid-cols-6">
         {pulseItems.map((k) => (
           <div key={k.key} className="card p-4">
             <div className="text-xs font-medium text-muted">{k.label}</div>
@@ -90,7 +90,7 @@ export default async function CommandCentre(props: { searchParams: Promise<{ wee
         ))}
       </section>
 
-      <div className="mb-5 grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+      <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
         <Card title={`Needs a person (${inbox.length})`} icon="inbox" bodyClass="p-0">
           {inbox.length === 0 ? (
             <EmptyState icon="check" title="Nothing needs a person right now." />
@@ -156,7 +156,7 @@ export default async function CommandCentre(props: { searchParams: Promise<{ wee
         </Card>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
         <Card title="My tasks this week" icon="list" actions={<Link href="/tasks" className="btn btn-ghost btn-sm">Open Tasks</Link>}>
           <TaskList rows={myTasks} back="/command" canWrite={can(user.role, "task:write")} empty="Nothing due for you this week." />
         </Card>

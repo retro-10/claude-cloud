@@ -24,7 +24,7 @@ export default async function TargetsSettings(props: { searchParams: Promise<{ n
         What each quarter should deliver. Leave a box empty for no target. Quarters follow the Cairo calendar (Q4 = October to December). Progress and pace
         show on the Command centre; revenue and cash only to owners and finance.
       </p>
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         {quarters.map((q) => (
           <Card key={q.period} title={q.period === current ? `${q.period} (this quarter)` : q.period} icon="target">
             <form action={saveTargetsAction} className="grid gap-3">

@@ -36,7 +36,7 @@ export default async function FormsPage(props: { searchParams: Promise<{ notice?
         }
       />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="flex flex-col gap-4">
           {forms.length === 0 && (
             <Card>

@@ -19,13 +19,13 @@ export function PageHeader({
   titleDir?: "auto";
 }) {
   return (
-    <header className="mb-6 flex flex-wrap items-end gap-x-6 gap-y-3 animate-rise-in">
+    <header className="mb-8 flex flex-col gap-4 animate-rise-in md:flex-row md:items-end md:justify-between md:gap-8">
       <div className="min-w-0 flex-1">
-        {eyebrow && <div className="eyebrow mb-1.5">{eyebrow}</div>}
+        {eyebrow && <div className="eyebrow mb-2">{eyebrow}</div>}
         <h1 className="page-title" dir={titleDir}>
           {title}
         </h1>
-        {subtitle && <div className="mt-1.5 text-sm text-muted">{subtitle}</div>}
+        {subtitle && <div className="mt-2 max-w-3xl text-sm text-muted">{subtitle}</div>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </header>
@@ -38,7 +38,7 @@ export function Card({
   actions,
   children,
   className = "",
-  bodyClass = "p-4",
+  bodyClass = "p-5",
   as: Tag = "section",
   label,
 }: {
@@ -69,7 +69,7 @@ export function Card({
 
 export function EmptyState({ icon = "sparkle", title, children }: { icon?: IconName; title: string; children?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+    <div className="flex flex-col items-center justify-center gap-2.5 px-5 py-10 text-center">
       <span className="grid h-10 w-10 place-items-center rounded-full border border-line bg-raised text-accent">
         <Icon name={icon} size={18} />
       </span>
@@ -113,13 +113,14 @@ export function Stat({
   tone?: "brand";
 }) {
   return (
-    <div className={`card relative overflow-hidden p-4 ${tone === "brand" ? "border-brand/40" : ""}`}>
+    <div className={`card relative overflow-hidden p-5 ${tone === "brand" ? "border-brand/40" : ""}`}>
       {tone === "brand" && <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent" />}
       <div className="flex items-center justify-between gap-2">
         <div className="text-xs font-medium text-muted">{label}</div>
         {icon && <Icon name={icon} className="text-muted" />}
       </div>
-      <div className="num mt-2 font-display text-[26px] font-semibold leading-none tracking-tight">{value}</div>
+      {/* proportional figures at display size (tabular digits look loose on a lone large number) */}
+      <div className="mt-3 font-display text-[28px] font-semibold leading-none tracking-tight">{value}</div>
       {hint && <div className="mt-2 text-xs text-muted">{hint}</div>}
     </div>
   );
@@ -139,7 +140,7 @@ export function Tabs({ items, current, label = "Sections" }: { items: { href: st
             key={t.href}
             href={t.href}
             aria-current={active ? "page" : undefined}
-            className={`relative -mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition ${
+            className={`relative -mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm transition ${
               active ? "border-brand font-medium text-fg" : "border-transparent text-muted hover:text-fg"
             }`}
           >

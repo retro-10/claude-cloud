@@ -58,7 +58,7 @@ export default async function ClassPage(props: { params: Promise<{ id: string }>
         }
       />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <Card title={`Attendance (${students.length} students)`} icon="check">
           {students.length === 0 ? (
             <EmptyState icon="leads" title="No students in this batch yet." />
@@ -96,7 +96,7 @@ export default async function ClassPage(props: { params: Promise<{ id: string }>
           )}
         </Card>
         {write && (
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-6">
             <Card title="Edit class" icon="edit">
               <ClassForm c={c} batches={batches} people={people} back={`/classes/${c.id}`} />
             </Card>

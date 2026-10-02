@@ -29,7 +29,7 @@ export default async function PipelineSettings(props: { searchParams: Promise<{ 
   return (
     <>
       <Flash {...searchParams} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
         <Card title="Stages and what it takes to enter each one" icon="pipeline" bodyClass="p-0">
           <p className="border-b border-line px-4 py-3 text-sm text-muted">
             A lead moves forward when the <em>buyer</em> did something. The checks below must be true before a lead can enter the stage; owners can
@@ -94,7 +94,7 @@ export default async function PipelineSettings(props: { searchParams: Promise<{ 
           </ol>
         </Card>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           <Card title="Add a stage" icon="plus">
             <p className="mb-3 text-sm text-muted">
               You have <span className="num text-fg">{openCount}</span> open stages. Keep it to {settings.maxOpenStages} or fewer: each extra stage is one

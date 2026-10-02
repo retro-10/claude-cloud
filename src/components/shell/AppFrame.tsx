@@ -62,45 +62,85 @@ function Brand() {
   );
 }
 
-function NavList({ nav, pathname, onNavigate }: { nav: NavItem[]; pathname: string; onNavigate?: () => void }) {
+const COLLAPSED_KEY = "nav:collapsed";
+const COLLAPSED_DEFAULT = ["Views"]; // the smart views are a shortcut list: closed until wanted
+
+/**
+ * The sidebar, in sections that open and close (remembered in this browser). The section holding the page you
+ * are on is always open, so you never lose your place.
+ */
+function NavList({ nav, pathname, onNavigate, idPrefix }: { nav: NavItem[]; pathname: string; onNavigate?: () => void; idPrefix: string }) {
   const search = useSearchParams().toString();
   const sections = nav.reduce<string[]>((a, n) => (a.includes(n.section) ? a : [...a, n.section]), []);
+  const [collapsed, setCollapsed] = useState<string[]>(COLLAPSED_DEFAULT);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COLLAPSED_KEY);
+      if (saved) setCollapsed(JSON.parse(saved));
+    } catch {}
+  }, []);
+  const toggle = (s: string) =>
+    setCollapsed((cur) => {
+      const next = cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s];
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   return (
-    <nav aria-label="Main" className="flex flex-col gap-5">
-      {sections.map((s) => (
-        <div key={s}>
-          <div className="eyebrow mb-1.5 px-3">{s}</div>
-          <ul className="flex flex-col gap-0.5">
-            {nav
-              .filter((n) => n.section === s)
-              .map((n) => {
-                const active = isActive(pathname, n, search);
-                return (
-                  <li key={n.href}>
-                    <Link
-                      href={n.href}
-                      onClick={onNavigate}
-                      aria-current={active ? "page" : undefined}
-                      title={n.keys ? `${n.label} (${n.keys})` : undefined}
-                      className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                        active ? "bg-raised font-medium text-fg" : "text-muted hover:bg-raised/60 hover:text-fg"
-                      }`}
-                    >
-                      {active && <span aria-hidden className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-brand" />}
-                      <Icon name={n.icon} size={17} className={active ? "text-accent" : "text-muted group-hover:text-fg"} />
-                      <span className="min-w-0 flex-1 truncate">{n.label}</span>
-                      {n.count !== undefined && n.count > 0 && (
-                        <span className={n.alert ? "count bg-danger/15 text-danger" : "count"} aria-label={`${n.count} items`}>
-                          {n.count > 99 ? "99+" : n.count}
-                        </span>
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-          </ul>
-        </div>
-      ))}
+    <nav aria-label="Main" className="flex flex-col gap-4">
+      {sections.map((s) => {
+        const items = nav.filter((n) => n.section === s);
+        const here = items.some((n) => isActive(pathname, n, search));
+        const open = here || !collapsed.includes(s);
+        const listId = `${idPrefix}-nav-${s.replace(/\W+/g, "-").toLowerCase()}`;
+        const total = items.reduce((a, n) => a + (n.count ?? 0), 0);
+        return (
+          <div key={s}>
+            <button
+              type="button"
+              onClick={() => toggle(s)}
+              aria-expanded={open}
+              aria-controls={listId}
+              disabled={here}
+              className="eyebrow group flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left hover:text-fg disabled:cursor-default disabled:hover:text-muted"
+            >
+              <span className="flex-1">{s}</span>
+              {!open && total > 0 && <span className="count normal-case tracking-normal">{total > 99 ? "99+" : total}</span>}
+              {!here && <Icon name={open ? "chevronDown" : "chevronRight"} size={14} className="text-faint group-hover:text-muted" />}
+            </button>
+            {open && (
+              <ul id={listId} className="mt-1 flex flex-col gap-1">
+                {items.map((n) => {
+                  const active = isActive(pathname, n, search);
+                  return (
+                    <li key={n.href}>
+                      <Link
+                        href={n.href}
+                        onClick={onNavigate}
+                        aria-current={active ? "page" : undefined}
+                        title={n.keys ? `${n.label} (${n.keys})` : undefined}
+                        className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                          active ? "bg-raised font-medium text-fg" : "text-muted hover:bg-raised/60 hover:text-fg"
+                        }`}
+                      >
+                        {active && <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-brand" />}
+                        <Icon name={n.icon} size={18} className={active ? "text-accent" : "text-muted group-hover:text-fg"} />
+                        <span className="min-w-0 flex-1 truncate">{n.label}</span>
+                        {n.count !== undefined && n.count > 0 && (
+                          <span className={n.alert ? "count bg-danger/15 text-danger" : "count"} aria-label={`${n.count} items`}>
+                            {n.count > 99 ? "99+" : n.count}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        );
+      })}
     </nav>
   );
 }
@@ -161,16 +201,16 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
   const mobileTabs = nav.filter((n) => ["/", "/leads", "/pipeline"].includes(n.href));
 
   return (
-    <div className="min-h-screen lg:pl-64">
+    <div className="min-h-screen lg:pl-72">
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-line bg-surface/60 backdrop-blur-xl lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 flex-col border-r border-line bg-surface/60 backdrop-blur-xl lg:flex">
         <div className="px-4 pb-4 pt-5">
           <Brand />
         </div>
         <div className="px-4 pb-4">
           <button
             onClick={() => emit(OPEN_PALETTE)}
-            className="flex h-9 w-full items-center gap-2 rounded-lg border border-line bg-bg/70 px-3 text-sm text-muted transition hover:border-brand/50 hover:text-fg"
+            className="flex h-10 w-full items-center gap-2 rounded-lg border border-line bg-bg/70 px-3 text-sm text-muted transition hover:border-brand/50 hover:text-fg"
           >
             <Icon name="search" />
             <span className="flex-1 text-left">Search…</span>
@@ -178,7 +218,7 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-2 pb-4">
-          <NavList nav={nav} pathname={pathname} />
+          <NavList nav={nav} pathname={pathname} idPrefix="side" />
         </div>
         <div className="border-t border-line p-3">
           <UserCard user={user} />
@@ -197,7 +237,7 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-2 py-2">
-              <NavList nav={nav} pathname={pathname} onNavigate={() => setDrawer(false)} />
+              <NavList nav={nav} pathname={pathname} onNavigate={() => setDrawer(false)} idPrefix="drawer" />
             </div>
             <div className="border-t border-line p-3">
               <UserCard user={user} />
@@ -208,7 +248,7 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
 
       {/* Top bar */}
       <header className="sticky top-0 z-40 border-b border-line/80 bg-bg/75 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2 px-4 sm:px-8 lg:px-10">
           <button onClick={() => setDrawer(true)} className="btn btn-ghost btn-icon -ml-2 lg:hidden" aria-label="Open menu">
             <Icon name="menu" size={18} />
           </button>

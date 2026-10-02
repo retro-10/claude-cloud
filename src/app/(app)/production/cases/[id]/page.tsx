@@ -53,8 +53,8 @@ export default async function CasePage(props: { params: Promise<{ id: string }>;
         }
       />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="flex flex-col gap-5">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="flex flex-col gap-6">
           <Card title="The case" icon="layers">
             <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
               <div>
@@ -130,7 +130,7 @@ export default async function CasePage(props: { params: Promise<{ id: string }>;
           )}
         </div>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           <Card title="Next step" icon="flag">
             <div className="flex flex-col gap-3">
               {c.status === "assigned" && (mine || manage) && (

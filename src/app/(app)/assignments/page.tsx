@@ -22,7 +22,7 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ b
     <>
       <PageHeader eyebrow="Programme" title="Assignments" subtitle="Cases students design, scored against a rubric. A review sets the student's QC score (the average of their reviewed work) and the batch leaderboard." />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Waiting for review" value={waiting} icon="hourglass" tone="brand" />
         <Stat label="Assignments" value={rows.length} icon="list" />
         <Stat label="Passed" value={rows.reduce((a, r) => a + r.passed, 0)} icon="check" />
@@ -42,7 +42,7 @@ export default async function AssignmentsPage(props: { searchParams: Promise<{ b
         </label>
         <button className="btn btn-ghost btn-sm">Show</button>
       </form>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <Card title="Assignments" icon="list" bodyClass="p-0 overflow-x-auto">
           {rows.length === 0 ? (
             <EmptyState icon="list" title="No assignments yet." />

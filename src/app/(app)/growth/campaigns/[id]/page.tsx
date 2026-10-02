@@ -54,7 +54,7 @@ export default async function CampaignPage(props: { params: Promise<{ id: string
       />
       <Flash notice={sp.notice} error={sp.error} />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Leads" value={fmt(c.leads)} icon="leads" tone="brand" />
         <Stat label="Held a consult" value={fmt(c.consulted)} hint={`${pct(c.consulted, c.leads)} of leads`} icon="phone" />
         <Stat label="Enrolled" value={fmt(c.enrolled)} hint={`${pct(c.enrolled, c.leads)} of leads`} icon="cohorts" />
@@ -65,7 +65,7 @@ export default async function CampaignPage(props: { params: Promise<{ id: string
         )}
       </div>
       {money && (
-        <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Stat label="Cost per lead" value={egp(c.costPerLead)} icon="gauge" />
           <Stat label="Cost per enrolment" value={egp(c.costPerEnrolment)} icon="gauge" />
           <Stat label="Revenue from its students" value={egp(c.revenueEgp)} icon="trend" />
@@ -73,7 +73,7 @@ export default async function CampaignPage(props: { params: Promise<{ id: string
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card title={`Leads (${c.leads})`} icon="leads" bodyClass="p-0">
           {campaignLeads.length === 0 ? (
             <EmptyState icon="leads" title="No leads tagged to this campaign yet." />
@@ -92,7 +92,7 @@ export default async function CampaignPage(props: { params: Promise<{ id: string
           )}
         </Card>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           {money && (
             <Card title="Costs" icon="trend">
               {costs.length === 0 ? (

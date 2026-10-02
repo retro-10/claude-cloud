@@ -72,7 +72,7 @@ export function ManageTwoFactor() {
   const [offState, offAction] = useActionState<TwoFactorState, FormData>(disableTwoFactorAction, {});
   if (offState.done) return <Result state={offState} />;
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <form action={codesAction} className="flex flex-col gap-3">
         <h3 className="text-sm font-medium">New recovery codes</h3>
         <CodeField label="Code from the app (or a recovery code)" />

@@ -153,7 +153,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
   const offerTier = TIERS.find(([k]) => k === lead.offerTier)?.[1];
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <Link href="/leads" className="flex w-fit items-center gap-1 text-xs text-muted hover:text-fg">
         <Icon name="chevronLeft" size={14} /> All leads
       </Link>
@@ -292,7 +292,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
         </dl>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
         <div className="flex min-w-0 flex-col gap-5">
           {nextStage && nextChecks.length > 0 && (
             <Card title={`Ready for ${nextStage.label}?`} icon="flag" bodyClass="px-4 py-3">

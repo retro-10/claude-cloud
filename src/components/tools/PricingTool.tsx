@@ -67,7 +67,7 @@ export function PricingTool({ start }: { start: PricingInput }) {
   const [a, setA] = useState(toDraft(start));
   const [b, setB] = useState(toDraft(start));
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-2">
       <Scenario title="As it is" d={a} set={setA} />
       <Scenario title="What if" d={b} set={setB} />
     </div>

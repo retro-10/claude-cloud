@@ -35,8 +35,8 @@ export default async function SopPage(props: { params: Promise<{ id: string }>; 
       </Link>
       <PageHeader eyebrow={s.area ?? "Playbook"} title={s.title} titleDir="auto" subtitle={s.purpose} />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="flex flex-col gap-5">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="flex flex-col gap-6">
           <Card title={`Steps (${s.steps.length})`} icon="list">
             <ol className="list-decimal space-y-1.5 pl-5 text-sm">
               {s.steps.map((step, i) => (
@@ -63,7 +63,7 @@ export default async function SopPage(props: { params: Promise<{ id: string }>; 
             )}
           </Card>
         </div>
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           {run && (
             <Card title="Start as a checklist" icon="flag">
               <form action={startRunAction} className="grid gap-3">

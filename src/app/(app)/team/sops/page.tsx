@@ -21,7 +21,7 @@ export default async function SopsPage(props: { searchParams: Promise<{ notice?:
       <PageHeader eyebrow="Team & operations" title="Playbooks" subtitle="How we do the jobs that come back: onboard a student, run a masterclass, close a batch, deliver a case. Start one as a checklist when it is time." />
       <TeamTabs current="/team/sops" />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card title={`Playbooks (${rows.length})`} icon="list" bodyClass="p-0">
           {!rows.length ? (
             <EmptyState icon="list" title="No playbooks yet." />

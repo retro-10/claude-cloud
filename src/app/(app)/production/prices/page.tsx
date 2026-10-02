@@ -70,7 +70,7 @@ export default async function PricesPage(props: { searchParams: Promise<{ notice
       />
       <ProductionTabs role={user.role} current="/production/prices" />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_440px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_440px]">
         <Card title={`Case types (${types.length})`} icon="list" bodyClass="p-0">
           {!types.length ? (
             <EmptyState icon="list" title="No prices yet." />

@@ -29,13 +29,13 @@ export default async function GraduationPage(props: { params: Promise<{ id: stri
       </Link>
       <PageHeader eyebrow={c.name} title="Graduation" subtitle="Who has met this batch's rules, what is missing for the others, and certificates for those who graduate." />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Students" value={rows.length} icon="leads" />
         <Stat label="Ready to graduate" value={rows.filter((r) => r.eligible && !r.certificate).length} icon="check" tone="brand" />
         <Stat label="Graduated" value={rows.filter((r) => r.certificate && !r.certificate.revoked).length} icon="cohorts" />
         <Stat label="Not yet" value={rows.filter((r) => !r.eligible && !r.certificate).length} icon="hourglass" />
       </div>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card title="Students" icon="leads" bodyClass="p-0">
           {rows.length === 0 ? (
             <EmptyState icon="leads" title="No students in this batch." />

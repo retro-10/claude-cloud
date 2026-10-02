@@ -29,12 +29,12 @@ export default async function InvoicesPage(props: { searchParams: Promise<{ noti
       <PageHeader eyebrow="Production studio" title="Invoices" subtitle="Invoice delivered cases, record what clients pay, and see who owes what. Every invoice is in the ledger as client work." />
       <ProductionTabs role={user.role} current="/production/invoices" />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
         <Stat label="Owed by clients" value={egp(owed)} icon="trend" />
         <Stat label="Overdue" value={overdue.length} icon="alert" hint={overdue.length ? egp(overdue.reduce((a, r) => a + r.owed, 0)) : "none"} />
         <Stat label="Clients to invoice" value={ready.length} icon="send" />
       </div>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Card title={`Invoices (${rows.length})`} icon="note" bodyClass="p-0">
           {!rows.length ? (
             <EmptyState icon="note" title="No invoices yet." />

@@ -34,14 +34,14 @@ export default async function CampaignsPage(props: { searchParams: Promise<{ not
     <>
       <PageHeader eyebrow="Growth" title="Campaigns" subtitle="Masterclasses, ads and collaborations: what each brought in, and what it cost. Spend is the ledger costs tagged to the campaign." />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Live campaigns" value={live.length} icon="bolt" tone="brand" />
         <Stat label="Leads from campaigns" value={fmt(total("leads"))} icon="leads" />
         <Stat label="Enrolled from campaigns" value={fmt(enrolled)} icon="cohorts" />
         {money ? <Stat label="Cost per enrolment" value={spend && enrolled ? egp(Math.round(spend / enrolled)) : "—"} hint={`${egp(spend)} spent in all`} icon="trend" /> : <Stat label="Campaigns" value={rows.length} icon="layers" />}
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Card title="All campaigns" icon="target" bodyClass="p-0 overflow-x-auto">
           {rows.length === 0 ? (
             <EmptyState icon="target" title="No campaigns yet.">

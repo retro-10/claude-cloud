@@ -77,8 +77,8 @@ export default async function ClassesPage(props: { searchParams: Promise<{ batch
           <button className="btn btn-ghost btn-sm">Show</button>
         </form>
       </div>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="flex flex-col gap-5">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="flex flex-col gap-6">
           <Card title={`Coming up (${upcoming.length})`} icon="calendar" bodyClass="p-0">
             <ClassList rows={upcoming} empty="No classes scheduled." />
           </Card>
@@ -87,7 +87,7 @@ export default async function ClassesPage(props: { searchParams: Promise<{ batch
           </Card>
         </div>
         {write && (
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-6">
             <Card title="Add a class" icon="plus">
               <ClassForm batches={batches} people={people} back={qs({})} cohortId={batch} />
             </Card>

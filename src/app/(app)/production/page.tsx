@@ -70,13 +70,13 @@ export default async function ProductionPage(props: { searchParams: Promise<{ no
       />
       <ProductionTabs role={user.role} current="/production" />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Open cases" value={open.length} icon="layers" />
         <Stat label="Late" value={late} icon="alert" hint={late ? "past their due time" : "none"} />
         <Stat label="Waiting for QC" value={qc} icon="check" />
         <Stat label={all ? "Delivered, to invoice" : "Delivered (30 days)"} value={toInvoice} icon="send" />
       </div>
-      <div className={manage ? "grid gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]" : ""}>
+      <div className={manage ? "grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]" : ""}>
         <div className="grid min-w-0 gap-3 overflow-x-auto pb-2 [grid-template-columns:repeat(5,minmax(210px,1fr))]" tabIndex={0} role="region" aria-label="Cases by stage">
           {COLUMNS.map((st) => {
             const col = rows.filter((r) => r.status === st);

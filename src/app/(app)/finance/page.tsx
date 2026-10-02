@@ -83,7 +83,7 @@ export default async function FinancePage(props: { searchParams: Promise<{ month
         </div>
       )}
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Received" value={money(m.income)} icon="trend" hint={<Delta now={cur.income} before={prev.income} />} />
         <Stat
           label="Costs paid"
@@ -138,7 +138,7 @@ export default async function FinancePage(props: { searchParams: Promise<{ month
         </div>
       </section>
 
-      <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
+      <div className="mb-8 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Card title="Last 12 months" icon="trend" className="xl:col-span-2">
           <PairColumns
             a="Received"

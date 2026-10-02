@@ -78,7 +78,7 @@ export default async function ResponsibilitiesPage(props: { searchParams: Promis
       <PageHeader eyebrow="Team & operations" title="Responsibilities" subtitle="Each recurring job, who does it and who answers for it. A job nobody active does is flagged." />
       <TeamTabs current="/team" />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card title={`Jobs (${rows.length})`} icon="user" bodyClass="p-0" actions={gaps ? <span className="chip chip-danger">{gaps} without anyone</span> : undefined}>
           {!rows.length ? (
             <EmptyState icon="user" title="No responsibilities written down yet." />

@@ -21,7 +21,7 @@ export default async function MeetingsPage(props: { searchParams: Promise<{ noti
       <PageHeader eyebrow="Team & operations" title="Meetings" subtitle="Agenda, notes and the decisions taken, each with an owner and a date." />
       <TeamTabs current="/team/meetings" />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card title={`Meetings (${rows.length})`} icon="calendar" bodyClass="p-0">
           {!rows.length ? (
             <EmptyState icon="calendar" title="No meetings logged yet." />

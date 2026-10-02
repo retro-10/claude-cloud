@@ -39,7 +39,7 @@ export function BatchPlanner({ d, today }: { d: PlannerDefaults; today: string }
   };
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-2">
       <div className="card p-4">
         <div className="grid gap-3 sm:grid-cols-2">
           {d.batches.length > 0 && (

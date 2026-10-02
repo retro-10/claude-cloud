@@ -89,7 +89,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Link>
           </div>
         )}
-        <main id="main" tabIndex={-1} className="mx-auto max-w-[1400px] px-4 pb-28 pt-6 outline-none has-[.board-wide]:max-w-none sm:px-6 sm:pb-12 lg:pt-8">
+        <main id="main" tabIndex={-1} className="mx-auto max-w-[1440px] px-4 pb-28 pt-8 outline-none has-[.board-wide]:max-w-none sm:px-8 sm:pb-16 lg:px-10 lg:pt-10">
           {children}
         </main>
       </AppFrame>

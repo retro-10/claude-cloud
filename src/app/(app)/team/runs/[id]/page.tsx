@@ -41,7 +41,7 @@ export default async function RunPage(props: { params: Promise<{ id: string }>; 
           .join(" · ")}
       />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card title="Steps" icon="check" bodyClass="p-0">
           <ol className="divide-y divide-line">
             {r.steps.map((s, i) => (

@@ -38,7 +38,7 @@ export default async function CandidateBalances(props: { searchParams: Promise<{
       <FinanceNav />
       <Flash error={sp.error} notice={sp.notice} />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Owed in total" value={egp(sum("due"))} hint={`${all.length} candidates`} icon="leads" />
         <Stat label="Paid" value={egp(sum("paid"))} hint={sum("due") ? `${Math.round((sum("paid") / sum("due")) * 100)}% collected` : undefined} icon="check" tone="brand" />
         <Stat label="Scheduled" value={egp(sum("expected"))} hint="expected installments" icon="calendar" />

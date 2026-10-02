@@ -22,7 +22,7 @@ export default async function ForecastPage(props: { searchParams: Promise<{ open
     <>
       <PageHeader eyebrow="Finance" title="Cash forecast" subtitle="The next 13 weeks from today: instalments and invoices due in, costs and withdrawals owed out, and the part of each month's budget not booked yet." />
       <FinanceNav />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Expected in" value={egp(f.totals.in)} icon="trend" hint="instalments and invoices" />
         <Stat label="Owed out" value={egp(f.totals.out)} icon="send" hint="booked costs and withdrawals" />
         <Stat label="Budget not yet booked" value={egp(f.totals.planned)} icon="target" />

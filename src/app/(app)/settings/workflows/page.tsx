@@ -39,7 +39,7 @@ export default async function WorkflowSettings(props: { searchParams: Promise<{ 
         Rules turn events into tasks, tags and notifications so nothing depends on memory. <strong className="text-fg">Rules never send a message</strong>:
         every message still goes out by hand from WhatsApp.
       </p>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-3">
           {rules.map((r) => (
             <section key={r.id} aria-label={r.name} className={`card p-4 ${r.enabled ? "" : "opacity-60"}`}>

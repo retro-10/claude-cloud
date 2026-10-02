@@ -67,7 +67,7 @@ export default async function CohortPage(props: { params: Promise<{ id: string }
       />
       <Flash error={searchParams.error} notice={searchParams.notice} />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Seats" value={`${c.seatsUsed} / ${c.seatCap}`} hint={over ? "over the cap" : `${c.seatCap - c.seatsUsed} left`} icon="cohorts" />
         <Stat label="Enrolment" value={closeLabel(c.enrolmentCloseAt)} hint={c.enrolmentCloseAt ? `closes ${formatCairo(c.enrolmentCloseAt)}` : "no close date"} icon="calendar" />
         {seeMoney && <Stat label="Owed by students" value={egp(c.revenueEgp)} hint={`${egp(c.collectedEgp)} collected`} icon="trend" tone="brand" />}

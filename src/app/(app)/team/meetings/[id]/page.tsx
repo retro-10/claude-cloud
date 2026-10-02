@@ -30,8 +30,8 @@ export default async function MeetingPage(props: { params: Promise<{ id: string 
       </Link>
       <PageHeader eyebrow={formatCairo(m.heldAt)} title={m.title} titleDir="auto" subtitle={m.attendees} />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="flex flex-col gap-5">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="flex flex-col gap-6">
           <Card title={`Decisions (${ds.length})`} icon="flag" bodyClass="p-0">
             <DecisionList rows={ds} me={user.id} manage={manage} back={back} showMeeting={false} />
           </Card>

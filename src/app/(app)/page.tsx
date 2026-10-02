@@ -138,9 +138,9 @@ export default async function TodayPage(props: { searchParams: Promise<{ mine?: 
 
   return (
     <>
-      <header className="mb-6 flex flex-wrap items-end gap-x-6 gap-y-3 animate-rise-in">
+      <header className="mb-8 flex flex-col gap-4 animate-rise-in md:flex-row md:items-end md:justify-between md:gap-8">
         <div className="min-w-0 flex-1">
-          <div className="eyebrow mb-1.5">
+          <div className="eyebrow mb-2">
             {new Intl.DateTimeFormat("en-GB", { timeZone: TZ, weekday: "long", day: "numeric", month: "long" }).format(now)}
           </div>
           <h1 className="page-title">
@@ -154,17 +154,17 @@ export default async function TodayPage(props: { searchParams: Promise<{ mine?: 
             {t.totals.noNextStep > 0 && ` ${t.totals.noNextStep} open lead${t.totals.noNextStep === 1 ? " has" : "s have"} no next step.`}
           </p>
         </div>
-        <div className="flex rounded-lg border border-line bg-surface p-0.5 text-sm" role="group" aria-label="Whose leads">
-          <Link href="/" aria-current={!mine ? "page" : undefined} className={`rounded-md px-3 py-1.5 ${!mine ? "bg-raised font-medium" : "text-muted hover:text-fg"}`}>
+        <div className="flex self-start rounded-lg border border-line bg-surface p-1 text-sm md:self-auto" role="group" aria-label="Whose leads">
+          <Link href="/" aria-current={!mine ? "page" : undefined} className={`rounded-md px-4 py-2 ${!mine ? "bg-raised font-medium" : "text-muted hover:text-fg"}`}>
             Everyone
           </Link>
-          <Link href="/?mine=1" aria-current={mine ? "page" : undefined} className={`rounded-md px-3 py-1.5 ${mine ? "bg-raised font-medium" : "text-muted hover:text-fg"}`}>
+          <Link href="/?mine=1" aria-current={mine ? "page" : undefined} className={`rounded-md px-4 py-2 ${mine ? "bg-raised font-medium" : "text-muted hover:text-fg"}`}>
             Only mine
           </Link>
         </div>
       </header>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {tiles.map((k, i) => (
           <a
             key={k.label}
@@ -184,7 +184,7 @@ export default async function TodayPage(props: { searchParams: Promise<{ mine?: 
         ))}
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-5">
           <Section
             id="queue"

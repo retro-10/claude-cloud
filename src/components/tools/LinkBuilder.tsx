@@ -40,7 +40,7 @@ export function LinkBuilder({ base, forms, campaigns }: { base: string; forms: F
   }, [link]);
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-2">
       <div className="card grid gap-3 p-4 sm:grid-cols-2">
         <label className="field sm:col-span-2">
           Where the link goes

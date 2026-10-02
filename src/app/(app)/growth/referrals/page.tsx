@@ -31,13 +31,13 @@ export default async function ReferralsPage(props: { searchParams: Promise<{ not
         subtitle="Students and graduates who bring people in. Make someone's referral link on their lead page; anyone who signs up through it is marked as referred by them."
       />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="People referring" value={people.length} icon="user" tone="brand" />
         <Stat label="Referred" value={referred} icon="leads" />
         <Stat label="Of those, enrolled" value={enrolled} hint={referred ? `${Math.round((enrolled / referred) * 100)}%` : undefined} icon="cohorts" />
         {money && <Stat label="Rewards to decide" value={rewards.filter((r) => r.w.status === "pending").length} icon="flag" />}
       </div>
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-2">
         <Card title="Who refers" icon="user" bodyClass="p-0 overflow-x-auto">
           {people.length === 0 ? (
             <EmptyState icon="user" title="No referrals yet.">

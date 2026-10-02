@@ -26,7 +26,7 @@ export default async function AlumniPage(props: { searchParams: Promise<{ availa
     <>
       <PageHeader eyebrow="Programme" title="Alumni" subtitle="Graduates, their skills and whether they want paid work. Use it to place Freelance Ready and Production Partner graduates on real cases." />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Graduates" value={all.length} icon="cohorts" tone="brand" />
         <Stat label="Open to paid work" value={all.filter((a) => a.availability === "open").length} icon="bolt" />
         <Stat label="Production Partner" value={all.filter((a) => a.tiers.includes("production_partner")).length} icon="sparkle" />

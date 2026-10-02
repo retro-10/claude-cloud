@@ -43,7 +43,7 @@ export default async function AssignmentPage(props: { params: Promise<{ id: stri
           </p>
         </Card>
       )}
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Card title={`Students (${rows.length})`} icon="leads" bodyClass="p-0">
           <ul className="divide-y divide-line">
             {rows.map(({ enrolmentId, leadId, fullName, sub, reviewer }) => (
@@ -127,7 +127,7 @@ export default async function AssignmentPage(props: { params: Promise<{ id: stri
           </ul>
         </Card>
         {write && (
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-6">
             <Card title="Edit assignment" icon="edit">
               <AssignmentForm a={a} batches={batches} />
             </Card>

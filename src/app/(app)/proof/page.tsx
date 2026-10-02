@@ -33,7 +33,7 @@ export default async function ProofBank(props: { searchParams: Promise<{ consent
         subtitle="Quotes, QC results and screenshots from candidates. Use an item in content only when it says Ready: consent granted, word for word, no income promises."
       />
       <Flash error={sp.error} notice={sp.notice} />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Items" value={all.length} icon="sparkle" />
         <Stat label="Ready to use" value={ready} hint="consent granted" icon="check" tone="brand" />
         <Stat label="Waiting on consent" value={all.filter((r) => r.p.consentStatus === "Asked").length} hint="asked, no answer yet" icon="hourglass" />

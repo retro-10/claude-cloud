@@ -38,8 +38,8 @@ export default async function ClientPage(props: { params: Promise<{ id: string }
         subtitle={[c.contactName, c.phone, c.email, c.discountPct ? `−${c.discountPct}% on the price list` : null, `pays within ${c.paymentTermsDays} days`].filter(Boolean).join(" · ")}
       />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="flex flex-col gap-5">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="flex flex-col gap-6">
           <Card title={`Cases (${cases.length})`} icon="layers" bodyClass="p-0">
             {!cases.length ? (
               <EmptyState icon="layers" title="No cases yet." />
@@ -77,7 +77,7 @@ export default async function ClientPage(props: { params: Promise<{ id: string }
             )}
           </Card>
         </div>
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           {money && (
             <Card title="Invoices" icon="note" actions={<span className="text-sm">{owed ? <>owes <span className="num font-semibold">{egp(owed)}</span></> : "nothing owed"}</span>}>
               {!invs.length ? (

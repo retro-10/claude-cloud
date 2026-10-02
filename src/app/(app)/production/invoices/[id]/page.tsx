@@ -46,8 +46,8 @@ export default async function InvoicePage(props: { params: Promise<{ id: string 
         }
       />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="flex flex-col gap-5">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="flex flex-col gap-6">
           <Card title="Cases" icon="layers" bodyClass="p-0">
             <div className="overflow-x-auto">
               <table className="table">
@@ -95,7 +95,7 @@ export default async function InvoicePage(props: { params: Promise<{ id: string 
             </Card>
           )}
         </div>
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           <Card title="Payments" icon="trend">
             <dl className="mb-3 grid grid-cols-2 gap-1 text-sm">
               <dt className="text-muted">Paid</dt>

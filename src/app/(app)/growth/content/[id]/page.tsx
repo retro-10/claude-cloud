@@ -49,11 +49,11 @@ export default async function ContentItemPage(props: { params: Promise<{ id: str
         subtitle={c.publishAt ? `Publishing ${formatCairo(c.publishAt)}` : "No date yet"}
       />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card title="Plan" icon="edit">
           {write ? <ContentForm c={c} people={people} campaigns={camps} me={user.id} back={`/growth/content/${c.id}`} /> : <p className="whitespace-pre-line text-sm">{c.brief}</p>}
         </Card>
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           <Card title="Its link" icon="send">
             {link ? (
               <>

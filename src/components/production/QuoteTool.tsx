@@ -22,7 +22,7 @@ export function QuoteTool({ types, clients }: { types: Type[]; clients: Client[]
   const message = q && t ? `${t.name} × ${units}${rush ? " (rush)" : ""}: ${egp(q.priceEgp)}, ready by ${longDate(q.dueYmd)} at 18:00.` : "";
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-2">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="field sm:col-span-2">
           Case type

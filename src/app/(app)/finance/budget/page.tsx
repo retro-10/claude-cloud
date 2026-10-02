@@ -43,7 +43,7 @@ export default async function BudgetPage(props: { searchParams: Promise<{ month?
       />
       <FinanceNav />
       <Flash notice={sp.notice} error={sp.error} />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Budget" value={egp(totals.budget)} icon="target" />
         <Stat label="Paid" value={egp(totals.paid)} icon="check" />
         <Stat label="Owed" value={egp(totals.owed)} icon="clock" />
