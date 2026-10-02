@@ -5,6 +5,9 @@ import { db } from "@/db";
 import { cadenceTemplates, campaigns, leadForms } from "@/db/schema";
 import { Flash } from "@/components/Flash";
 import { Registrants } from "@/components/growth/Registrants";
+import { DraftPanel } from "@/components/ai/DraftPanel";
+import { aiOffered } from "@/lib/ai/core";
+import { draftScriptAction } from "@/app/(app)/ask/drafts";
 import { Card, Icon, PageHeader, Stat } from "@/components/ui";
 import { listEvents, registrants } from "@/lib/events";
 import { publicBaseUrl } from "@/lib/public-url";
@@ -33,6 +36,7 @@ export default async function EventPage(props: { params: Promise<{ id: string }>
   const e = all.find((x) => x.id === id);
   if (!c || !e) notFound();
   const write = can(user.role, "growth:write");
+  const ai = write && (await aiOffered(db, user.role));
   const when = c.eventAt ? formatCairo(c.eventAt) : "the date we sent you";
   const defaultMessage = `Hi {name}, a quick reminder: the OrlaDent Camp masterclass "${c.label}" is on ${when} (Cairo time). See you there!`;
 
@@ -71,6 +75,19 @@ export default async function EventPage(props: { params: Promise<{ id: string }>
           />
         </Card>
         <div className="flex flex-col gap-6">
+          {ai && (
+            <Card title="Run-of-show script" icon="sparkle">
+              <DraftPanel
+                action={draftScriptAction.bind(null, c.id)}
+                button="Draft the script"
+                choices={[
+                  { name: "minutes", label: "Length", options: [["60", "60 minutes"], ["45", "45 minutes"], ["90", "90 minutes"]] },
+                  { name: "lang", label: "Language", options: [["en", "English"], ["ar", "العربية"]] },
+                ]}
+                rows={16}
+              />
+            </Card>
+          )}
           <Card title="Sign-up" icon="send">
             {forms.length ? (
               <ul className="flex flex-col gap-2 text-sm">

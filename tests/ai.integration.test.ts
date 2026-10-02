@@ -9,6 +9,9 @@ import type { Db } from "@/db";
 import { ask, deleteThread, listThreads, threadMessages, toolsFor } from "@/lib/ai/ask";
 import { AiError, aiStatus, callClaude, redact, setAiForTests, type BetaMessage } from "@/lib/ai/core";
 import { DEFAULTS, getSettings, saveSettings } from "@/lib/app-settings";
+import { draftCaption, draftLeadMessage, draftScript, draftWeekly } from "@/lib/ai/drafts";
+import { splitWeekly } from "@/lib/ai/split";
+import { weekStartOf } from "@/lib/command";
 import { createUser } from "@/lib/settings";
 import type Anthropic from "@anthropic-ai/sdk";
 
@@ -21,6 +24,13 @@ describe("redaction (pure)", () => {
     expect(redact("Call +20 100 123 4567 or mail mona@clinic.com")).toBe("Call [phone] or mail [email]");
     expect(redact("WhatsApp 01001234567, paid 12,500 EGP on 2026-09-01, 3 units")).toBe("WhatsApp [phone], paid 12,500 EGP on 2026-09-01, 3 units");
     expect(redact("due 01/10/2026; budget 12,500,000 EGP; call 0100 123 4567")).toBe("due 01/10/2026; budget 12,500,000 EGP; call [phone]");
+  });
+});
+
+describe("weekly draft split (pure)", () => {
+  it("finds the three sections, with or without markdown around the headings", () => {
+    expect(splitWeekly("WINS\n- 12 leads\n\nMISSES\n- 0 consults\n\nDECISIONS\n- Hire")).toEqual({ wins: "- 12 leads", misses: "- 0 consults", decisions: "- Hire" });
+    expect(splitWeekly("**WINS**\n- a\n## MISSES:\n- b")).toEqual({ wins: "- a", misses: "- b", decisions: "" });
   });
 });
 
@@ -171,5 +181,49 @@ d("the AI assistant", () => {
     const r = await ask(db, viewer(owner, "owner"), null, "loop", ai);
     expect(r.answer).toMatch(/could not finish/);
     expect(r.lookups).toHaveLength(6);
+  });
+  it("drafts a WhatsApp message from the conversation, in the brand voice, without contact details", async () => {
+    await db.insert(s.activities).values({ leadId, type: "whatsapp", direction: "in", body: "How much is the camp? my email is mona@x.com" });
+    const sent = script(text("Hi Mona! The fee is [price]."));
+    const { ai } = await getSettings(db);
+    const out = await draftLeadMessage(db, viewer(sales, "sales"), leadId, { lang: "en", kind: "reply" }, ai);
+    expect(out).toBe("Hi Mona! The fee is [price].");
+    const system = (sent[0].system as { text: string }[]).map((b) => b.text).join("\n");
+    expect(system).toContain(ai.brandVoice);
+    expect(system).toMatch(/Never invent a price/);
+    expect(system).toContain("How much is the camp?");
+    expect(system).not.toMatch(/mona@x\.com|01001234567/);
+    expect(sent[0].tools).toBeUndefined();
+    // viewers do not message leads; do-not-contact leads get nothing
+    await expect(draftLeadMessage(db, { id: owner, name: "V", role: "viewer" }, leadId, {}, ai)).rejects.toThrow(/Only people who message/);
+    await db.update(s.leads).set({ doNotContact: true }).where(eq(s.leads.id, leadId));
+    await expect(draftLeadMessage(db, viewer(sales, "sales"), leadId, {}, ai)).rejects.toThrow(/do-not-contact/);
+    await db.update(s.leads).set({ doNotContact: false }).where(eq(s.leads.id, leadId));
+  });
+
+  it("captions use a student's words only with consent; scripts and weekly reviews are for the right people", async () => {
+    const { ai } = await getSettings(db);
+    const [p] = await db.insert(s.proofItems).values({ name: "Mona's win", quote: "I passed QC first time", consentStatus: "Asked" }).returning();
+    const [c] = await db.insert(s.contentItems).values({ title: "Crown reel", proofItemId: p.id, brief: "Show the crown" }).returning();
+    let sent = script(text("HOOKS\n1. a\n\nCAPTION\nb"));
+    await draftCaption(db, viewer(sales, "sales"), c.id, { lang: "ar" }, ai);
+    let sys = (sent[0].system as { text: string }[]).map((b) => b.text).join("\n");
+    expect(sys).not.toContain("I passed QC");
+    expect(sys).toContain("Egyptian Arabic");
+    await db.update(s.proofItems).set({ consentStatus: "Granted" }).where(eq(s.proofItems.id, p.id));
+    sent = script(text("ok"));
+    await draftCaption(db, viewer(sales, "sales"), c.id, {}, ai);
+    expect((sent[0].system as { text: string }[]).map((b) => b.text).join("\n")).toContain("I passed QC first time");
+
+    const [m] = await db.insert(s.campaigns).values({ label: "Crown masterclass", kind: "masterclass" }).returning();
+    sent = script(text("0:00 Welcome"));
+    expect(await draftScript(db, viewer(sales, "sales"), m.id, { minutes: "45" }, ai)).toBe("0:00 Welcome");
+    expect((sent[0].system as { text: string }[]).map((b) => b.text).join("\n")).toMatch(/45-minute/);
+
+    await expect(draftWeekly(db, viewer(sales, "sales"), weekStartOf(new Date()), ai)).rejects.toThrow(/Only owners/);
+    sent = script(text("WINS\n- x"));
+    await draftWeekly(db, viewer(owner, "owner"), weekStartOf(new Date()), ai);
+    sys = (sent[0].system as { text: string }[]).map((b) => b.text).join("\n");
+    expect(sys).toContain("Cash collected");
   });
 });

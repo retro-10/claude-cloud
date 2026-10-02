@@ -3,6 +3,7 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { aiUsage } from "@/db/schema";
 import { getSettings, type AiSettings } from "../app-settings";
+import { can, type Role } from "../rbac";
 import { startOfCairoDay } from "../time";
 import { fakeAllowed, fakeCreate } from "./fake";
 
@@ -44,6 +45,11 @@ export async function aiStatus(db: Db): Promise<AiStatus> {
   if (!create()) return { ok: false, reason: "The AI assistant needs an Anthropic API key on the server (ANTHROPIC_API_KEY). Whoever runs the server can add it.", settings: ai };
   if (!ai.enabled) return { ok: false, reason: "The AI assistant is switched off. An owner can switch it on in Settings > AI.", settings: ai };
   return { ok: true, settings: ai };
+}
+
+/** Should a page offer AI buttons to this person? (On, a key, and the person may use it.) */
+export async function aiOffered(db: Db, role: Role) {
+  return can(role, "ai:use") && (await aiStatus(db)).ok;
 }
 
 export class AiError extends Error {}

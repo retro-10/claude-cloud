@@ -6,6 +6,9 @@ import { campaigns, leadForms, leads, proofItems, users } from "@/db/schema";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { Flash } from "@/components/Flash";
 import { ContentForm } from "@/components/growth/ContentForm";
+import { DraftPanel } from "@/components/ai/DraftPanel";
+import { aiOffered } from "@/lib/ai/core";
+import { draftCaptionAction } from "@/app/(app)/ask/drafts";
 import { Card, Icon, PageHeader } from "@/components/ui";
 import { FORMATS, PLATFORMS, STATUSES, getContent } from "@/lib/content";
 import { publicBaseUrl } from "@/lib/public-url";
@@ -36,6 +39,7 @@ export default async function ContentItemPage(props: { params: Promise<{ id: str
   const campaignSlug = camps.find((g) => g.id === c.campaignId)?.slug;
   const link = form && c.tag ? `${base}/f/${form.slug}?utm_source=${UTM_SOURCE[c.platform]}&utm_medium=${c.format}${campaignSlug ? `&utm_campaign=${campaignSlug}` : ""}&utm_content=${c.tag}` : null;
   const write = can(user.role, "growth:write");
+  const ai = write && (await aiOffered(db, user.role));
 
   return (
     <>
@@ -54,6 +58,16 @@ export default async function ContentItemPage(props: { params: Promise<{ id: str
           {write ? <ContentForm c={c} people={people} campaigns={camps} me={user.id} back={`/growth/content/${c.id}`} /> : <p className="whitespace-pre-line text-sm">{c.brief}</p>}
         </Card>
         <div className="flex flex-col gap-6">
+          {ai && (
+            <Card title="Hooks and caption" icon="sparkle">
+              <DraftPanel
+                action={draftCaptionAction.bind(null, c.id)}
+                button="Draft hooks and a caption"
+                choices={[{ name: "lang", label: "Language", options: [["en", "English"], ["ar", "العربية"]] }]}
+                rows={12}
+              />
+            </Card>
+          )}
           <Card title="Its link" icon="send">
             {link ? (
               <>
