@@ -17,6 +17,7 @@ export type Action =
   | "production:read" // the production studio: cases and clients (designers see only the cases assigned to them)
   | "production:manage" // clients, the price list, taking cases in, assigning, QC review, delivery (owner)
   | "production:work" // work a case assigned to you: start it, add its files, send it to QC (owner and designer)
+  | "ops:manage" // responsibilities, the SOP library, meetings and decisions (owner); running a checklist is task:write
   | "stage:override" // move a lead although the stage's exit criteria are not met (with a reason)
   | "finance:read"; // revenue anywhere (dashboard, batches, a lead's payments) and the Finance board: owner and finance only
 
@@ -40,6 +41,7 @@ const MATRIX: Record<Role, ReadonlySet<Action>> = {
     "production:read",
     "production:manage",
     "production:work",
+    "ops:manage",
   ]),
   sales: new Set<Action>(["lead:read", "lead:write", "task:write", "file:write", "growth:write"]),
   viewer: new Set<Action>(["lead:read"]),

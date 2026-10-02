@@ -8,7 +8,7 @@ import { seedReference } from "@/db/seed";
 import * as s from "@/db/schema";
 import type { Db } from "@/db";
 import { passwordVersion } from "@/lib/password-version";
-import { signSession } from "@/lib/session";
+import { signSession, verifySession } from "@/lib/session";
 import { createUser, resetPassword, updateUser } from "@/lib/settings";
 import { createLead } from "@/lib/leads";
 import { withoutRelease11Rules } from "./base-rules";
@@ -142,6 +142,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/alumni/actions")),
       ...(await import("@/app/(app)/leads/portal-actions")),
       ...(await import("@/app/(app)/production/actions")),
+      ...(await import("@/app/(app)/team/actions")),
     };
   });
   afterAll(async () => {
@@ -269,6 +270,24 @@ d("role rules on the server", () => {
       return strict(() => A.voidInvoiceAction(fd({ id: inv.id, reason: "mistake" })));
     }],
     ["saveInvoiceDetailsAction", ["owner"], () => strict(() => A.saveInvoiceDetailsAction(fd({ legalName: "OrlaDent", address: "Cairo" })))],
+    ["saveResponsibilityAction", ["owner"], () => strict(() => A.saveResponsibilityAction(fd({ area: `Job ${++n}`, cadence: "daily", responsibleId: "", accountableId: "" })))],
+    ["saveSopAction", ["owner"], () => strict(() => A.saveSopAction(fd({ title: `SOP ${++n}`, steps: "One\nTwo" })))],
+    ["startRunAction", ["owner", "sales", "finance", "instructor"], async () => {
+      const [sop] = await db.insert(s.sops).values({ title: `S${++n}`, steps: ["a", "b"] }).returning();
+      return strict(() => A.startRunAction(fd({ sopId: sop.id, assigneeId: "", cohortId: "", leadId: "", due: "" })));
+    }],
+    ["tickStepAction", ["owner", "sales", "finance", "instructor"], async () => {
+      const [sop] = await db.insert(s.sops).values({ title: `S${++n}`, steps: ["a"] }).returning();
+      const [run] = await db.insert(s.sopRuns).values({ sopId: sop.id, title: "r", steps: [{ text: "a", doneAt: null, doneBy: null }] }).returning();
+      return strict(() => A.tickStepAction(fd({ id: run.id, index: 0, done: "1" })));
+    }],
+    ["saveMeetingAction", ["owner"], () => strict(() => A.saveMeetingAction(fd({ title: `Meeting ${++n}`, heldAt: "2030-01-01T10:00" })))],
+    ["addDecisionAction", ["owner"], () => strict(() => A.addDecisionAction(fd({ title: `Decide ${++n}`, ownerId: "", due: "", meetingId: "" })))],
+    ["closeDecisionAction (their own decision)", ["owner", "sales", "finance", "instructor"], async () => {
+      const me = jar.cookie ? (await verifySession(jar.cookie))?.id : undefined;
+      const [dec] = await db.insert(s.decisions).values({ title: `D${++n}`, ownerId: me ?? null }).returning();
+      return strict(() => A.closeDecisionAction(fd({ id: dec.id, status: "done", outcome: "" })));
+    }],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 

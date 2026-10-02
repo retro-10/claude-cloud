@@ -129,9 +129,9 @@ export function Kbd({ children }: { children: React.ReactNode }) {
   return <kbd className="kbd">{children}</kbd>;
 }
 
-export function Tabs({ items, current }: { items: { href: string; label: string; count?: number }[]; current: string }) {
+export function Tabs({ items, current, label = "Sections" }: { items: { href: string; label: string; count?: number }[]; current: string; label?: string }) {
   return (
-    <nav aria-label="Sections" className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
+    <nav aria-label={label} className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
       {items.map((t) => {
         const active = current === t.href;
         return (

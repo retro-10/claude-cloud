@@ -1027,3 +1027,92 @@ export const productionCases = pgTable(
   },
   (t) => [index("production_cases_status_idx").on(t.status), index("production_cases_designer_idx").on(t.designerId), index("production_cases_client_idx").on(t.clientId)],
 );
+
+// ---------------- OrlaDent OS · Phase 4: team and operations ----------------
+
+// Who owns each recurring job (RACI): replying to leads, posting, QC, chasing instalments…
+export const responsibilities = pgTable("responsibilities", {
+  id: serial("id").primaryKey(),
+  area: text("area").notNull(), // the job, e.g. "Reply to new leads within 5 minutes"
+  cadence: text("cadence"), // daily | weekly | monthly | per batch | as it happens
+  responsibleId: integer("responsible_id").references(() => users.id), // does it
+  accountableId: integer("accountable_id").references(() => users.id), // answers for it
+  consulted: text("consulted"),
+  informed: text("informed"),
+  notes: text("notes"),
+  position: integer("position").notNull().default(0),
+  updatedBy: integer("updated_by").references(() => users.id),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+  deletedAt: ts("deleted_at"),
+});
+
+// Playbooks: how we onboard a student, run a masterclass, close a batch. Started as a checklist when needed.
+export const sops = pgTable("sops", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  area: text("area"), // Sales | Programme | Production | Content | Finance | …
+  purpose: text("purpose"),
+  steps: jsonb("steps").$type<string[]>().notNull(),
+  updatedBy: integer("updated_by").references(() => users.id),
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+  deletedAt: ts("deleted_at"),
+});
+
+export type RunStep = { text: string; doneAt: string | null; doneBy: number | null };
+
+// One use of a playbook: its steps as they were when started, ticked off one by one.
+export const sopRuns = pgTable(
+  "sop_runs",
+  {
+    id: serial("id").primaryKey(),
+    sopId: integer("sop_id")
+      .notNull()
+      .references(() => sops.id),
+    title: text("title").notNull(), // e.g. "Close a batch — Batch 7"
+    steps: jsonb("steps").$type<RunStep[]>().notNull(),
+    assigneeId: integer("assignee_id").references(() => users.id),
+    cohortId: integer("cohort_id").references(() => cohorts.id),
+    leadId: integer("lead_id").references(() => leads.id),
+    dueAt: ts("due_at"),
+    startedBy: integer("started_by").references(() => users.id),
+    startedAt: ts("started_at").notNull().defaultNow(),
+    completedAt: ts("completed_at"),
+    cancelledAt: ts("cancelled_at"),
+  },
+  (t) => [index("sop_runs_open_idx").on(t.sopId).where(sql`${t.completedAt} is null and ${t.cancelledAt} is null`), index("sop_runs_lead_idx").on(t.leadId)],
+);
+
+export const meetings = pgTable("meetings", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  heldAt: ts("held_at").notNull(),
+  attendees: text("attendees"),
+  agenda: text("agenda"),
+  notes: text("notes"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export const decisionStatusEnum = pgEnum("decision_status", ["open", "done", "dropped"]);
+
+// A decision to act on, with an owner and a date. Open ones show in the Command centre until closed.
+export const decisions = pgTable(
+  "decisions",
+  {
+    id: serial("id").primaryKey(),
+    meetingId: integer("meeting_id").references(() => meetings.id),
+    title: text("title").notNull(),
+    detail: text("detail"),
+    ownerId: integer("owner_id").references(() => users.id),
+    dueAt: ts("due_at"),
+    status: decisionStatusEnum("status").notNull().default("open"),
+    outcome: text("outcome"), // what happened, when closed
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    closedAt: ts("closed_at"),
+    closedBy: integer("closed_by").references(() => users.id),
+  },
+  (t) => [index("decisions_open_idx").on(t.dueAt).where(sql`${t.status} = 'open'`), index("decisions_meeting_idx").on(t.meetingId)],
+);

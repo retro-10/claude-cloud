@@ -13,5 +13,5 @@ export function ProductionTabs({ role, current }: { role: Role; current: string 
     ...(manage || money ? [{ href: "/production/designers", label: "Designers" }] : []),
     ...(manage ? [{ href: "/production/quote", label: "Quote" }] : []),
   ];
-  return items.length > 1 ? <Tabs items={items} current={current} /> : null;
+  return items.length > 1 ? <Tabs label="Production studio" items={items} current={current} /> : null;
 }

@@ -12,6 +12,8 @@ import { CandidateMoney } from "@/components/finance/CandidateMoney";
 import { TaskForm, TaskList } from "@/components/tasks/TaskPanel";
 import { listTasks } from "@/lib/tasks";
 import { FilesPanel } from "@/components/FilesPanel";
+import { startRunAction } from "@/app/(app)/team/actions";
+import { listRuns, listSops } from "@/lib/operations";
 import { listAttachments } from "@/lib/attachments";
 import { publicBaseUrl } from "@/lib/public-url";
 import { makeReferralCodeAction, setReferrerAction } from "../../growth/referrals/actions";
@@ -100,7 +102,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
     db.select({ slug: leadForms.slug }).from(leadForms).where(and(eq(leadForms.active, true), isNull(leadForms.campaignId))).orderBy(asc(leadForms.id)).limit(1),
     publicBaseUrl(),
   ]);
-  const [portal, certs] = await Promise.all([portalStatus(db, id), certificatesFor(db, id)]);
+  const [portal, certs, playbooks, leadRuns] = await Promise.all([portalStatus(db, id), certificatesFor(db, id), listSops(db), listRuns(db, { leadId: id })]);
   const openFus = fus.filter((f) => !f.doneAt && !f.cancelledAt).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime());
   const stage = stageList.find((s) => s.key === lead.stage);
   const stageLabel = (k: string | null) => stageList.find((s) => s.key === k)?.label ?? k ?? "";
@@ -511,6 +513,39 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
               <div className="mt-3">
                 <TaskForm people={ownerList} back={`/leads/${lead.id}`} leadId={lead.id} me={user.id} />
               </div>
+            )}
+            {leadRuns.length > 0 && (
+              <ul className="mt-3 border-t border-line pt-2 text-sm">
+                {leadRuns.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-2 py-1">
+                    <Link href={`/team/runs/${r.id}`} className="link min-w-0 truncate" dir="auto">
+                      {r.title}
+                    </Link>
+                    <span className="text-xs text-muted">{r.completedAt ? "done" : `${r.doneSteps} of ${r.steps.length}`}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {can(user.role, "task:write") && !lead.deletedAt && playbooks.length > 0 && (
+              <form action={startRunAction} className="mt-3 flex flex-wrap items-end gap-2 border-t border-line pt-3">
+                <input type="hidden" name="leadId" value={lead.id} />
+                <input type="hidden" name="assigneeId" value={user.id} />
+                <input type="hidden" name="back" value={`/leads/${lead.id}`} />
+                <label className="field min-w-0 flex-1">
+                  Run a playbook for them
+                  <select name="sopId" required defaultValue="" className="input input-sm">
+                    <option value="" disabled>
+                      Choose
+                    </option>
+                    {playbooks.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button className="btn btn-secondary btn-sm">Start</button>
+              </form>
             )}
           </Card>
 

@@ -30,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let nav: NavItem[] = [
     { href: "/command", label: "Command centre", icon: "gauge", section: "OrlaDent OS", keys: "G O" },
     { href: "/tools", label: "Tools", icon: "sparkle", section: "OrlaDent OS" },
+    { href: "/team", label: "Team & ops", icon: "user", section: "OrlaDent OS" },
     { href: "/", label: "Today", icon: "today", section: "Work", count: counts.today, alert: counts.overdue > 0, keys: "G T", exact: true },
     { href: "/leads", label: "Leads", icon: "leads", section: "Work", keys: "G L" },
     { href: "/pipeline", label: "Pipeline", icon: "pipeline", section: "Work", keys: "G P" },
