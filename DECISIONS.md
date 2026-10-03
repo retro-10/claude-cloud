@@ -310,8 +310,255 @@ refused the enrolment. Both now name the table explicitly.
   rows from an existing install in Settings > Integrations: demo leads are recognised by construction
   (name "Demo Lead NN" and a +20108000000NN number), batches by name when nothing real uses them, money,
   sessions and proof by the "DEMO " prefix. Tested: nothing real is touched, and a second run is a no-op.
+  Rows already mirrored to Notion keep their link, marked "gone", and their pages are archived: deleting the
+  link instead would make the next read of Notion treat those pages as new rows and bring the demo back.
+* A phone or email typed in Notion that another lead already has is not saved (it would break the unique
+  index and stop every later lead in the run from syncing); the run log names both leads so they can be merged.
 
 ## Fonts
 
 The owners asked for clean, readable type: **Inter** everywhere (headings included, semibold with tight
 tracking), with **Noto Sans Arabic** as the fallback for Arabic names. This replaces Bodoni Moda and Archivo.
+
+## OrlaDent OS, Phase 1 (Command centre and foundations)
+
+The plan that turns the CRM into the brand's operating system lives in the shared doc "OrlaDent OS: roadmap from
+CRM to brand mastermind". Phase 1 builds what every later module reports into.
+
+* **Tasks are separate from follow-ups.** A follow-up is the sales cadence on one lead and drives Today, the
+  response clock and the stop rules. A task is any other work, on a lead, a batch or nothing. Merging them would
+  have tangled the sales metrics with team chores. Tasks move with a lead in a merge (and back on undo).
+* **Targets are quarterly, on the Cairo calendar**, and progress is computed live from the same tables as the
+  dashboard (never typed in). Pace compares the actual with an even spread over the quarter; "at risk" is within
+  20% of that. Revenue counts what the quarter's new students owe, with dropped students counting what they
+  paid (the same rule as everywhere since question 10).
+* **The pulse is a rolling 7 days**, not the calendar week, so Monday and Thursday compare like with like. The
+  weekly review uses Monday-to-Sunday weeks and saves that week's numbers with it, so history does not change
+  when data is corrected later.
+* **Alerts are computed, not stored.** Each line is a count with a link to the list behind it, using the same
+  definitions as Today and the smart views. Nothing to dismiss or go stale; money lines only for owners and
+  finance.
+* **Tools are pure functions with unit tests** (`src/lib/tools.ts`), used directly by the browser components.
+  The offer schedule rounds instalments down to 50 EGP and puts the remainder in the last one, so the sum is
+  exact. The batch planner never shows a weekly figure larger than the total.
+* **Two-factor sign-in** follows RFC 6238 (checked against the RFC's test vectors) using `node:crypto`, not a
+  library. The secret is sealed with AES-256-GCM under a key derived from `AUTH_SECRET`; a code works once (the
+  used step is recorded in the same UPDATE that accepts it, so two racing requests cannot both pass); 10 recovery
+  codes are stored as SHA-256. The password step issues only a 5-minute pass scoped to `/login`; session tokens
+  now carry `purpose: session` and any other purpose is refused, so the pass can never act as a session. Tokens
+  signed before this change (no purpose) stay valid, so nobody was signed out. Found and closed during
+  development: without the purpose check the pass would have been accepted as a session.
+* **Files live in Postgres (bytea), 8 MB each.** The existing `pg_dump` backup covers them with no new service,
+  and access control is the same code as the record they belong to. Only an allow-list of types is accepted;
+  only raster images open inline, everything else downloads as `application/octet-stream` with `nosniff` and a
+  sandbox CSP. Deleting a file removes its bytes. If files grow into videos or thousands of case files, move the
+  bytes to S3-compatible storage and keep this table as the index.
+* **New permissions**: `task:write` and `file:write` (owner, sales, finance), `lead:export` (owners). Every new
+  action is in the role matrix test, which calls the real actions once per role.
+
+Verified: lint, types, 350+ unit and integration tests (tasks, targets, pulse and alerts, planner defaults, the
+TOTP vectors, the whole two-factor sign-in against a real database, files and their download headers, the role
+matrix), and the browser suite: accessibility of every new screen in both themes, plus a Phase 1 journey
+(targets, a task from creation to done, the offer builder saving on a lead, a file upload and download, and
+two-factor set up and used in a real browser).
+
+## OrlaDent OS, Phase 2 (growth and content)
+
+* **Campaigns hold the money through the ledger.** Spend is the Paid ledger costs tagged with the campaign
+  (Owed shown apart), never a number typed on the campaign, so the books and the campaign report cannot
+  disagree. `saveEntry` only writes the tag when a caller passes it, so editing a cost from the ledger form or the
+  Notion sync keeps its campaign. A campaign with tagged costs cannot be deleted.
+* **One intake for every outside lead.** The public forms and the webhook both go through `intake()`: phone
+  normalised, a known person linked (never duplicated, with a note on their timeline), new leads through
+  `createLead` so routing and the new-lead rules apply, consent recorded as method *form* only when ticked.
+  The public page never reveals whether someone was already a lead.
+* **Public form defences** without a third-party captcha (no extra request, nothing to configure): a hidden
+  honeypot field; a stamp signed with `AUTH_SECRET` that records when the page was shown (no posting without the
+  page, nor within 2 seconds, nor after 6 hours); 5 sign-ups per address per 10 minutes; bots get the normal
+  thank-you so they learn nothing. Addresses are stored only as a keyed hash. If spam gets through at volume,
+  add a captcha then.
+* **The webhook** is off until `INBOUND_LEADS_TOKEN` (24+ characters) is set, compares the token in constant
+  time before reading the body, is rate limited, and keeps only known tracking keys. A guard test pins that order.
+* **Attribution is stored on the lead** (`leads.attribution`: utm_source/medium/campaign/content/term, ref, form),
+  cleaned to known keys and 100 characters each. A content piece's tag is its `utm_content`, which is how leads
+  are counted per post without any platform integration.
+* **Masterclass registrants are derived**, not copied: leads tagged to the campaign, its form sign-ups, plus
+  anyone registered by hand. A row in `event_attendance` exists only once someone acts (reminded, came). Merging
+  two registrants of the same event combines their rows first (came if either came). Reminders open WhatsApp
+  with the text filled in and are logged as a WhatsApp sent; nothing is sent automatically.
+* **Proof-to-post checks consent on the server** with the same rule as the proof bank's Ready badge.
+* **Referral rewards are decisions, not formulas**: a row appears when a referred lead enrols; approving needs
+  an amount typed by a person (QUESTIONS.md 29); Paid writes one ledger cost. Merges move referrals, rewards
+  and the code to the survivor; a code on a merged-away lead still resolves.
+* **Not built in Phase 2, by choice**: the caption and repurposing generators need the AI assistant (Phase 5);
+  sending WhatsApp messages and reading Meta ads data need accounts and decisions (QUESTIONS.md 39–40).
+* **Accessibility**: found and fixed by the automated checks during this phase: the calendar first used grid
+  roles without rows, faint out-of-month dates and a sideways-scrolling area unreachable by keyboard; it is now
+  a list of days with full dates for screen readers, inside a focusable region.
+
+Verified: lint, types, unit and integration tests for every module (including the public form's defences
+through the real action, the webhook through the real route, merges of registrants and referrers, the cost tag
+surviving a ledger edit), the role matrix for every new action, and the browser suite: every new screen in both
+themes plus a masterclass run end to end (campaign, form, a signed-out visitor signing up from a tracked link,
+attendance) and content and referrals.
+
+## OrlaDent OS, Phase 3 (student success)
+
+* **An instructor role**, not a flag on sales: read leads, add tasks and files, and `programme:write` (classes,
+  attendance, assignments and reviews, graduation, alumni, portal invites). No money (`finance:read`), no lead
+  editing, no settings. Owners hold `programme:write` too; graduating someone who misses the rules, and revoking
+  a certificate, stay with owners.
+* **Attendance rate = (present + late) ÷ (present + late + absent).** Excused classes do not count against
+  anyone, and a class nobody marked counts for no one, so a batch with no attendance taken has no attendance
+  rule to meet (said on the graduation page) rather than everyone at 0%.
+* **Missed classes make one task, not a stream.** At the second unexcused absence in a batch
+  (`MISSED_FOR_CHECK_IN`) a high-priority check-in task is created once per student and batch, for the person
+  who marked it. Nothing is sent to the student.
+* **Rubrics are plain text** (`name | points`, 1 to 10 criteria) stored as JSON on the assignment, so instructors
+  write them without a form builder. A review stores each criterion's score with its name and maximum, so later
+  rubric edits do not rewrite past results. A resubmission is a new attempt on the same row: scores cleared,
+  feedback kept until the next review, `attempt` counted.
+* **QC score and leaderboard come from reviews when a batch uses them**: QC = the rounded average of the
+  student's reviewed results; rank = SQL `rank()` by QC in the batch (ties share a rank: 1, 1, 3), dropped
+  students left out. Only rows with a reviewed result are touched, so a QC or rank typed by hand or synced from
+  Notion for a batch without reviews is left alone.
+* **Certificates are snapshots.** The name, programme, batch and date are copied onto the certificate when it is
+  issued, so renaming a lead or a batch later never changes a certificate already handed out. Codes are
+  `OC-XXXX-XXXX` from a 31-character alphabet without look-alikes (0/O, 1/I/L), from `crypto.randomBytes`. One
+  certificate per enrolment; graduating again after a revoke reissues it with a new code. The public check page
+  shows only what is printed on the certificate.
+* **Graduating someone who misses the rules needs an owner and a reason**, kept on the certificate and in the
+  audit log. Graduation also opens the alumni profile and the referral code, so a graduate can refer at once.
+* **The student portal has its own session**, never the staff one: cookie `orla_student`, path `/portal`, 14
+  days, signed with purpose `student`. Staff tokens carry purpose `session`; each verifier rejects the other's
+  (and the 2FA pending token), and the guard tests pin that portal code never touches the staff cookie or
+  staff checks and vice versa. Middleware lets `/portal*` through; every portal page and action calls
+  `requireStudent()`, which rechecks the account in the database on every request (switched off, or the
+  password changed since sign-in, means signed out).
+* **Invites store only a hash** of a 32-byte random token, expire in 7 days, are single-use and are only for an
+  enrolled student with a WhatsApp number. The link is shown to staff once. Sign-in is by the WhatsApp number in
+  any format (normalised like leads) and password, rate limited like staff sign-in.
+* **What a student acts on comes from their session, never the form**: work is sent only for an assignment of
+  their own batch (the enrolment is looked up from the signed-in student), and portal pages read only their own
+  lead's records. Money in the portal is their own plan and payments only.
+* **Merges and demo cleanup** move or remove every new table (attendance, submissions, certificates via
+  enrolments; alumni profiles and portal accounts, dropping the loser's duplicate).
+
+Verified: lint, types, unit and integration tests for classes (attendance, check-ins, copy), assignments
+(rubric parsing, reviews, attempts, QC and ranks with ties), graduation (rules, override, revoke, public check),
+the portal (invite, sign-in, rate limit, session separation, own-batch only), the role matrix with the instructor
+role, and the browser suite: every new screen in both themes plus a term end to end (class and attendance, an
+assignment reviewed, graduation, the certificate checked signed out, and the student's portal).
+
+## OrlaDent OS, Phase 4 (production studio, team and money)
+
+* **Production work is a separate world from leads.** Clients (clinics and labs) are their own records, not
+  leads: a clinic is a business with terms and invoices, not a person in a sales funnel. Designers are staff
+  users with the new **designer** role, so a Production Partner graduate can be given an account without seeing
+  the lead list, students or prices.
+* **The designer role made every staff page state its permission.** Until now every role could read leads, so
+  pages only checked the sign-in. Every page under the app now calls `requirePageCan(...)`, a guard test fails
+  the build for a page that does not, Today sends people without the lead list to the studio, and the sidebar
+  shows designers only the studio. A case's files open for whoever may see the case (a designer only their own);
+  anyone else gets "not found", not "forbidden".
+* **Price and pay are fixed at intake**: price = units × unit price, plus the rush surcharge, less the client's
+  discount, in whole EGP at each step; designer pay = units × pay per unit. Later price-list changes never
+  rewrite a case. Turnaround is counted in working days with Fridays off, due 18:00 Cairo time; one pure
+  function (`quote`) serves both intake and the quote tool, so they cannot disagree.
+* **QC is a checklist, checked by someone else.** The designer cannot pass their own case. Everything ticked
+  passes; anything unticked needs a note and sends the case back (`qc_fails` + 1). The first-time pass rate is
+  delivered cases with no fails ÷ delivered cases. Files can be changed only while assigned or designing, so
+  what QC saw is what is delivered.
+* **Money stays in the ledger.** Delivery books the designer's pay as an Owed cost (Production designers,
+  linked to the case). An invoice is a document (number, lines and total as issued); what is owed is one
+  Expected "OrlaDent client work" row, settled by full or part payments into Received rows. So the Finance
+  board, the coming-up list, the forecast and client balances needed no new money logic. Invoices are numbered
+  per Cairo year (INV-2026-0001) inside a transaction that locks the cases; a clash on the number retries.
+  Voiding is only possible before any payment; numbers are never reused.
+* **Receipts come from any received income row** (students' payments too), numbered by the ledger row. Invoice
+  and receipt pages sit outside the app shell (they print as they show) and check the user themselves; a guard
+  test pins that. The business details on them are a setting, because only the name is known.
+* **Playbooks are copied into each checklist** when it starts, so editing a playbook never changes a checklist
+  under way. A checklist completes itself when every step is ticked and reopens if one is unticked.
+* **Decisions** are closed by their owner or an owner of the business, with an outcome. Overdue open decisions,
+  overdue checklists and jobs nobody does are alerts.
+* **Budgets are per month and cost category**; a zero removes the line. Actual = Paid + Owed rows dated in the
+  month, so a bill booked but not yet paid already uses the budget.
+* **The cash forecast never assumes late money.** Expected or owed rows already past their date are shown apart.
+  Unbooked budget (budget − paid − owed, if positive) is spread evenly over the month's remaining days. There is
+  no bank balance in the app, so the running balance starts from a number the person types.
+* **Unit economics**: a batch's revenue uses the same rule as everywhere (what students owe; dropped students
+  what they kept paid); its costs are ledger costs tagged to the batch, so the ledger form now lets a cost be
+  tagged to a batch (and editing a cost no longer drops the batch the Notion sync gave it). Marketing spend =
+  paid costs in Ads & promotion or Referral rewards, or tagged to a campaign.
+* **Not built in Phase 4, by choice**: a payment gateway (needs the owners' choice of Paymob, Fawry or another,
+  and an account), clients signing in (no ask yet), and designer pay runs (pay stays an Owed row per case,
+  settled from the ledger).
+* **Found while building**: in the select list of a query without a join, drizzle leaves column names
+  unqualified, so `${table.id}` inside a correlated subquery meant the subquery's own `id`. The new client list
+  had it (wrong counts, then an error) and was fixed by writing the table name out; the existing code was
+  checked and only uses it in joined queries or WHERE clauses, where drizzle qualifies it.
+
+Verified: lint, types, unit and integration tests for the studio (prices and turnaround, the whole case flow,
+who sees what, the pulse and designer figures), invoicing (numbering, part payments, void, balances, the books),
+team and operations, budgets, the forecast and unit economics; the role matrix with the designer role and every
+new action; guard tests for staff pages and print pages; and the browser suite: a case from price list to
+receipt with a designer who sees only her case, plus every new screen in both themes.
+
+## OrlaDent OS, Phase 5 (the AI assistant)
+
+* **Off by default, and two locks.** The assistant runs only when an owner switches it on in Settings and the
+  server has `ANTHROPIC_API_KEY`. Pages show the AI buttons only when both hold and the person may use it
+  (`ai:use`: everyone but designers). Each person has a daily request limit.
+* **One way to call Claude** (`src/lib/ai/core.ts`): the official SDK, model Claude Opus 5.5 (`AI_MODEL`
+  overrides it), with server-side fallback if the model declines, effort set per feature, and the stable
+  instructions cached (`cache_control`) with the per-request facts after them. Refusals, rate limits, a bad key
+  and network failures become messages a person can act on. Only token counts are stored (`ai_usage`), never
+  content; Ask OrlaDent keeps each person's own conversations (`ai_threads`, `ai_messages`), visible only to them.
+* **Ask OrlaDent reads through tools, never SQL.** Claude gets a short list of read-only lookups built on the
+  app's own functions (metrics, alerts, batches, campaigns, leads, a lead's history, students, the books,
+  production). A tool is offered only if the owners allow that kind of data AND the person's role may see it;
+  a tool the person may not use is refused even if Claude asks for it. Money fields are dropped for people who
+  cannot see money. At most 6 lookups per question.
+* **Contact details never leave.** `redact()` removes emails and phone numbers (8+ digits; dates and grouped
+  amounts kept) from notes and messages before they are sent, and the tools never return the phone or email
+  columns. A test caught dates being masked as phone numbers; they are now kept.
+* **Answers link only inside the app.** The answer is rendered by a small markdown renderer that never renders
+  HTML and turns only paths starting with a single "/" into links.
+* **Drafts are never sent.** WhatsApp drafts go into the existing composer (edit → Open in WhatsApp → "I sent
+  it"); captions, scripts and briefs are text to copy; the weekly review is put into the form for an owner to
+  save. Every draft prompt forbids inventing prices, dates, discounts, results or promises and asks for
+  [placeholders] instead; drafts follow the owners' brand voice from Settings. A student's quote is used only
+  when its consent is Granted, word for word.
+* **Early warning needs no AI.** The drop-risk score is plain rules with a reason for every point, so it works
+  with the assistant off and can be checked by hand; Ask OrlaDent's student lookup includes it.
+* **Testing without a key.** Tests replace Claude with scripted fakes (`setAiForTests`); the browser suite uses
+  a deterministic fake that is honoured only when `AI_FAKE=e2e` and the database is a `crm_e2e*` scratch one.
+* **Not built, by choice**: streaming answers (a question takes seconds; the page shows progress), Claude
+  writing to the app (it only reads), and sending drafts automatically.
+
+Verified: lint, types, unit and integration tests for the core (switch, limit, usage, refusal and errors,
+redaction), Ask OrlaDent (tool gating by role and settings, the loop, saving, privacy of conversations),
+every draft (permissions, do-not-contact, consent, the facts given), the drop-risk score and its alert; the
+role matrix with every new action; and the browser suite: switching it on, a question answered with a link,
+a WhatsApp draft, and the new screens in both themes.
+
+## Leads and workflows audit
+
+* **Rules run in savepoints.** Each rule fires inside its own savepoint in the change's transaction: a failing
+  action undoes that rule only and is logged as `failed: …`; the save that triggered it always goes through.
+* **No piling up.** A follow-up action is skipped while the lead already has an open "reply" follow-up (for reply
+  kind) or an open follow-up from the same rule. The response-time sweep runs per rule and skips leads that rule
+  already fired for, so an old backlog can no longer starve newer leads; do-not-contact leads are left out.
+* **Owners are always active people.** Routing, the default owner, rules and lead edits skip or refuse
+  deactivated users. A new trigger, *a lead is given to someone*, drives a built-in rule that tells the new owner
+  (not when you take a lead yourself); bulk reassignment runs the rules per lead but sends one summary.
+* **Rules are checked when saved**: conditions must be ones the trigger can have, the person must be active, the
+  cadence must exist, at most five actions. Built-in rules are now inserted by key on every start, so ones added
+  later reach existing installs without overwriting edits.
+* **Lists**: stage sorts by pipeline position; new sorts by last activity and next follow-up (empty last); deleting
+  a lead cancels its open follow-ups.
+* Compared with trycompai/crm (an agent-first B2B CRM): its list rules (sortable headers with `aria-sort`, URL-held
+  state, saved views, date presets) informed the list changes; its agent and enrichment model does not fit a
+  WhatsApp-first sales team and was not copied.
+

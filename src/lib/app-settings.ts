@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { appSettings } from "@/db/schema";
 import { audit } from "./audit";
@@ -22,7 +22,21 @@ export type Settings = {
   routes: Route[]; // A3: first matching route decides the owner
   maxOpenStages: number; // P2: warn above this many open stages
   financeSplit: { partners: { name: string; pct: number }[]; capitalPct: number }; // how net income is split
+  invoiceDetails: InvoiceDetails; // who invoices and receipts are from, and how to pay
+  ai: AiSettings; // the AI assistant: on or off, what it may read, the brand voice, a daily limit
 };
+export type AiSettings = {
+  enabled: boolean;
+  // what Ask OrlaDent may look up (phone numbers and emails are never sent, whatever is ticked)
+  readLeads: boolean; // names, stages, sources, notes and messages of leads
+  readMoney: boolean; // revenue, payments, costs (and only for people who may see money anyway)
+  readStudents: boolean; // attendance, assignments, QC, graduation
+  readProduction: boolean; // clients, cases, invoices
+  brandVoice: string; // how drafts should sound
+  dailyLimit: number; // requests per person per day
+};
+export type InvoiceDetails = { legalName: string; address: string; taxId: string; phone: string; email: string; paymentInstructions: string; footer: string };
+const INVOICE_LIMITS: Record<keyof InvoiceDetails, number> = { legalName: 120, address: 300, taxId: 60, phone: 40, email: 120, paymentInstructions: 600, footer: 300 };
 
 export const DEFAULTS: Settings = {
   neglectDays: 14,
@@ -45,6 +59,19 @@ export const DEFAULTS: Settings = {
       { name: "Mo", pct: 15 },
     ],
     capitalPct: 20,
+  },
+  // only the name is known; the rest is the owners' to fill in (QUESTIONS.md)
+  invoiceDetails: { legalName: "OrlaDent", address: "", taxId: "", phone: "", email: "", paymentInstructions: "", footer: "" },
+  // off until an owner switches it on: it sends business data to Anthropic (QUESTIONS.md)
+  ai: {
+    enabled: false,
+    readLeads: true,
+    readMoney: false,
+    readStudents: true,
+    readProduction: true,
+    brandVoice:
+      "Warm, direct and professional, like a senior dental technician who teaches. Short sentences. Egyptian audience: write in English unless the person wrote in Arabic, then reply in Egyptian Arabic. No hype, no invented results, no pressure, no deadlines or discounts that were not given.",
+    dailyLimit: 100,
   },
 };
 
@@ -79,6 +106,26 @@ const VALIDATE: { [K in Key]: (v: unknown) => Settings[K] | undefined } = {
     if (Math.abs(total - 100) > 0.001) return undefined; // the split must account for all of net income
     return { partners: f.partners.map((p) => ({ name: p.name.trim(), pct: p.pct })), capitalPct: f.capitalPct };
   }) as never,
+  invoiceDetails: ((v: unknown) => {
+    const d = v as InvoiceDetails;
+    if (!d || typeof d !== "object") return undefined;
+    const out = {} as InvoiceDetails;
+    for (const [k, max] of Object.entries(INVOICE_LIMITS) as [keyof InvoiceDetails, number][]) {
+      const val = d[k] ?? "";
+      if (typeof val !== "string" || val.length > max) return undefined;
+      out[k] = val.trim();
+    }
+    return out.legalName ? out : undefined;
+  }) as never,
+  ai: ((v: unknown) => {
+    const a = v as AiSettings;
+    if (!a || typeof a !== "object") return undefined;
+    const flags = ["enabled", "readLeads", "readMoney", "readStudents", "readProduction"] as const;
+    if (!flags.every((k) => typeof a[k] === "boolean")) return undefined;
+    if (typeof a.brandVoice !== "string" || a.brandVoice.length > 2000) return undefined;
+    if (!Number.isInteger(a.dailyLimit) || a.dailyLimit < 1 || a.dailyLimit > 2000) return undefined;
+    return { enabled: a.enabled, readLeads: a.readLeads, readMoney: a.readMoney, readStudents: a.readStudents, readProduction: a.readProduction, brandVoice: a.brandVoice.trim(), dailyLimit: a.dailyLimit };
+  }) as never,
   routes: ((v: unknown) =>
     Array.isArray(v) &&
     v.every((r) => r && (r.field === "source" || r.field === "segment") && typeof r.value === "string" && Number.isInteger(r.userId))
@@ -109,7 +156,8 @@ export async function saveSettings(db: Db, patch: Partial<Settings>, actorId: nu
   if (merged.slaTargetMin > merged.slaRedMin) return { ok: false, error: "The target must be below the red threshold" };
   await db.transaction(async (tx) => {
     for (const [k, v] of entries) {
-      const value = VALIDATE[k](v) as unknown;
+      // a JSON null ("no default owner"), not SQL NULL: the column is NOT NULL
+      const value = (VALIDATE[k](v) ?? sql`'null'::jsonb`) as unknown;
       await tx
         .insert(appSettings)
         .values({ key: k, value, updatedBy: actorId })

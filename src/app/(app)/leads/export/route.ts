@@ -8,11 +8,11 @@ import { getCurrentUser } from "@/lib/server-auth";
 
 export const dynamic = "force-dynamic";
 
-// Read-only GET, so no CSRF surface. Exports contain personal data: authenticated and audited.
+// Read-only GET, so no CSRF surface. Exports contain personal data: owners only, and audited.
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
-  if (!can(user.role, "lead:read")) return new NextResponse("Forbidden", { status: 403 });
+  if (!can(user.role, "lead:export")) return new NextResponse("Forbidden", { status: 403 });
 
   const filters = Object.fromEntries(req.nextUrl.searchParams) as LeadFilters;
   const { csv, count } = await exportLeadsCsv(db, filters);

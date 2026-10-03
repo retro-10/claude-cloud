@@ -53,9 +53,14 @@ export async function middleware(req: NextRequest) {
 
   const { pathname } = req.nextUrl;
   if (pathname === "/api/health") return withSecurityHeaders(NextResponse.next());
+  // public on purpose: the sign-up forms (/f/<slug>) and the token-protected inbound lead webhook
+  // and the certificate check (/c/<code>), which shows only what the certificate itself says
+  if (pathname.startsWith("/f/") || pathname.startsWith("/c/") || pathname === "/api/inbound/leads") return withSecurityHeaders(NextResponse.next());
+  // the student portal checks its own session (a different cookie) on every page and action
+  if (pathname === "/portal" || pathname.startsWith("/portal/")) return withSecurityHeaders(NextResponse.next());
 
   const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
-  if (!session && pathname !== "/login") {
+  if (!session && pathname !== "/login" && pathname !== "/login/verify") {
     return withSecurityHeaders(NextResponse.redirect(new URL("/login", req.url)));
   }
   return withSecurityHeaders(NextResponse.next());

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { audit } from "@/lib/audit";
 import { removeDemoData } from "@/lib/demo-cleanup";
-import { syncNow } from "@/lib/notion/sync";
+import { archiveNotionPages, syncNow } from "@/lib/notion/sync";
 import { requireCan } from "@/lib/server-auth";
 
 // Runs one sync and waits for it (a few seconds for a normal day's changes), then shows the result.
@@ -24,6 +24,10 @@ export async function syncNotionAction() {
 export async function removeDemoAction() {
   const user = await requireCan("settings:write");
   const r = await removeDemoData(db, user.id);
+  // their Notion pages go too, so Notion shows only real data and never sends them back
+  const n = await archiveNotionPages(r.notionPages);
   revalidatePath("/", "layout");
-  redirect(`/settings/integrations?notice=${encodeURIComponent(`Demo data removed (${r.leads} demo leads)`)}`);
+  const msg = `Demo data removed (${r.leads} demo leads${n.archived ? `, ${n.archived} Notion pages archived` : ""})`;
+  if (n.failed) redirect(`/settings/integrations?error=${encodeURIComponent(`${msg}. ${n.failed} Notion page(s) could not be archived; delete them in Notion by hand.`)}`);
+  redirect(`/settings/integrations?notice=${encodeURIComponent(msg)}`);
 }

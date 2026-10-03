@@ -4,7 +4,8 @@ import { db } from "@/db";
 import { campaigns, cohorts, sources, users } from "@/db/schema";
 import { getMetrics, type MetricFilters } from "@/lib/metrics";
 import { fmtDays, fmtEgp, fmtMinutes, fmtRate } from "@/lib/metrics-format";
-import { requireUser } from "@/lib/server-auth";
+import { can } from "@/lib/rbac";
+import { requirePageCan } from "@/lib/server-auth";
 import { BarList, Columns, Split } from "@/components/charts";
 import { Card, Icon, PageHeader, pretty, type IconName } from "@/components/ui";
 import { addDaysYmd, cairoYmd } from "@/lib/time";
@@ -49,7 +50,8 @@ export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage(props: { searchParams: Promise<SP> }) {
   const searchParams = await props.searchParams;
-  await requireUser();
+  const user = await requirePageCan("lead:read");
+  const seeMoney = can(user.role, "finance:read");
   const today = cairoYmd(new Date());
   const explicit = searchParams.from || searchParams.to || searchParams.all;
   const f: MetricFilters = {
@@ -152,14 +154,14 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
         </Link>
       </form>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Tile label="Revenue" value={fmtEgp(m.revenue.totalEgp)} hint={`${fmtEgp(m.revenue.collectedEgp)} collected`} icon="trend" hero />
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {seeMoney && <Tile label="Revenue" value={fmtEgp(m.revenue.totalEgp)} hint={`${fmtEgp(m.revenue.collectedEgp)} collected`} icon="trend" hero />}
         <Tile label="Leads" value={String(m.totalLeads)} icon="leads" />
         <Tile label="Enrolments" value={String(m.revenue.enrolments)} hint={`${fmtDays(m.cycle.medianDays)} median sales cycle`} icon="cohorts" />
         <Tile label="Median first contact" value={fmtMinutes(m.speed.medianMinutes)} hint={`${fmtRate(m.speed.within5)} within 5 min`} icon="bolt" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <Card title="Funnel · leads that ever reached each stage" icon="pipeline" label="Funnel">
           <BarList
             rows={m.funnel.map((s) => ({ label: s.label, value: s.count, note: s.conversion ? `${fmtRate(s.conversion)} of the previous stage` : undefined }))}
@@ -174,7 +176,7 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
           </p>
         </Card>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           <Card title="Speed to lead" icon="bolt">
             <List
               rows={[
@@ -251,14 +253,16 @@ export default async function DashboardPage(props: { searchParams: Promise<SP> }
           />
         </Card>
 
-        <Card title="Revenue" icon="trend">
-          <div className="eyebrow mb-2">By tier</div>
-          <BarList rows={m.revenue.byTier.map((r) => ({ label: pretty(r.tier), value: r.egp, note: `${r.count} enrolled` }))} unit=" EGP" />
-          <div className="eyebrow mb-2 mt-5">By batch</div>
-          <List rows={m.revenue.byCohort.map((r) => ({ label: r.name, value: `${r.count} · ${fmtEgp(r.egp)}` }))} />
-          <div className="eyebrow mb-2 mt-5">By source</div>
-          <List rows={m.revenue.bySource.map((r) => ({ label: r.label, value: `${r.count} · ${fmtEgp(r.egp)}` }))} />
-        </Card>
+        {seeMoney && (
+          <Card title="Revenue" icon="trend">
+            <div className="eyebrow mb-2">By tier</div>
+            <BarList rows={m.revenue.byTier.map((r) => ({ label: pretty(r.tier), value: r.egp, note: `${r.count} enrolled` }))} unit=" EGP" />
+            <div className="eyebrow mb-2 mt-5">By batch</div>
+            <List rows={m.revenue.byCohort.map((r) => ({ label: r.name, value: `${r.count} · ${fmtEgp(r.egp)}` }))} />
+            <div className="eyebrow mb-2 mt-5">By source</div>
+            <List rows={m.revenue.bySource.map((r) => ({ label: r.label, value: `${r.count} · ${fmtEgp(r.egp)}` }))} />
+          </Card>
+        )}
 
         <Card title="Source quality" icon="target">
           <table className="table">

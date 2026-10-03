@@ -39,7 +39,7 @@ export default async function TemplateSettings(props: { searchParams: Promise<{ 
   return (
     <>
       <Flash {...searchParams} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-3">
           {list.map((t) => (
             <section key={t.id} aria-label={`${t.name} (${t.language})`} className={`card p-4 ${t.active ? "" : "opacity-60"}`}>
@@ -69,7 +69,7 @@ export default async function TemplateSettings(props: { searchParams: Promise<{ 
             </section>
           ))}
         </div>
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           <Card title="New template" icon="plus">
             <form action={saveMessageTemplateAction} className="flex flex-col gap-2">
               <TemplateFields />

@@ -6,12 +6,12 @@ import { BoardClient } from "@/components/BoardClient";
 import { Icon, PageHeader } from "@/components/ui";
 import { getBoard } from "@/lib/pipeline";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 
 export const metadata = { title: "Pipeline" };
 
 export default async function PipelinePage() {
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const [board, stageList, reasons, cohortRows] = await Promise.all([
     getBoard(db),
     db.select().from(stages).orderBy(asc(stages.position)),

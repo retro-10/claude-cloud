@@ -11,6 +11,7 @@ import { applyCadence, cancelFollowUp, completeFollowUp, createFollowUp, resched
 import { changeStage, createLead, logActivity } from "@/lib/leads";
 import { cairoYmd, cairoLocalToDate, startOfCairoDay } from "@/lib/time";
 import { getToday } from "@/lib/today";
+import { listLeads } from "@/lib/lead-list";
 import { enrolLead } from "@/lib/enrol";
 import { withoutRelease11Rules } from "./base-rules";
 
@@ -160,6 +161,10 @@ d("follow-ups, cadences, stop rules, today", () => {
 
     const t = await getToday(db, { now });
     expect(t.overdue.map((f) => f.leadId).sort()).toEqual([lateNight.id, yesterday.id].sort());
+    // the leads list filtered to overdue follow-ups: its total counts the same leads as its rows
+    const list = await listLeads(db, { overdue: "1" }, now);
+    expect(list.rows.map((r) => r.id).sort()).toEqual([lateNight.id, yesterday.id].sort());
+    expect(list.total).toBe(2);
     expect(t.dueToday.map((f) => f.leadName)).toEqual([earlyToday.fullName]);
     expect(t.consultsToday.map((c) => c.leadId)).toEqual([earlyToday.id]);
     expect(t.decisionsDue.map((l) => l.id)).toEqual([o4.id]);

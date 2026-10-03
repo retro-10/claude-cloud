@@ -4,7 +4,8 @@ import { audit } from "./audit";
 
 // Demo rows are recognisable by construction (see src/db/demo-data.ts): leads named "Demo Lead 01".."Demo Lead 20"
 // with numbers +20108000000xx, batches "Demo Cohort A/B" (and the empty placeholder "Demo cohort"), the
-// "Masterclass Sep" demo campaign, and ledger / session / proof rows whose name starts with "DEMO ".
+// "Masterclass Sep" demo campaign, ledger / session / proof rows whose name starts with "DEMO ", and production
+// clients and case types named "DEMO …" (with their cases, invoices and the ledger rows those made).
 const DEMO_LEAD = sql`(full_name ~ '^Demo Lead [0-9]{2}$' and (phone_whatsapp like '+2010800000__' or phone_whatsapp is null))`;
 
 export async function demoCounts(db: Db) {
@@ -14,32 +15,70 @@ export async function demoCounts(db: Db) {
   return { leads: Number(r.leads), ledger: Number(r.ledger) };
 }
 
-/** Deletes every demo row and everything hanging off it. Real leads, batches and money are never touched. */
+/**
+ * Deletes every demo row and everything hanging off it. Real leads, batches and money are never touched.
+ * Rows already mirrored to Notion keep their link, marked "gone", so a later read of Notion never brings them
+ * back as new rows; their pages are returned so the caller can archive them in Notion.
+ */
 export async function removeDemoData(db: Db, userId: number | null) {
   return db.transaction(async (tx) => {
     const run = (q: ReturnType<typeof sql>) => tx.execute(q);
+    const DEMO_COHORT = sql`c.name in ('Demo Cohort A', 'Demo Cohort B', 'Demo cohort')
+      and not exists (select 1 from enrolments e where e.cohort_id = c.id and e.lead_id not in (select id from demo_leads))
+      and not exists (select 1 from ledger_entries x where x.cohort_id = c.id and x.id not in (select id from demo_ledger))`;
     await run(sql`create temp table demo_leads on commit drop as select id from leads where ${DEMO_LEAD}`);
     await run(sql`create temp table demo_enrol on commit drop as select id from enrolments where lead_id in (select id from demo_leads)`);
+    await run(sql`create temp table demo_clients on commit drop as select id from production_clients where name like 'DEMO %'`);
+    await run(sql`create temp table demo_cases on commit drop as select id from production_cases where client_id in (select id from demo_clients)`);
+    await run(sql`create temp table demo_invoices on commit drop as select id from invoices where client_id in (select id from demo_clients)`);
+    await run(sql`create temp table demo_ledger on commit drop as select id from ledger_entries where enrolment_id in (select id from demo_enrol) or entry like 'DEMO %'
+      or case_id in (select id from demo_cases) or invoice_id in (select id from demo_invoices)`);
+    await run(sql`create temp table demo_sessions on commit drop as select id from programme_sessions where enrolment_id in (select id from demo_enrol) or name like 'DEMO %'`);
+    await run(sql`create temp table demo_proof on commit drop as select id from proof_items where enrolment_id in (select id from demo_enrol) or name like 'DEMO %'`);
+    await run(sql`create temp table demo_cohorts on commit drop as select id from cohorts c where ${DEMO_COHORT}`);
     const [{ n: leadCount }] = await tx.execute<{ n: number }>(sql`select count(*)::int as n from demo_leads`);
 
-    await run(sql`delete from ledger_entries where enrolment_id in (select id from demo_enrol) or entry like 'DEMO %'`);
-    await run(sql`delete from programme_sessions where enrolment_id in (select id from demo_enrol) or name like 'DEMO %'`);
-    await run(sql`delete from proof_items where enrolment_id in (select id from demo_enrol) or name like 'DEMO %'`);
-    await run(sql`delete from notion_links where (entity = 'enrolment' and local_id in (select id from demo_enrol)) or (entity = 'lead' and local_id in (select id from demo_leads))`);
+    const pages = await tx.execute<{ page_id: string }>(sql`
+      update notion_links set hash = 'gone' where hash is distinct from 'gone' and (
+        (entity = 'lead' and local_id in (select id from demo_leads)) or (entity = 'enrolment' and local_id in (select id from demo_enrol))
+        or (entity = 'ledger' and local_id in (select id from demo_ledger)) or (entity = 'session' and local_id in (select id from demo_sessions))
+        or (entity = 'proof' and local_id in (select id from demo_proof)) or (entity = 'cohort' and local_id in (select id from demo_cohorts)))
+      returning page_id`);
+
+    await run(sql`delete from ledger_entries where id in (select id from demo_ledger)`);
+    await run(sql`delete from attachments where case_id in (select id from demo_cases)`);
+    await run(sql`delete from production_cases where id in (select id from demo_cases)`);
+    await run(sql`delete from invoices where id in (select id from demo_invoices)`);
+    await run(sql`delete from production_clients where id in (select id from demo_clients)`);
+    await run(sql`delete from case_types t where t.name like 'DEMO %' and not exists (select 1 from production_cases c where c.case_type_id = t.id)`);
+    await run(sql`delete from programme_sessions where id in (select id from demo_sessions)`);
+    await run(sql`update content_items set proof_item_id = null where proof_item_id in (select id from demo_proof)`);
+    await run(sql`delete from proof_items where id in (select id from demo_proof)`);
+    await run(sql`delete from class_attendance where enrolment_id in (select id from demo_enrol)
+      or class_id in (select id from batch_classes where cohort_id in (select id from demo_cohorts))`);
+    await run(sql`delete from batch_classes where cohort_id in (select id from demo_cohorts)`);
+    await run(sql`delete from submissions where enrolment_id in (select id from demo_enrol)
+      or assignment_id in (select id from assignments where cohort_id in (select id from demo_cohorts))`);
+    await run(sql`delete from assignments where cohort_id in (select id from demo_cohorts)`);
+    await run(sql`delete from certificates where enrolment_id in (select id from demo_enrol)`);
     await run(sql`delete from enrolments where id in (select id from demo_enrol)`);
     await run(sql`delete from consult_objections where consult_id in (select id from consults where lead_id in (select id from demo_leads))`);
-    for (const t of ["consults", "activities", "follow_ups", "stage_events", "notifications", "workflow_runs", "consent_records"]) {
+    for (const t of ["consults", "activities", "follow_ups", "stage_events", "notifications", "workflow_runs", "consent_records", "tasks", "attachments", "form_submissions", "event_attendance", "alumni_profiles", "student_accounts", "sop_runs"]) {
       await run(sql`delete from ${sql.raw(t)} where lead_id in (select id from demo_leads)`);
     }
     await run(sql`delete from lead_merges where loser_id in (select id from demo_leads) or survivor_id in (select id from demo_leads)`);
+    await run(sql`delete from referral_rewards where referrer_id in (select id from demo_leads) or referred_lead_id in (select id from demo_leads)`);
+    await run(sql`update leads set referred_by_id = null where referred_by_id in (select id from demo_leads)`);
     await run(sql`delete from leads where id in (select id from demo_leads)`);
     // demo batches and campaign, only when nothing real uses them
-    await run(sql`delete from notion_links where entity = 'cohort' and local_id in (select id from cohorts c where c.name in ('Demo Cohort A', 'Demo Cohort B', 'Demo cohort')
-      and not exists (select 1 from enrolments e where e.cohort_id = c.id) and not exists (select 1 from ledger_entries x where x.cohort_id = c.id))`);
-    await run(sql`delete from cohorts c where c.name in ('Demo Cohort A', 'Demo Cohort B', 'Demo cohort')
-      and not exists (select 1 from enrolments e where e.cohort_id = c.id) and not exists (select 1 from ledger_entries x where x.cohort_id = c.id)`);
-    await run(sql`delete from campaigns g where g.label = 'Masterclass Sep' and not exists (select 1 from leads l where l.campaign_id = g.id)`);
-    await audit(tx, { userId, entity: "demo", action: "remove", diff: { leads: Number(leadCount) } });
-    return { leads: Number(leadCount) };
+    await run(sql`update tasks set cohort_id = null where cohort_id in (select id from demo_cohorts)`);
+    await run(sql`update sop_runs set cohort_id = null where cohort_id in (select id from demo_cohorts)`);
+    await run(sql`delete from attachments where cohort_id in (select id from demo_cohorts)`);
+    await run(sql`delete from cohorts where id in (select id from demo_cohorts)`);
+    await run(sql`delete from campaigns g where g.label = 'Masterclass Sep' and not exists (select 1 from leads l where l.campaign_id = g.id)
+      and not exists (select 1 from ledger_entries x where x.campaign_id = g.id) and not exists (select 1 from lead_forms f where f.campaign_id = g.id)
+      and not exists (select 1 from event_attendance a where a.campaign_id = g.id) and not exists (select 1 from content_items c where c.campaign_id = g.id)`);
+    await audit(tx, { userId, entity: "demo", action: "remove", diff: { leads: Number(leadCount), notionPages: pages.length } });
+    return { leads: Number(leadCount), notionPages: [...pages].map((p) => p.page_id) };
   });
 }

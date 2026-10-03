@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { activities, consentRecords, consults, enrolments, followUps, leadMerges, leads } from "@/db/schema";
+import { activities, alumniProfiles, attachments, studentAccounts, consentRecords, consults, enrolments, eventAttendance, followUps, formSubmissions, leadMerges, leads, sopRuns, tasks } from "@/db/schema";
 import { audit } from "./audit";
 
 /**
@@ -47,7 +47,7 @@ export type MergeResult = { ok: true; mergeId: number } | { ok: false; error: st
 
 // Children that move with the person. stage_events stay on their own lead: the funnel counts each lead's
 // own history, and the merged-away lead is excluded from metrics once deleted.
-const CHILDREN = { activities, followUps, consults, enrolments, consentRecords } as const;
+const CHILDREN = { activities, followUps, consults, enrolments, consentRecords, tasks, attachments, formSubmissions, eventAttendance, alumniProfiles, studentAccounts, sopRuns } as const;
 type ChildKey = keyof typeof CHILDREN;
 
 const minDate = (a: Date | null, b: Date | null) => (a && b ? (a < b ? a : b) : (a ?? b));
@@ -85,6 +85,32 @@ export async function mergeLeads(
     // phone is unique across all rows: free it on the lead that is going away first
     await tx.update(leads).set({ phoneWhatsapp: null, deletedAt: new Date(), mergedIntoId: s.id, updatedAt: new Date() }).where(eq(leads.id, l.id));
     await tx.update(leads).set(set).where(eq(leads.id, s.id));
+
+    // both registered for the same event: keep the survivor's row, carrying over "came" and "reminded",
+    // and drop the other so the move below does not break the one-row-per-event rule
+    await tx.execute(sql`update event_attendance s set
+        attended = case when s.attended or o.attended then true when s.attended is null then o.attended else s.attended end,
+        reminded_at = least(s.reminded_at, o.reminded_at)
+      from event_attendance o where o.lead_id = ${l.id} and s.lead_id = ${s.id} and o.campaign_id = s.campaign_id`);
+    await tx.execute(sql`delete from event_attendance where lead_id = ${l.id} and campaign_id in (select campaign_id from event_attendance where lead_id = ${s.id})`);
+
+    // referrals: whoever the loser referred now counts for the survivor; a reward for the loser being referred
+    // moves over unless the survivor already has one; the survivor keeps its own code (or takes the loser's).
+    // These are not reversed by an undo.
+    await tx.execute(sql`update leads set referred_by_id = ${s.id} where referred_by_id = ${l.id} and id <> ${s.id}`);
+    await tx.execute(sql`update referral_rewards set referrer_id = ${s.id} where referrer_id = ${l.id}`);
+    await tx.execute(sql`delete from referral_rewards where referred_lead_id = ${l.id} and exists (select 1 from referral_rewards r where r.referred_lead_id = ${s.id})`);
+    await tx.execute(sql`update referral_rewards set referred_lead_id = ${s.id} where referred_lead_id = ${l.id}`);
+    if (!s.referredById && l.referredById && l.referredById !== s.id) await tx.update(leads).set({ referredById: l.referredById }).where(eq(leads.id, s.id));
+    if (!s.referralCode && l.referralCode) {
+      await tx.update(leads).set({ referralCode: null }).where(eq(leads.id, l.id));
+      await tx.update(leads).set({ referralCode: l.referralCode }).where(eq(leads.id, s.id));
+    }
+
+    // one portal account per person: the survivor's wins (the other is removed, so its password stops working)
+    await tx.execute(sql`delete from student_accounts where lead_id = ${l.id} and exists (select 1 from student_accounts a where a.lead_id = ${s.id})`);
+    // one alumni profile per person: the survivor's wins
+    await tx.execute(sql`delete from alumni_profiles where lead_id = ${l.id} and exists (select 1 from alumni_profiles p where p.lead_id = ${s.id})`);
 
     const moved: Record<string, number[]> = {};
     for (const [key, table] of Object.entries(CHILDREN) as [ChildKey, (typeof CHILDREN)[ChildKey]][]) {

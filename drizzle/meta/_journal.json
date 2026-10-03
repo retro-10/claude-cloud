@@ -50,6 +50,146 @@
       "when": 1790769677447,
       "tag": "0006_team_duties",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790793857811,
+      "tag": "0007_tasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790794113310,
+      "tag": "0008_targets",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790794231187,
+      "tag": "0009_weekly_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790794629611,
+      "tag": "0010_two_factor",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790795114721,
+      "tag": "0011_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790850389368,
+      "tag": "0012_campaigns",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790850650292,
+      "tag": "0013_lead_forms",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790850991823,
+      "tag": "0014_event_attendance",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1790851205149,
+      "tag": "0015_content_calendar",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790851408354,
+      "tag": "0016_referrals",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790860700315,
+      "tag": "0017_instructor_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790860741132,
+      "tag": "0018_batch_classes",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790860992045,
+      "tag": "0019_assignments",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790861203338,
+      "tag": "0020_graduation",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790861466235,
+      "tag": "0021_student_portal",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790944108774,
+      "tag": "0022_designer_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790944110276,
+      "tag": "0023_production_studio",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790946045129,
+      "tag": "0024_team_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790946785709,
+      "tag": "0025_budgets",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790949487567,
+      "tag": "0026_ai_assistant",
+      "breakpoints": true
     }
   ]
 }

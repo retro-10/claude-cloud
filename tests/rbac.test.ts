@@ -29,11 +29,27 @@ describe("role rules", () => {
       expect(can("finance", a)).toBe(false);
   });
 
+  it("only owners can download the lead list; only owner and finance see revenue", () => {
+    expect(can("owner", "lead:export")).toBe(true);
+    for (const r of ["sales", "viewer", "finance"] as const) expect(can(r, "lead:export")).toBe(false);
+    for (const r of ["owner", "finance"] as const) expect(can(r, "finance:read")).toBe(true);
+    for (const r of ["sales", "viewer"] as const) expect(can(r, "finance:read")).toBe(false);
+  });
+
   it("only owner and finance can touch payments or export revenue", () => {
     for (const r of ["sales", "viewer"] as const) {
       expect(can(r, "payment:write")).toBe(false);
       expect(can(r, "revenue:export")).toBe(false);
     }
     expect(can("owner", "payment:write") && can("owner", "revenue:export")).toBe(true);
+  });
+});
+
+describe("instructor", () => {
+  it("teaches and reviews, sees no money and changes no leads or settings", () => {
+    for (const a of ["lead:read", "programme:write", "task:write", "file:write"] as const) expect(can("instructor", a)).toBe(true);
+    for (const a of ["lead:write", "lead:delete", "lead:export", "finance:read", "payment:write", "revenue:export", "settings:write", "users:manage", "growth:write"] as const)
+      expect(can("instructor", a)).toBe(false);
+    for (const r of ["sales", "viewer", "finance"] as const) expect(can(r, "programme:write")).toBe(false);
   });
 });

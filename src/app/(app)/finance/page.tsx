@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/db";
+import { listCohorts } from "@/lib/cohorts";
 import { PairColumns, BarList } from "@/components/charts";
 import { Flash } from "@/components/Flash";
 import { AddEntry } from "@/components/finance/AddEntry";
@@ -35,7 +36,7 @@ export default async function FinancePage(props: { searchParams: Promise<{ month
   const sp = await props.searchParams;
   const user = await requirePageCan("finance:read");
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(sp.month ?? "") ? sp.month! : thisMonth();
-  const [b, candidates, team] = await Promise.all([financeBoard(db, month), listCandidates(db), listTeam(db)]);
+  const [b, candidates, team, batches] = await Promise.all([financeBoard(db, month), listCandidates(db), listTeam(db), listCohorts(db)]);
   const m = b.month_;
   const prev = b.series[b.series.length - 2] ?? { income: 0, costs: 0, net: 0 };
   const cur = b.series[b.series.length - 1];
@@ -77,12 +78,12 @@ export default async function FinancePage(props: { searchParams: Promise<{ month
         <div className="mb-5 flex flex-wrap gap-2">
           <AddEntry label="Payment" back={here} partners={partners} candidates={opts} variant="btn btn-primary btn-sm" initial={{ section: "income", category: "Candidate payment" }} />
           <AddEntry label="Client work" back={here} partners={partners} candidates={opts} variant="btn btn-secondary btn-sm" initial={{ section: "income", category: "OrlaDent client work" }} />
-          <AddEntry label="Expense" back={here} partners={partners} candidates={opts} team={team} variant="btn btn-secondary btn-sm" initial={{ section: "variable_costs", category: "Freelancers & sales" }} />
+          <AddEntry label="Expense" back={here} partners={partners} candidates={opts} team={team} batches={batches} variant="btn btn-secondary btn-sm" initial={{ section: "variable_costs", category: "Freelancers & sales" }} />
           <AddEntry label="Withdrawal" back={here} partners={partners} candidates={opts} variant="btn btn-secondary btn-sm" initial={{ section: "partner_withdrawals", category: "Partner withdrawal" }} />
         </div>
       )}
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Received" value={money(m.income)} icon="trend" hint={<Delta now={cur.income} before={prev.income} />} />
         <Stat
           label="Costs paid"
@@ -137,7 +138,7 @@ export default async function FinancePage(props: { searchParams: Promise<{ month
         </div>
       </section>
 
-      <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
+      <div className="mb-8 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Card title="Last 12 months" icon="trend" className="xl:col-span-2">
           <PairColumns
             a="Received"

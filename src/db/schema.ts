@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  customType,
   index,
   integer,
   jsonb,
@@ -18,7 +19,7 @@ import {
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const createdAt = () => ts("created_at").notNull().defaultNow();
 
-export const roleEnum = pgEnum("role", ["owner", "sales", "viewer", "finance"]);
+export const roleEnum = pgEnum("role", ["owner", "sales", "viewer", "finance", "instructor", "designer"]);
 export const segmentEnum = pgEnum("segment", ["fresh_graduate", "technician", "dentist", "other"]);
 export const tierEnum = pgEnum("tier", ["foundation", "freelance_ready", "production_partner"]);
 export const tierInterestEnum = pgEnum("tier_interest", [
@@ -64,6 +65,12 @@ export const users = pgTable("users", {
   // NULL = still on the password it was created/seeded with; the app nags until the user sets their own
   passwordChangedAt: ts("password_changed_at"),
   createdAt: createdAt(),
+  // Two-factor sign-in (authenticator app). The secret is encrypted with a key derived from AUTH_SECRET.
+  // Set but not enabled = setup started, not confirmed with a code yet.
+  totpSecret: text("totp_secret"),
+  totpEnabledAt: ts("totp_enabled_at"),
+  totpLastStep: integer("totp_last_step"), // the last 30-second step used: a code works once
+  recoveryCodes: jsonb("recovery_codes").$type<string[]>().notNull().default([]), // sha256 of each unused code
 });
 
 export const stages = pgTable("stages", {
@@ -79,11 +86,24 @@ export const sources = pgTable("sources", {
   label: text("label").notNull().unique(),
 });
 
+export const campaignKindEnum = pgEnum("campaign_kind", ["masterclass", "ads", "collaboration", "organic", "event", "referral", "other"]);
+export const campaignStatusEnum = pgEnum("campaign_status", ["planned", "live", "ended"]);
+
+// A masterclass, an ad run, a collaboration: anything that brings leads. Spend comes from ledger costs tagged
+// with the campaign, so cost per lead and per enrolment use real money, not typed numbers.
 export const campaigns = pgTable("campaigns", {
   id: serial("id").primaryKey(),
   label: text("label").notNull(),
   sourceId: integer("source_id").references(() => sources.id),
   startedAt: ts("started_at"),
+  kind: campaignKindEnum("kind").notNull().default("other"),
+  status: campaignStatusEnum("status").notNull().default("live"),
+  endsAt: ts("ends_at"),
+  eventAt: ts("event_at"), // a masterclass or event: when it happens
+  budgetEgp: integer("budget_egp"),
+  slug: text("slug").unique(), // utm_campaign value and the public form link
+  ownerId: integer("owner_id").references(() => users.id),
+  notes: text("notes"),
 });
 
 export const objections = pgTable("objections", {
@@ -107,6 +127,10 @@ export const cohorts = pgTable("cohorts", {
   openAt: ts("open_at"), // enrolment opens
   status: cohortStatusEnum("status").notNull().default("planning"),
   updatedAt: ts("updated_at").notNull().defaultNow(),
+  // graduation rules for this batch
+  gradMinAttendancePct: integer("grad_min_attendance_pct").notNull().default(75),
+  gradRequireAllPassed: boolean("grad_require_all_passed").notNull().default(true),
+  gradRequirePaid: boolean("grad_require_paid").notNull().default(false),
 });
 
 export const leads = pgTable(
@@ -146,6 +170,10 @@ export const leads = pgTable(
     tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
     lostReviewedAt: ts("lost_reviewed_at"), // no-decision review: closed without reactivating
     mergedIntoId: integer("merged_into_id"), // set on the lead that disappeared in a merge
+    // where a lead came from, as the link told us: utm_source/medium/campaign/content/term, the form, the referrer
+    attribution: jsonb("attribution").$type<Record<string, string>>(),
+    referredById: integer("referred_by_id"), // the lead (usually a student or graduate) who referred them
+    referralCode: text("referral_code").unique(), // this person's own code for ?ref= links
   },
   (t) => [
     index("leads_stage_idx").on(t.stage),
@@ -464,6 +492,9 @@ export const ledgerEntries = pgTable(
     enrolmentId: integer("enrolment_id").references(() => enrolments.id),
     cohortId: integer("cohort_id").references(() => cohorts.id),
     teamMemberId: integer("team_member_id").references(() => teamMembers.id), // who a salary / freelance cost was paid to
+    campaignId: integer("campaign_id").references(() => campaigns.id), // a marketing cost: which campaign it paid for
+    invoiceId: integer("invoice_id").references(() => invoices.id), // client work income: the production invoice it is for
+    caseId: integer("case_id").references(() => productionCases.id), // a designer's pay for a production case
     createdBy: integer("created_by").references(() => users.id),
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
@@ -550,3 +581,608 @@ export const notionSyncRuns = pgTable("notion_sync_runs", {
   conflicts: integer("conflicts").notNull().default(0),
   errors: jsonb("errors").$type<string[]>().notNull().default([]),
 });
+
+// ---------------- OrlaDent OS · Phase 1 ----------------
+
+export const taskPriorityEnum = pgEnum("task_priority", ["low", "normal", "high"]);
+
+// Team tasks: anything someone must do, optionally tied to a lead (or student) or a batch. Follow-ups stay the
+// sales cadence on a lead; a task is the rest of the work (prepare a masterclass, chase a certificate, edit a reel).
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    notes: text("notes"),
+    priority: taskPriorityEnum("priority").notNull().default("normal"),
+    assigneeId: integer("assignee_id").references(() => users.id),
+    dueAt: ts("due_at"), // 09:00 Cairo on the chosen day, like follow-ups
+    leadId: integer("lead_id").references(() => leads.id),
+    cohortId: integer("cohort_id").references(() => cohorts.id),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+    doneAt: ts("done_at"),
+    doneBy: integer("done_by").references(() => users.id),
+    cancelledAt: ts("cancelled_at"),
+  },
+  (t) => [
+    index("tasks_assignee_open_idx").on(t.assigneeId).where(sql`${t.doneAt} is null and ${t.cancelledAt} is null`),
+    index("tasks_due_idx").on(t.dueAt),
+    index("tasks_lead_idx").on(t.leadId),
+    index("tasks_cohort_idx").on(t.cohortId),
+  ],
+);
+
+// Quarterly targets the owners set ("2026-Q4": 60 enrolments). Progress is computed live from the CRM's own data.
+export const targets = pgTable(
+  "targets",
+  {
+    id: serial("id").primaryKey(),
+    metric: text("metric").notNull(), // leads | consults_held | enrolments | revenue_egp | cash_egp
+    period: text("period").notNull(), // YYYY-Qn, Cairo calendar quarters
+    value: integer("value").notNull(),
+    updatedBy: integer("updated_by").references(() => users.id),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("targets_metric_period_uq").on(t.metric, t.period)],
+);
+
+// The owners' weekly review: what went well, what missed, what was decided. The numbers of that week are
+// saved with it (snapshot) so the history reads the same after data changes.
+export const weeklyReviews = pgTable("weekly_reviews", {
+  id: serial("id").primaryKey(),
+  weekStart: text("week_start").notNull().unique(), // YYYY-MM-DD, the Monday (Cairo calendar)
+  wins: text("wins"),
+  misses: text("misses"),
+  decisions: text("decisions"),
+  notes: text("notes"),
+  snapshot: jsonb("snapshot").$type<Record<string, number>>().notNull().default({}),
+  updatedBy: integer("updated_by").references(() => users.id),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+  createdAt: createdAt(),
+});
+
+// Files on a lead (student) or a batch: certificates, receipts, case files, contracts. Kept in Postgres so the
+// nightly pg_dump backs them up with everything else; 8 MB each. Lists never select `data`.
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: serial("id").primaryKey(),
+    fileName: text("file_name").notNull(),
+    contentType: text("content_type").notNull(),
+    size: integer("size").notNull(),
+    sha256: text("sha256").notNull(),
+    data: bytea("data").notNull(),
+    note: text("note"),
+    leadId: integer("lead_id").references(() => leads.id),
+    cohortId: integer("cohort_id").references(() => cohorts.id),
+    caseId: integer("case_id").references(() => productionCases.id), // a production case's design files
+    uploadedBy: integer("uploaded_by").references(() => users.id),
+    createdAt: createdAt(),
+    deletedAt: ts("deleted_at"),
+  },
+  (t) => [index("attachments_lead_idx").on(t.leadId), index("attachments_cohort_idx").on(t.cohortId), index("attachments_case_idx").on(t.caseId)],
+);
+
+// Public sign-up forms (/f/<slug>): a masterclass registration, an "apply" page, a link in bio. Each submission
+// becomes a lead (or is linked to the existing one) with the form's source and campaign.
+export const leadForms = pgTable("lead_forms", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  intro: text("intro"),
+  thankYou: text("thank_you"),
+  campaignId: integer("campaign_id").references(() => campaigns.id),
+  sourceId: integer("source_id").references(() => sources.id),
+  askEmail: boolean("ask_email").notNull().default(true),
+  askCity: boolean("ask_city").notNull().default(false),
+  askSegment: boolean("ask_segment").notNull().default(true),
+  askTier: boolean("ask_tier").notNull().default(false),
+  active: boolean("active").notNull().default(true),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: createdAt(),
+});
+
+export const formSubmissions = pgTable(
+  "form_submissions",
+  {
+    id: serial("id").primaryKey(),
+    formId: integer("form_id").references(() => leadForms.id), // null = the inbound webhook
+    leadId: integer("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    existing: boolean("existing").notNull().default(false), // the person was already a lead
+    channel: text("channel").notNull().default("form"), // form | webhook
+    ipHash: text("ip_hash"), // keyed hash, for spotting floods without keeping addresses
+    createdAt: createdAt(),
+  },
+  (t) => [index("form_submissions_form_idx").on(t.formId, t.createdAt), index("form_submissions_lead_idx").on(t.leadId)],
+);
+
+// Masterclass (or event) attendance: who was reminded and who came. Registrants themselves are the leads
+// tagged to the campaign or signed up on one of its forms; a row here is made once someone acts on them.
+export const eventAttendance = pgTable(
+  "event_attendance",
+  {
+    id: serial("id").primaryKey(),
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => campaigns.id),
+    leadId: integer("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    attended: boolean("attended"), // null = not marked yet
+    remindedAt: ts("reminded_at"),
+    markedBy: integer("marked_by").references(() => users.id),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("event_attendance_uq").on(t.campaignId, t.leadId), index("event_attendance_lead_idx").on(t.leadId)],
+);
+
+export const contentPlatformEnum = pgEnum("content_platform", ["instagram", "tiktok", "facebook", "youtube", "linkedin", "whatsapp", "other"]);
+export const contentFormatEnum = pgEnum("content_format", ["reel", "post", "carousel", "story", "live", "video", "broadcast", "other"]);
+export const contentStatusEnum = pgEnum("content_status", ["idea", "scripting", "filming", "editing", "scheduled", "posted"]);
+
+// The content calendar. A piece can come from a proof item (with consent) and belong to a campaign; its tag
+// (utm_content) lets leads from its link be counted against it.
+export const contentItems = pgTable(
+  "content_items",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    platform: contentPlatformEnum("platform").notNull().default("instagram"),
+    format: contentFormatEnum("format").notNull().default("reel"),
+    status: contentStatusEnum("status").notNull().default("idea"),
+    ownerId: integer("owner_id").references(() => users.id),
+    publishAt: ts("publish_at"),
+    postedAt: ts("posted_at"),
+    campaignId: integer("campaign_id").references(() => campaigns.id),
+    proofItemId: integer("proof_item_id").references(() => proofItems.id),
+    brief: text("brief"),
+    caption: text("caption"),
+    postUrl: text("post_url"),
+    tag: text("tag").unique(), // utm_content for its links, e.g. "c12-crown-reel"
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+    deletedAt: ts("deleted_at"),
+  },
+  (t) => [index("content_publish_idx").on(t.publishAt), index("content_status_idx").on(t.status)],
+);
+
+export const rewardStatusEnum = pgEnum("reward_status", ["pending", "approved", "paid", "declined"]);
+
+// A referral reward decision: made when someone referred enrols. The amount is set by a person (the reward
+// rules are the owners' to decide, QUESTIONS.md 29); paying it is recorded in the ledger.
+export const referralRewards = pgTable(
+  "referral_rewards",
+  {
+    id: serial("id").primaryKey(),
+    referrerId: integer("referrer_id")
+      .notNull()
+      .references(() => leads.id),
+    referredLeadId: integer("referred_lead_id")
+      .notNull()
+      .references(() => leads.id),
+    status: rewardStatusEnum("status").notNull().default("pending"),
+    amountEgp: integer("amount_egp"),
+    note: text("note"),
+    ledgerEntryId: integer("ledger_entry_id").references(() => ledgerEntries.id),
+    decidedBy: integer("decided_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("referral_rewards_referred_uq").on(t.referredLeadId), index("referral_rewards_referrer_idx").on(t.referrerId)],
+);
+
+// ---------------- OrlaDent OS · Phase 3: student success ----------------
+
+// A batch's class schedule (the group classes). The 1:1s and Q&As from Notion stay in programme_sessions.
+export const batchClasses = pgTable(
+  "batch_classes",
+  {
+    id: serial("id").primaryKey(),
+    cohortId: integer("cohort_id")
+      .notNull()
+      .references(() => cohorts.id),
+    title: text("title").notNull(),
+    module: text("module"), // e.g. "Module 2: crowns"
+    startsAt: ts("starts_at").notNull(),
+    durationMin: integer("duration_min").notNull().default(120),
+    instructorId: integer("instructor_id").references(() => users.id),
+    location: text("location"), // room, or the meeting link
+    recordingUrl: text("recording_url"),
+    materialsUrl: text("materials_url"),
+    notes: text("notes"),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+    deletedAt: ts("deleted_at"),
+  },
+  (t) => [index("batch_classes_cohort_idx").on(t.cohortId, t.startsAt)],
+);
+
+export const attendanceStatusEnum = pgEnum("attendance_status", ["present", "late", "absent", "excused"]);
+
+export const classAttendance = pgTable(
+  "class_attendance",
+  {
+    id: serial("id").primaryKey(),
+    classId: integer("class_id")
+      .notNull()
+      .references(() => batchClasses.id),
+    enrolmentId: integer("enrolment_id")
+      .notNull()
+      .references(() => enrolments.id),
+    status: attendanceStatusEnum("status").notNull(),
+    markedBy: integer("marked_by").references(() => users.id),
+    markedAt: ts("marked_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("class_attendance_uq").on(t.classId, t.enrolmentId), index("class_attendance_enrolment_idx").on(t.enrolmentId)],
+);
+
+export type RubricCriterion = { name: string; max: number };
+export type RubricScore = { name: string; max: number; score: number };
+
+// Assignments: a case to design, scored against a rubric. The reviewed result feeds the student's QC score.
+export const assignments = pgTable(
+  "assignments",
+  {
+    id: serial("id").primaryKey(),
+    cohortId: integer("cohort_id")
+      .notNull()
+      .references(() => cohorts.id),
+    title: text("title").notNull(),
+    brief: text("brief"),
+    dueAt: ts("due_at"),
+    rubric: jsonb("rubric").$type<RubricCriterion[]>().notNull(),
+    passPct: integer("pass_pct").notNull().default(70),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+    deletedAt: ts("deleted_at"),
+  },
+  (t) => [index("assignments_cohort_idx").on(t.cohortId)],
+);
+
+export const submissionStatusEnum = pgEnum("submission_status", ["submitted", "rework", "passed"]);
+
+export const submissions = pgTable(
+  "submissions",
+  {
+    id: serial("id").primaryKey(),
+    assignmentId: integer("assignment_id")
+      .notNull()
+      .references(() => assignments.id),
+    enrolmentId: integer("enrolment_id")
+      .notNull()
+      .references(() => enrolments.id),
+    attempt: integer("attempt").notNull().default(1),
+    attachmentId: integer("attachment_id").references(() => attachments.id),
+    link: text("link"),
+    note: text("note"),
+    submittedAt: ts("submitted_at").notNull().defaultNow(),
+    status: submissionStatusEnum("status").notNull().default("submitted"),
+    scores: jsonb("scores").$type<RubricScore[]>(),
+    totalPct: integer("total_pct"),
+    feedback: text("feedback"),
+    reviewerId: integer("reviewer_id").references(() => users.id),
+    reviewedAt: ts("reviewed_at"),
+  },
+  (t) => [uniqueIndex("submissions_uq").on(t.assignmentId, t.enrolmentId), index("submissions_enrolment_idx").on(t.enrolmentId)],
+);
+
+// A certificate: what it said when it was issued (name, programme, batch) is kept, so later edits never change it.
+export const certificates = pgTable("certificates", {
+  id: serial("id").primaryKey(),
+  enrolmentId: integer("enrolment_id")
+    .notNull()
+    .unique()
+    .references(() => enrolments.id),
+  code: text("code").notNull().unique(), // public verification code, e.g. OC-7K2P-9QX4
+  fullName: text("full_name").notNull(),
+  programme: text("programme").notNull(),
+  batch: text("batch").notNull(),
+  issuedAt: ts("issued_at").notNull().defaultNow(),
+  issuedBy: integer("issued_by").references(() => users.id),
+  override: text("override"), // why it was issued although a rule was not met (owners only)
+  revokedAt: ts("revoked_at"),
+  revokedBy: integer("revoked_by").references(() => users.id),
+  revokeReason: text("revoke_reason"),
+});
+
+export const availabilityEnum = pgEnum("availability", ["open", "busy", "not_looking"]);
+
+// A graduate's profile for placement: what they do well and whether they want paid work.
+export const alumniProfiles = pgTable("alumni_profiles", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id")
+    .notNull()
+    .unique()
+    .references(() => leads.id),
+  headline: text("headline"),
+  skills: text("skills").array().notNull().default(sql`'{}'::text[]`),
+  availability: availabilityEnum("availability").notNull().default("open"),
+  portfolioUrl: text("portfolio_url"),
+  notes: text("notes"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+// Student portal accounts, separate from staff users. A student signs in with their WhatsApp number and a
+// password they set from a one-time invite link (only its hash is stored).
+export const studentAccounts = pgTable("student_accounts", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id")
+    .notNull()
+    .unique()
+    .references(() => leads.id),
+  passwordHash: text("password_hash"),
+  inviteTokenHash: text("invite_token_hash"),
+  inviteExpiresAt: ts("invite_expires_at"),
+  active: boolean("active").notNull().default(true),
+  lastLoginAt: ts("last_login_at"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: createdAt(),
+});
+
+// ---------------- OrlaDent OS · Phase 4: production studio ----------------
+
+export const clientKindEnum = pgEnum("client_kind", ["clinic", "lab", "other"]);
+
+// Clinics and labs that send design work.
+export const productionClients = pgTable("production_clients", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  kind: clientKindEnum("kind").notNull().default("clinic"),
+  contactName: text("contact_name"),
+  phone: text("phone"),
+  email: text("email"),
+  address: text("address"),
+  discountPct: integer("discount_pct").notNull().default(0), // their agreed discount on the price list
+  paymentTermsDays: integer("payment_terms_days").notNull().default(14), // invoice due this many days after issue
+  notes: text("notes"),
+  active: boolean("active").notNull().default(true),
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+// The price list: what one unit of each kind of case costs, pays the designer, takes, and is checked against.
+export const caseTypes = pgTable("case_types", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  unitPriceEgp: integer("unit_price_egp").notNull(),
+  designerPayEgp: integer("designer_pay_egp").notNull().default(0), // per unit
+  standardDays: integer("standard_days").notNull().default(2), // working days
+  rushDays: integer("rush_days").notNull().default(1),
+  rushSurchargePct: integer("rush_surcharge_pct").notNull().default(50),
+  qcChecklist: jsonb("qc_checklist").$type<string[]>().notNull().default([]),
+  active: boolean("active").notNull().default(true),
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export type InvoiceLine = { caseId: number; code: string; description: string; units: number; amountEgp: number };
+export const invoiceStatusEnum = pgEnum("invoice_status", ["issued", "void"]);
+
+// One invoice per client for a set of delivered cases. What it said is kept (lines, total); the money owed and
+// received lives in the ledger (income, "OrlaDent client work", linked by invoice_id).
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: serial("id").primaryKey(),
+    number: text("number").notNull().unique(), // INV-2026-0001
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => productionClients.id),
+    clientName: text("client_name").notNull(), // as on the invoice
+    issuedAt: ts("issued_at").notNull().defaultNow(),
+    dueAt: ts("due_at").notNull(),
+    totalEgp: integer("total_egp").notNull(),
+    lines: jsonb("lines").$type<InvoiceLine[]>().notNull(),
+    status: invoiceStatusEnum("status").notNull().default("issued"),
+    notes: text("notes"),
+    voidReason: text("void_reason"),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index("invoices_client_idx").on(t.clientId)],
+);
+
+export const caseStatusEnum = pgEnum("case_status", ["received", "assigned", "designing", "qc", "delivered", "invoiced", "cancelled"]);
+export type QcCheck = { item: string; ok: boolean };
+
+// A design job from a client: received → assigned → designing → QC → delivered → invoiced.
+// Price and designer pay are fixed when the case is taken in, so price list changes never rewrite old cases.
+export const productionCases = pgTable(
+  "production_cases",
+  {
+    id: serial("id").primaryKey(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => productionClients.id),
+    caseTypeId: integer("case_type_id")
+      .notNull()
+      .references(() => caseTypes.id),
+    reference: text("reference"), // the client's own reference; never a patient's name
+    units: integer("units").notNull().default(1),
+    rush: boolean("rush").notNull().default(false),
+    status: caseStatusEnum("status").notNull().default("received"),
+    receivedAt: ts("received_at").notNull().defaultNow(),
+    dueAt: ts("due_at").notNull(),
+    designerId: integer("designer_id").references(() => users.id),
+    priceEgp: integer("price_egp").notNull(),
+    designerPayEgp: integer("designer_pay_egp").notNull().default(0),
+    qcChecks: jsonb("qc_checks").$type<QcCheck[]>(),
+    qcNote: text("qc_note"),
+    qcFails: integer("qc_fails").notNull().default(0),
+    qcPassedAt: ts("qc_passed_at"),
+    qcBy: integer("qc_by").references(() => users.id),
+    deliveredAt: ts("delivered_at"),
+    invoiceId: integer("invoice_id").references(() => invoices.id),
+    notes: text("notes"),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("production_cases_status_idx").on(t.status), index("production_cases_designer_idx").on(t.designerId), index("production_cases_client_idx").on(t.clientId)],
+);
+
+// ---------------- OrlaDent OS · Phase 4: team and operations ----------------
+
+// Who owns each recurring job (RACI): replying to leads, posting, QC, chasing instalments…
+export const responsibilities = pgTable("responsibilities", {
+  id: serial("id").primaryKey(),
+  area: text("area").notNull(), // the job, e.g. "Reply to new leads within 5 minutes"
+  cadence: text("cadence"), // daily | weekly | monthly | per batch | as it happens
+  responsibleId: integer("responsible_id").references(() => users.id), // does it
+  accountableId: integer("accountable_id").references(() => users.id), // answers for it
+  consulted: text("consulted"),
+  informed: text("informed"),
+  notes: text("notes"),
+  position: integer("position").notNull().default(0),
+  updatedBy: integer("updated_by").references(() => users.id),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+  deletedAt: ts("deleted_at"),
+});
+
+// Playbooks: how we onboard a student, run a masterclass, close a batch. Started as a checklist when needed.
+export const sops = pgTable("sops", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  area: text("area"), // Sales | Programme | Production | Content | Finance | …
+  purpose: text("purpose"),
+  steps: jsonb("steps").$type<string[]>().notNull(),
+  updatedBy: integer("updated_by").references(() => users.id),
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+  deletedAt: ts("deleted_at"),
+});
+
+export type RunStep = { text: string; doneAt: string | null; doneBy: number | null };
+
+// One use of a playbook: its steps as they were when started, ticked off one by one.
+export const sopRuns = pgTable(
+  "sop_runs",
+  {
+    id: serial("id").primaryKey(),
+    sopId: integer("sop_id")
+      .notNull()
+      .references(() => sops.id),
+    title: text("title").notNull(), // e.g. "Close a batch — Batch 7"
+    steps: jsonb("steps").$type<RunStep[]>().notNull(),
+    assigneeId: integer("assignee_id").references(() => users.id),
+    cohortId: integer("cohort_id").references(() => cohorts.id),
+    leadId: integer("lead_id").references(() => leads.id),
+    dueAt: ts("due_at"),
+    startedBy: integer("started_by").references(() => users.id),
+    startedAt: ts("started_at").notNull().defaultNow(),
+    completedAt: ts("completed_at"),
+    cancelledAt: ts("cancelled_at"),
+  },
+  (t) => [index("sop_runs_open_idx").on(t.sopId).where(sql`${t.completedAt} is null and ${t.cancelledAt} is null`), index("sop_runs_lead_idx").on(t.leadId)],
+);
+
+export const meetings = pgTable("meetings", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  heldAt: ts("held_at").notNull(),
+  attendees: text("attendees"),
+  agenda: text("agenda"),
+  notes: text("notes"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export const decisionStatusEnum = pgEnum("decision_status", ["open", "done", "dropped"]);
+
+// A decision to act on, with an owner and a date. Open ones show in the Command centre until closed.
+export const decisions = pgTable(
+  "decisions",
+  {
+    id: serial("id").primaryKey(),
+    meetingId: integer("meeting_id").references(() => meetings.id),
+    title: text("title").notNull(),
+    detail: text("detail"),
+    ownerId: integer("owner_id").references(() => users.id),
+    dueAt: ts("due_at"),
+    status: decisionStatusEnum("status").notNull().default("open"),
+    outcome: text("outcome"), // what happened, when closed
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    closedAt: ts("closed_at"),
+    closedBy: integer("closed_by").references(() => users.id),
+  },
+  (t) => [index("decisions_open_idx").on(t.dueAt).where(sql`${t.status} = 'open'`), index("decisions_meeting_idx").on(t.meetingId)],
+);
+
+// ---------------- OrlaDent OS · Phase 4: money and decisions ----------------
+
+// What the owners plan to spend each month per cost category, set next to what the ledger shows was spent.
+export const budgets = pgTable(
+  "budgets",
+  {
+    id: serial("id").primaryKey(),
+    month: text("month").notNull(), // YYYY-MM, Cairo calendar
+    section: ledgerSectionEnum("section").notNull(), // fixed_costs | variable_costs
+    category: text("category").notNull(),
+    amountEgp: integer("amount_egp").notNull(),
+    updatedBy: integer("updated_by").references(() => users.id),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("budgets_month_category_uq").on(t.month, t.section, t.category)],
+);
+
+// ---------------- OrlaDent OS · Phase 5: the AI assistant ----------------
+
+// A conversation with Ask OrlaDent, one person's own. Only the readable text is kept (questions and answers);
+// what the assistant looked up is listed with each answer so people can check the figures.
+export const aiThreads = pgTable(
+  "ai_threads",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    title: text("title").notNull(),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("ai_threads_user_idx").on(t.userId, t.updatedAt)],
+);
+
+export type AiLookup = { tool: string; summary: string };
+export const aiMessages = pgTable(
+  "ai_messages",
+  {
+    id: serial("id").primaryKey(),
+    threadId: integer("thread_id")
+      .notNull()
+      .references(() => aiThreads.id),
+    role: text("role").notNull(), // user | assistant
+    content: text("content").notNull(),
+    lookups: jsonb("lookups").$type<AiLookup[]>().notNull().default([]),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ai_messages_thread_idx").on(t.threadId, t.id)],
+);
+
+// Every call to the model: who, for what, and how many tokens (so owners see what it costs). No content.
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").references(() => users.id),
+    feature: text("feature").notNull(), // ask | reply | followup | caption | script | weekly | brief
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    cacheReadTokens: integer("cache_read_tokens").notNull().default(0),
+    cacheWriteTokens: integer("cache_write_tokens").notNull().default(0),
+    ok: boolean("ok").notNull().default(true),
+    error: text("error"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ai_usage_user_day_idx").on(t.userId, t.createdAt)],
+);

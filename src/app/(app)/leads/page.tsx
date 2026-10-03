@@ -8,9 +8,9 @@ import { SelectAll } from "@/components/SelectAll";
 import { Avatar, EmptyState, Icon, PageHeader, pretty } from "@/components/ui";
 import { VIEW_KEYS, listLeads, type LeadFilters } from "@/lib/lead-list";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { formatMinutes, speedBadge } from "@/lib/speed";
-import { formatCairo } from "@/lib/time";
+import { addDaysYmd, cairoYmd, formatCairo } from "@/lib/time";
 import { VIEWS, healthOf, isViewKey } from "@/lib/views";
 import { closeReviewAction, deleteViewAction, reactivateAction, saveViewAction } from "./actions";
 import { bulkAction } from "../followups/actions";
@@ -23,7 +23,7 @@ const FILTER_KEYS = ["stage", "source", "segment", "tier", "owner", "from", "to"
 
 export default async function LeadsPage(props: { searchParams: Promise<Record<string, string | undefined> & { notice?: string }> }) {
   const searchParams = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const f = searchParams as LeadFilters;
   const [{ rows, total, page, pages, settings }, stageList, sourceList, userList, views, reasons, tpls] = await Promise.all([
     listLeads(db, f),
@@ -41,12 +41,26 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
     return `?${p.toString()}`;
   };
   const viewQuery = new URLSearchParams(VIEW_KEYS.flatMap((k) => (searchParams[k] ? [[k, searchParams[k]!] as [string, string]] : []))).toString();
-  const sortHref = (key: string) => qs({ sort: key, dir: f.sort === key && f.dir !== "asc" ? "asc" : "desc", page: undefined });
+  // names, stages and the next follow-up read naturally from the top (A, New, soonest); dates newest first
+  const firstDir = (key: string) => (["name", "stage", "next"].includes(key) ? "asc" : "desc");
+  const sortHref = (key: string) => {
+    const active = f.sort === key || (!f.sort && key === "created");
+    const cur = f.dir === "asc" || f.dir === "desc" ? f.dir : "desc";
+    return qs({ sort: key, dir: active ? (cur === "asc" ? "desc" : "asc") : firstDir(key), page: undefined });
+  };
   const sortMark = (key: string) => (f.sort === key || (!f.sort && key === "created") ? (f.dir === "asc" ? " ↑" : " ↓") : "");
+  const ariaSort = (key: string) => (f.sort === key || (!f.sort && key === "created") ? (f.dir === "asc" ? "ascending" : "descending") : undefined);
   const canWrite = can(user.role, "lead:write");
   const view = isViewKey(f.view) ? f.view : null;
   const reviewing = view === "no_decision_review" || view === "nurture_review";
   const activeFilters = FILTER_KEYS.filter((k) => searchParams[k]).length;
+  const today = cairoYmd(new Date());
+  const datePresets = [
+    { label: "Today", from: today, to: today },
+    { label: "Last 7 days", from: addDaysYmd(today, -6), to: undefined },
+    { label: "Last 30 days", from: addDaysYmd(today, -29), to: undefined },
+    { label: "This month", from: `${today.slice(0, 7)}-01`, to: undefined },
+  ];
   const now = new Date();
   const title = f.deleted === "1" ? "Deleted leads" : view ? VIEWS[view].label : f.tag ? `#${f.tag}` : "Leads";
 
@@ -68,9 +82,11 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
                 <Icon name="upload" size={14} /> Import
               </Link>
             )}
-            <a href={`/leads/export${qs({ page: undefined })}`} className="btn btn-secondary btn-sm">
-              <Icon name="download" size={14} /> Export CSV
-            </a>
+            {can(user.role, "lead:export") && (
+              <a href={`/leads/export${qs({ page: undefined })}`} className="btn btn-secondary btn-sm">
+                <Icon name="download" size={14} /> Export CSV
+              </a>
+            )}
             {can(user.role, "lead:delete") && (
               <Link href={f.deleted === "1" ? "/leads" : "/leads?deleted=1"} className="btn btn-ghost btn-sm">
                 <Icon name="trash" size={14} /> {f.deleted === "1" ? "Live leads" : "Deleted"}
@@ -183,6 +199,33 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
             <label className="flex items-end gap-2 pb-2 text-sm">
               <input type="checkbox" name="overdue" value="1" className="check" defaultChecked={f.overdue === "1"} /> Overdue follow-up
             </label>
+            <label className="field">
+              Sort by
+              <select name="sort" defaultValue={f.sort ?? "created"} className="input">
+                <option value="created">Created</option>
+                <option value="updated">Last edited</option>
+                <option value="activity">Last activity</option>
+                <option value="next">Next follow-up</option>
+                <option value="name">Name</option>
+                <option value="stage">Stage</option>
+              </select>
+            </label>
+            <label className="field">
+              Order
+              <select name="dir" defaultValue={f.dir === "asc" ? "asc" : "desc"} className="input">
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted">Created:</span>
+            {datePresets.map((d) => (
+              <Link key={d.label} href={qs({ from: d.from, to: d.to, page: undefined })} aria-current={f.from === d.from && (f.to ?? "") === (d.to ?? "") ? "true" : undefined} className={`chip ${f.from === d.from && (f.to ?? "") === (d.to ?? "") ? "chip-brand" : ""}`}>
+                {d.label}
+              </Link>
+            ))}
+            <button className="btn btn-primary btn-sm ml-auto">Apply filters</button>
           </div>
         </details>
       </form>
@@ -202,8 +245,12 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
 
       <form action={bulkAction}>
         {canWrite && f.deleted !== "1" && !reviewing && (
-          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-line bg-surface/70 px-3 py-2 text-xs">
-            <span className="eyebrow">With selected</span>
+          <details className="group mb-4 rounded-2xl border border-line bg-surface/70">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3.5 text-sm font-medium text-muted hover:text-fg">
+              <Icon name="layers" size={16} /> Bulk actions on the leads you tick
+              <Icon name="chevronDown" size={14} className="ml-auto transition group-open:rotate-180" />
+            </summary>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line px-5 py-4">
             <span className="flex items-center gap-1">
               <select name="stage" className="input input-sm w-auto" aria-label="Stage">
                 <option value="">Stage…</option>
@@ -253,10 +300,11 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
                 Start cadence
               </button>
             </span>
-          </div>
+            </div>
+          </details>
         )}
         <div className="card overflow-x-auto">
-          <table className="table min-w-[860px]">
+          <table className="table">
             <thead>
               <tr>
                 {canWrite && !reviewing && (
@@ -264,20 +312,24 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
                     <SelectAll />
                   </th>
                 )}
-                <th>
+                <th aria-sort={ariaSort("name")}>
                   <Link href={sortHref("name")} className="hover:text-fg">
                     Name{sortMark("name")}
                   </Link>
                 </th>
-                <th>
+                <th aria-sort={ariaSort("stage")}>
                   <Link href={sortHref("stage")} className="hover:text-fg">
                     Stage{sortMark("stage")}
                   </Link>
                 </th>
-                <th>Source</th>
-                <th>Owner</th>
-                <th className="whitespace-nowrap">Next follow-up</th>
-                <th>
+                <th className="hidden lg:table-cell">Source</th>
+                <th className="hidden md:table-cell">Owner</th>
+                <th aria-sort={ariaSort("next")} className="hidden whitespace-nowrap md:table-cell">
+                  <Link href={sortHref("next")} className="hover:text-fg">
+                    Next follow-up{sortMark("next")}
+                  </Link>
+                </th>
+                <th aria-sort={ariaSort("created")} className="hidden xl:table-cell">
                   <Link href={sortHref("created")} className="hover:text-fg">
                     Created{sortMark("created")}
                   </Link>
@@ -300,7 +352,9 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
                     )}
                     <td>
                       <div className="flex items-center gap-3">
-                        <Avatar name={l.fullName} size={30} />
+                        <span className="hidden sm:inline-flex">
+                          <Avatar name={l.fullName} size={34} />
+                        </span>
                         <div className="min-w-0">
                           <Link href={`/leads/${l.id}`} className="font-medium hover:text-accent" dir="auto">
                             {l.fullName}
@@ -330,10 +384,10 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
                       <span className={`chip ${l.stageKind === "won" ? "chip-ok" : l.stageKind === "lost" ? "chip-danger" : l.stageKind === "open" ? "chip-brand" : ""}`}>{l.stageLabel}</span>
                       <span className="num ml-1.5 text-xs text-muted">{h.daysInStage}d</span>
                     </td>
-                    <td className="whitespace-nowrap text-muted">{l.source ?? "—"}</td>
-                    <td className="text-muted">{l.owner ?? "—"}</td>
-                    <td className="num whitespace-nowrap">{l.nextFollowUp ? formatCairo(new Date(l.nextFollowUp), false) : <span className="text-muted">—</span>}</td>
-                    <td className="num whitespace-nowrap text-muted">{formatCairo(l.createdAt, false)}</td>
+                    <td className="hidden whitespace-nowrap text-muted lg:table-cell">{l.source ?? "—"}</td>
+                    <td className="hidden text-muted md:table-cell">{l.owner ?? "—"}</td>
+                    <td className="num hidden whitespace-nowrap md:table-cell">{l.nextFollowUp ? formatCairo(new Date(l.nextFollowUp), false) : <span className="text-muted">—</span>}</td>
+                    <td className="num hidden whitespace-nowrap text-muted xl:table-cell">{formatCairo(l.createdAt, false)}</td>
                     <td>
                       <div className="flex justify-end gap-1">
                         {reviewing && canWrite ? (

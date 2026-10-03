@@ -57,8 +57,8 @@ d("release 1.1", () => {
   });
   afterAll(() => client.end());
 
-  it("seeds the defaults once: criteria, 8 built-in rules, templates, no-decision reason", async () => {
-    expect(await db.select().from(s.workflowRules)).toHaveLength(8);
+  it("seeds the defaults once: criteria, 9 built-in rules, templates, no-decision reason", async () => {
+    expect(await db.select().from(s.workflowRules)).toHaveLength(9);
     expect((await db.select().from(s.stageExitCriteria)).length).toBeGreaterThanOrEqual(13);
     expect((await db.select().from(s.messageTemplates)).length).toBeGreaterThan(5);
     expect((await reason("No decision")).kind).toBe("no_decision");
@@ -190,8 +190,16 @@ d("release 1.1", () => {
     const [badr] = await db.select().from(s.users).where(eq(s.users.email, "badr@orladent.local"));
     await saveSettings(db, { routes: [{ field: "source", value: "Instagram", userId: badr.id }] }, userId);
     expect((await mk("Routed", { sourceId: ig.id })).ownerId).toBe(badr.id);
-    expect((await mk("Not routed")).ownerId).toBe(userId); // no default owner: whoever adds it
-    await saveSettings(db, { routes: [] }, userId);
+    expect((await mk("Not routed")).ownerId).toBe(userId);
+    // the seed makes Retro the default owner (QUESTIONS.md 27): a lead Badr adds goes to Retro
+    const byBadr = await createLead(db, { fullName: "Added by Badr", phone: "01077700001" }, badr.id);
+    expect(byBadr.ok && byBadr.lead.ownerId).toBe(userId);
+    // clearing the default in Settings means whoever adds it, and a later seed run keeps that choice
+    await saveSettings(db, { defaultOwnerId: null }, userId);
+    await seedReference(url, "pw");
+    const byBadr2 = await createLead(db, { fullName: "Added by Badr 2", phone: "01077700002" }, badr.id);
+    expect(byBadr2.ok && byBadr2.lead.ownerId).toBe(badr.id);
+    await saveSettings(db, { routes: [], defaultOwnerId: userId }, userId);
 
     const l = await mk("Nobody's", { ownerId: null });
     await client`update leads set created_at = now() - interval '45 minutes' where id = ${l.id}`;

@@ -1,6 +1,6 @@
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { activities, followUps, leads, lostReasons, sources, stageEvents, stages } from "@/db/schema";
+import { activities, followUps, leads, lostReasons, sources, stageEvents, stages, users } from "@/db/schema";
 import { getSettings } from "./app-settings";
 import { audit } from "./audit";
 import { isUniqueViolation } from "./db-errors";
@@ -23,6 +23,8 @@ export type NewLeadInput = {
   tierInterest?: Lead["tierInterest"];
   notes?: string | null;
   ownerId?: number | null;
+  attribution?: Record<string, string> | null; // utm_* and the form, from a public form or the inbound webhook
+  referredById?: number | null;
 };
 
 export type Duplicate = { id: number; fullName: string; deleted: boolean; matchedOn: "phone" | "email" | "name and city" };
@@ -76,17 +78,23 @@ export async function findNameCityMatches(db: Pick<Db, "select">, fullName: stri
   return rows.map((r) => ({ id: r.id, fullName: r.fullName, deleted: false, matchedOn: "name and city" as const }));
 }
 
-/** A3: first matching route (source or segment) decides the owner, then the default owner, then the creator. */
+/**
+ * A3: first matching route (source or segment) decides the owner, then the default owner, then the creator.
+ * Someone deactivated since a route was set up is skipped, so new leads never land with a person who left.
+ */
 export async function assignOwner(db: Pick<Db, "select">, input: Pick<NewLeadInput, "sourceId" | "segment">, creatorId: number | null): Promise<number | null> {
   const s = await getSettings(db);
+  const active = new Set((await db.select({ id: users.id }).from(users).where(eq(users.active, true))).map((u) => u.id));
+  const ok = (id: number | null | undefined) => (id != null && active.has(id) ? id : null);
   for (const r of s.routes) {
+    if (!ok(r.userId)) continue;
     if (r.field === "segment" && input.segment && r.value === input.segment) return r.userId;
     if (r.field === "source" && input.sourceId) {
       const [src] = await db.select({ label: sources.label }).from(sources).where(eq(sources.id, input.sourceId));
       if (src && (src.label === r.value || String(input.sourceId) === r.value)) return r.userId;
     }
   }
-  return s.defaultOwnerId ?? creatorId;
+  return ok(s.defaultOwnerId) ?? ok(creatorId);
 }
 
 export type CreateResult =
@@ -128,6 +136,8 @@ export async function createLead(
           tierInterest: input.tierInterest ?? "unsure",
           notes: blank(input.notes),
           ownerId,
+          attribution: input.attribution && Object.keys(input.attribution).length ? input.attribution : null,
+          referredById: input.referredById ?? null,
         })
         .returning();
       // creation is the funnel's first event (from_stage NULL -> new)
@@ -298,6 +308,13 @@ export async function updateLead(
   if (patch.phone !== undefined && blank(patch.phone) && !phone) return { ok: false, error: "Invalid phone number" };
   const email = patch.email === undefined ? undefined : (blank(patch.email)?.toLowerCase() ?? null);
 
+  const [cur] = await db.select({ ownerId: leads.ownerId, deletedAt: leads.deletedAt }).from(leads).where(eq(leads.id, id));
+  if (!cur || cur.deletedAt) return { ok: false, error: "Lead not found" };
+  if (patch.ownerId != null && patch.ownerId !== cur.ownerId) {
+    const [u] = await db.select({ id: users.id }).from(users).where(and(eq(users.id, patch.ownerId), eq(users.active, true)));
+    if (!u) return { ok: false, error: "Choose an active person as the owner" };
+  }
+
   const duplicates = await findDuplicates(db, { phone, email }, id);
   if (duplicates.length) return { ok: false, error: "Another lead has this phone or email", duplicates };
 
@@ -321,6 +338,9 @@ export async function updateLead(
       await tx.update(leads).set(set).where(eq(leads.id, id));
       // field names only, never values: no lead PII in the audit log
       await audit(tx, { userId, entity: "lead", entityId: id, action: "update", diff: { fields: Object.keys(set).filter((k) => k !== "updatedAt") } });
+      if (patch.ownerId !== undefined && patch.ownerId !== cur.ownerId) {
+        await fireRules(tx as unknown as Db, { trigger: "owner_changed", leadId: id, from: cur.ownerId, to: patch.ownerId ?? null }, userId);
+      }
     });
   } catch (e) {
     if (isUniqueViolation(e)) return { ok: false, error: "Another lead has this phone or email", duplicates: await findDuplicates(db, { phone, email }, id) };
@@ -332,6 +352,8 @@ export async function updateLead(
 export async function setDeleted(db: Db, id: number, deleted: boolean, userId: number | null) {
   await db.transaction(async (tx) => {
     await tx.update(leads).set({ deletedAt: deleted ? new Date() : null, updatedAt: new Date() }).where(eq(leads.id, id));
+    // a deleted lead has no next step: its open follow-ups would otherwise keep firing overdue alerts
+    if (deleted) await tx.update(followUps).set({ cancelledAt: new Date() }).where(and(eq(followUps.leadId, id), isNull(followUps.doneAt), isNull(followUps.cancelledAt)));
     await audit(tx, { userId, entity: "lead", entityId: id, action: deleted ? "delete" : "restore" });
   });
 }

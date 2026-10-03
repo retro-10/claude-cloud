@@ -38,9 +38,9 @@ export default async function RulesSettings(props: { searchParams: Promise<{ not
   return (
     <>
       <Flash {...searchParams} />
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-2">
         <Card title="Response time and lead health" icon="gauge">
-          <form action={saveThresholdsAction} className="flex flex-col gap-5">
+          <form action={saveThresholdsAction} className="flex flex-col gap-6">
             <fieldset className="grid gap-4 sm:grid-cols-3">
               <legend className="eyebrow mb-3">Speed to lead</legend>
               <NumberField name="slaTargetMin" label="Target first reply" value={s.slaTargetMin} def={DEFAULTS.slaTargetMin} unit="min" max={1440} />

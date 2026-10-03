@@ -2,13 +2,28 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { activities, cadenceTemplates, cohorts, consults, followUps, leads, ledgerEntries, lostReasons, sources, stageEvents, stages, users } from "@/db/schema";
+import { activities, cadenceTemplates, cohorts, consults, followUps, leadForms, leads, ledgerEntries, lostReasons, sources, stageEvents, stages, users } from "@/db/schema";
 import { ComposeButton } from "@/components/crm/Composer";
 import { DoneMenu, SnoozeMenu } from "@/components/crm/FollowUpActions";
 import { LiveWait } from "@/components/crm/LiveWait";
 import { StageStepper } from "@/components/crm/StageStepper";
 import { ConsultsPanel } from "@/components/ConsultsPanel";
+import { DraftPanel } from "@/components/ai/DraftPanel";
+import { draftBriefAction } from "@/app/(app)/ask/drafts";
+import { aiOffered } from "@/lib/ai/core";
 import { CandidateMoney } from "@/components/finance/CandidateMoney";
+import { TaskForm, TaskList } from "@/components/tasks/TaskPanel";
+import { listTasks } from "@/lib/tasks";
+import { FilesPanel } from "@/components/FilesPanel";
+import { startRunAction } from "@/app/(app)/team/actions";
+import { listRuns, listSops } from "@/lib/operations";
+import { listAttachments } from "@/lib/attachments";
+import { publicBaseUrl } from "@/lib/public-url";
+import { makeReferralCodeAction, setReferrerAction } from "../../growth/referrals/actions";
+import { PortalInvite } from "@/components/programme/PortalInvite";
+import { portalStatus } from "@/lib/portal";
+import { certificatesFor } from "@/lib/graduation";
+import { setPortalActiveAction } from "../portal-actions";
 import { ProgrammeCard } from "@/components/programme/ProgrammeCard";
 import { Flash } from "@/components/Flash";
 import { LeadForm } from "@/components/LeadForm";
@@ -21,7 +36,7 @@ import { undoableMerges } from "@/lib/merge";
 import { TIER_LABEL } from "@/lib/pricing";
 import { listProof, listSessions } from "@/lib/programme";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo, toCairoLocalInput } from "@/lib/time";
 import { healthOf } from "@/lib/views";
 import {
@@ -47,7 +62,7 @@ const egp = (n: number) => `${new Intl.NumberFormat("en-US").format(n)} EGP`;
 
 export default async function LeadPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; notice?: string }> }) {
   const [params, searchParams] = await Promise.all([props.params, props.searchParams]);
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const id = Number(params.id);
   if (!Number.isInteger(id)) notFound();
   const [lead] = await db.select().from(leads).where(eq(leads.id, id));
@@ -80,7 +95,17 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
         .orderBy(asc(ledgerEntries.createdAt))
     : [];
   const enrolmentIds = candidates.map((c) => c.enrolmentId);
-  const [sessions, proof] = await Promise.all([listSessions(db, enrolmentIds), listProof(db, { enrolmentIds })]);
+  const [sessions, proof, leadTasks, files, referrer, referredPeople, [applyForm], base] = await Promise.all([
+    listSessions(db, enrolmentIds),
+    listProof(db, { enrolmentIds }),
+    listTasks(db, { leadId: id, status: "all" }),
+    listAttachments(db, { leadId: id }),
+    lead.referredById ? db.select({ id: leads.id, fullName: leads.fullName }).from(leads).where(eq(leads.id, lead.referredById)).then((r) => r[0] ?? null) : Promise.resolve(null),
+    db.select({ id: leads.id, fullName: leads.fullName }).from(leads).where(and(eq(leads.referredById, id), isNull(leads.deletedAt))),
+    db.select({ slug: leadForms.slug }).from(leadForms).where(and(eq(leadForms.active, true), isNull(leadForms.campaignId))).orderBy(asc(leadForms.id)).limit(1),
+    publicBaseUrl(),
+  ]);
+  const [portal, certs, playbooks, leadRuns] = await Promise.all([portalStatus(db, id), certificatesFor(db, id), listSops(db), listRuns(db, { leadId: id })]);
   const openFus = fus.filter((f) => !f.doneAt && !f.cancelledAt).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime());
   const stage = stageList.find((s) => s.key === lead.stage);
   const stageLabel = (k: string | null) => stageList.find((s) => s.key === k)?.label ?? k ?? "";
@@ -126,12 +151,17 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
   ].sort((x, y) => y.at.getTime() - x.at.getTime());
 
   const canWrite = can(user.role, "lead:write") && !lead.deletedAt;
+  // the consult brief: offered while a consult is coming up (or waits for its result)
+  const briefOn =
+    canWrite &&
+    (await db.select({ id: consults.id }).from(consults).where(and(eq(consults.leadId, lead.id), isNull(consults.outcome), eq(consults.held, false))).limit(1)).length > 0 &&
+    (await aiOffered(db, user.role));
   const owner = ownerList.find((o) => o.id === lead.ownerId)?.name;
   const source = sourceList.find((s) => s.id === lead.sourceId)?.label;
   const offerTier = TIERS.find(([k]) => k === lead.offerTier)?.[1];
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <Link href="/leads" className="flex w-fit items-center gap-1 text-xs text-muted hover:text-fg">
         <Icon name="chevronLeft" size={14} /> All leads
       </Link>
@@ -218,6 +248,14 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
                   <dd className="inline text-fg">{source}</dd>
                 </div>
               )}
+              {lead.attribution && (lead.attribution.utm_source || lead.attribution.utm_medium || lead.attribution.utm_content) && (
+                <div>
+                  <dt className="inline">Came from </dt>
+                  <dd className="inline text-fg" dir="ltr">
+                    {[lead.attribution.utm_source, lead.attribution.utm_medium, lead.attribution.utm_content].filter(Boolean).join(" · ")}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="inline">Owner </dt>
                 <dd className="inline text-fg">{owner ?? "Unassigned"}</dd>
@@ -262,7 +300,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
         </dl>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
         <div className="flex min-w-0 flex-col gap-5">
           {nextStage && nextChecks.length > 0 && (
             <Card title={`Ready for ${nextStage.label}?`} icon="flag" bodyClass="px-4 py-3">
@@ -415,7 +453,18 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
         </div>
 
         <aside className="flex min-w-0 flex-col gap-5">
-          <Card title="Offer" icon="target" bodyClass="p-4">
+          <Card
+            title="Offer"
+            icon="target"
+            bodyClass="p-4"
+            actions={
+              canWrite ? (
+                <Link href={`/tools/offer?lead=${lead.id}`} className="btn btn-ghost btn-sm">
+                  <Icon name="template" size={14} /> Offer builder
+                </Link>
+              ) : undefined
+            }
+          >
             {lead.offerAmountEgp || offerTier || lead.decisionDueAt ? (
               <div className="mb-4 grid grid-cols-2 gap-2 text-sm">
                 <div className="well px-3 py-2">
@@ -466,7 +515,167 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
 
           <ConsultsPanel leadId={lead.id} canWrite={canWrite} />
 
-          {candidates.map((c) => (
+          {briefOn && (
+            <Card title="Consult brief" icon="sparkle" label="Consult brief">
+              <div id="brief" className="scroll-mt-24" />
+              <DraftPanel action={draftBriefAction.bind(null, lead.id)} button="Brief me for the call" rows={16} />
+            </Card>
+          )}
+
+          <Card title="Tasks" icon="list" label="Tasks">
+            <TaskList rows={leadTasks} back={`/leads/${lead.id}`} canWrite={can(user.role, "task:write")} showLinks={false} empty="No tasks on this lead." />
+            {can(user.role, "task:write") && !lead.deletedAt && (
+              <div className="mt-3">
+                <TaskForm people={ownerList} back={`/leads/${lead.id}`} leadId={lead.id} me={user.id} />
+              </div>
+            )}
+            {leadRuns.length > 0 && (
+              <ul className="mt-3 border-t border-line pt-2 text-sm">
+                {leadRuns.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-2 py-1">
+                    <Link href={`/team/runs/${r.id}`} className="link min-w-0 truncate" dir="auto">
+                      {r.title}
+                    </Link>
+                    <span className="text-xs text-muted">{r.completedAt ? "done" : `${r.doneSteps} of ${r.steps.length}`}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {can(user.role, "task:write") && !lead.deletedAt && playbooks.length > 0 && (
+              <form action={startRunAction} className="mt-3 flex flex-wrap items-end gap-2 border-t border-line pt-3">
+                <input type="hidden" name="leadId" value={lead.id} />
+                <input type="hidden" name="assigneeId" value={user.id} />
+                <input type="hidden" name="back" value={`/leads/${lead.id}`} />
+                <label className="field min-w-0 flex-1">
+                  Run a playbook for them
+                  <select name="sopId" required defaultValue="" className="input input-sm">
+                    <option value="" disabled>
+                      Choose
+                    </option>
+                    {playbooks.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button className="btn btn-secondary btn-sm">Start</button>
+              </form>
+            )}
+          </Card>
+
+          {candidates.length > 0 && (
+            <Card title="Student portal" icon="user" label="Student portal">
+              <p className="mb-3 text-sm">
+                {portal.state === "none" && "No portal access yet."}
+                {portal.state === "invited" && `Invited; the link works until ${formatCairo(portal.inviteExpiresAt!, false)}.`}
+                {portal.state === "expired" && "The invite expired before they set a password."}
+                {portal.state === "active" && (portal.lastLoginAt ? `Active; last signed in ${formatCairo(portal.lastLoginAt)}.` : "Active.")}
+                {portal.state === "off" && "Access switched off."}
+              </p>
+              {can(user.role, "programme:write") && !lead.deletedAt && (
+                <div className="flex flex-col gap-3">
+                  {portal.state !== "off" && (
+                    <PortalInvite
+                      leadId={lead.id}
+                      phone={lead.doNotContact ? null : lead.phoneWhatsapp}
+                      firstName={lead.fullName.split(/\s+/)[0]}
+                      label={portal.state === "none" ? "Give portal access (invite link)" : portal.state === "active" ? "New password link" : "New invite link"}
+                    />
+                  )}
+                  {portal.state !== "none" && (
+                    <form action={setPortalActiveAction}>
+                      <input type="hidden" name="leadId" value={lead.id} />
+                      {portal.state === "off" && <input type="hidden" name="active" value="on" />}
+                      <button className="btn btn-ghost btn-sm">{portal.state === "off" ? "Switch access back on" : "Switch access off"}</button>
+                    </form>
+                  )}
+                </div>
+              )}
+              {certs.length > 0 && (
+                <ul className="mt-3 flex flex-col gap-1 border-t border-line pt-3 text-sm">
+                  {certs.map(({ c }) => (
+                    <li key={c.id}>
+                      <a href={`/certificates/${c.code}`} className="link num">
+                        Certificate {c.code}
+                      </a>{" "}
+                      <span className="text-xs text-muted">{c.revokedAt ? "revoked" : `${c.programme}, ${formatCairo(c.issuedAt, false)}`}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
+
+          <Card title="Referrals" icon="user" label="Referrals">
+            <dl className="grid gap-2 text-sm">
+              <div>
+                <dt className="inline text-muted">Referred by </dt>
+                <dd className="inline">
+                  {referrer ? (
+                    <Link href={`/leads/${referrer.id}`} className="link" dir="auto">
+                      {referrer.fullName}
+                    </Link>
+                  ) : (
+                    "nobody recorded"
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="inline text-muted">Has referred </dt>
+                <dd className="inline">
+                  {referredPeople.length === 0
+                    ? "nobody yet"
+                    : referredPeople.map((p, i) => (
+                        <span key={p.id}>
+                          {i > 0 && ", "}
+                          <Link href={`/leads/${p.id}`} className="link" dir="auto">
+                            {p.fullName}
+                          </Link>
+                        </span>
+                      ))}
+                </dd>
+              </div>
+            </dl>
+            {lead.referralCode ? (
+              <p className="mt-3 text-xs">
+                <span className="text-muted">Their referral link: </span>
+                {applyForm ? (
+                  <code className="num break-all" dir="ltr">
+                    {base}/f/{applyForm.slug}?ref={lead.referralCode}
+                  </code>
+                ) : (
+                  <>
+                    code <code className="num">{lead.referralCode}</code> (add <code className="num">?ref={lead.referralCode}</code> to any lead form link; a general form with no campaign is used here once you make one)
+                  </>
+                )}
+              </p>
+            ) : (
+              can(user.role, "growth:write") &&
+              !lead.deletedAt && (
+                <form action={makeReferralCodeAction} className="mt-3">
+                  <input type="hidden" name="leadId" value={lead.id} />
+                  <button className="btn btn-secondary btn-sm">Make referral link</button>
+                </form>
+              )
+            )}
+            {canWrite && (
+              <form action={setReferrerAction} className="mt-3 flex flex-wrap items-end gap-2">
+                <input type="hidden" name="leadId" value={lead.id} />
+                <label className="field min-w-0 flex-1">
+                  Referred by (their WhatsApp number; empty clears it)
+                  <input name="phone" type="tel" dir="ltr" className="input input-sm" />
+                </label>
+                <button className="btn btn-ghost btn-sm">Save</button>
+              </form>
+            )}
+          </Card>
+
+          <Card title={`Files (${files.length})`} icon="layers" label="Files">
+            <FilesPanel rows={files} back={`/leads/${lead.id}`} leadId={lead.id} canWrite={can(user.role, "file:write") && !lead.deletedAt} me={user.id} isOwner={can(user.role, "settings:write")} />
+          </Card>
+
+          {can(user.role, "finance:read") && candidates.map((c) => (
             <Card key={c.enrolmentId} title={`${c.cohort} · ${TIER_LABEL[c.tier] ?? c.tier}`} icon="cohorts" label="Payments">
               <div id="money" className="scroll-mt-24" />
               <CandidateMoney
