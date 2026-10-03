@@ -11,7 +11,7 @@ import { waitingMinutes } from "./speed";
  * follow-ups, tags, owners and in-app notifications. They NEVER send a message to a lead.
  * Every firing is written to workflow_runs so the owner can see what happened and when.
  */
-export type Trigger = "lead_created" | "stage_changed" | "inbound_logged" | "consult_outcome" | "follow_up_overdue" | "sla_breached";
+export type Trigger = "lead_created" | "stage_changed" | "inbound_logged" | "consult_outcome" | "follow_up_overdue" | "sla_breached" | "owner_changed";
 
 export const TRIGGERS: Record<Trigger, string> = {
   lead_created: "A lead is created",
@@ -20,6 +20,7 @@ export const TRIGGERS: Record<Trigger, string> = {
   consult_outcome: "A consult result is recorded",
   follow_up_overdue: "A follow-up is overdue",
   sla_breached: "A new lead waits past the red response time",
+  owner_changed: "A lead is given to someone (new owner)",
 };
 
 export type RuleEvent =
@@ -28,7 +29,19 @@ export type RuleEvent =
   | { trigger: "inbound_logged"; leadId: number }
   | { trigger: "consult_outcome"; leadId: number; result: "held" | "no_show"; outcome?: string | null }
   | { trigger: "follow_up_overdue"; leadId: number; followUpId: number }
-  | { trigger: "sla_breached"; leadId: number };
+  | { trigger: "sla_breached"; leadId: number }
+  | { trigger: "owner_changed"; leadId: number; from: number | null; to: number | null };
+
+/** Which conditions mean something for each trigger. A condition a trigger never has would stop the rule firing at all. */
+export const CONDITIONS_FOR: Record<Trigger, readonly string[]> = {
+  lead_created: ["segment", "source", "tier", "unassigned", "tag"],
+  stage_changed: ["to_stage", "from_stage", "lost_reason", "segment", "source", "tier", "unassigned", "tag"],
+  inbound_logged: ["segment", "source", "tier", "unassigned", "tag"],
+  consult_outcome: ["result", "outcome", "segment", "source", "tier", "unassigned", "tag"],
+  follow_up_overdue: ["overdue_hours", "segment", "source", "tier", "unassigned", "tag"],
+  sla_breached: ["segment", "source", "tier", "unassigned", "tag"],
+  owner_changed: ["segment", "source", "tier", "tag"],
+};
 
 // Anything with select/insert/update/transaction: the app db or a transaction.
 type Exec = Db;
@@ -38,6 +51,8 @@ type Rule = typeof workflowRules.$inferSelect;
 async function conditionsMatch(db: Exec, rule: Rule, ev: RuleEvent, lead: typeof leads.$inferSelect): Promise<boolean> {
   const c = rule.conditions ?? {};
   if (c.to_stage && !(ev.trigger === "stage_changed" && ev.to === c.to_stage)) return false;
+  if (c.from_stage && !(ev.trigger === "stage_changed" && ev.from === c.from_stage)) return false;
+  if (c.tag && !(lead.tags ?? []).includes(c.tag)) return false;
   if (c.result && !(ev.trigger === "consult_outcome" && ev.result === c.result)) return false;
   if (c.outcome && !(ev.trigger === "consult_outcome" && ev.outcome === c.outcome)) return false;
   if (c.segment && lead.segment !== c.segment) return false;
@@ -67,6 +82,13 @@ async function runAction(db: Exec, a: RuleAction, rule: Rule, ev: RuleEvent, lea
         if (!lead.decisionDueAt) return "no decision date, follow-up skipped";
         due = lead.decisionDueAt;
       } else due = new Date(now.getTime() + (a.dueInMinutes ?? 0) * 60_000);
+      // one open "reply to them" at a time, and a rule never stacks a second copy of its own open follow-up
+      const [open] = await db
+        .select({ id: followUps.id })
+        .from(followUps)
+        .where(and(eq(followUps.leadId, lead.id), isNull(followUps.doneAt), isNull(followUps.cancelledAt), a.kind === "reply" ? eq(followUps.kind, "reply") : eq(followUps.ruleId, rule.id)))
+        .limit(1);
+      if (open) return a.kind === "reply" ? "a reply follow-up is already open" : "its follow-up is already open";
       await db.insert(followUps).values({ leadId: lead.id, dueAt: due, kind: a.kind, note: a.note, createdBy: userId, ruleId: rule.id });
       return `follow-up “${a.note}”`;
     }
@@ -101,13 +123,17 @@ async function runAction(db: Exec, a: RuleAction, rule: Rule, ev: RuleEvent, lea
       return `tag “${a.tag}”`;
     }
     case "set_owner": {
-      await db.update(leads).set({ ownerId: a.userId, updatedAt: new Date() }).where(eq(leads.id, lead.id));
-      return `owner set`;
+      const [u] = await db.select({ id: users.id, name: users.name }).from(users).where(and(eq(users.id, a.userId), eq(users.active, true)));
+      if (!u) return "owner not set (that person is not active)";
+      await db.update(leads).set({ ownerId: u.id, updatedAt: new Date() }).where(eq(leads.id, lead.id));
+      lead.ownerId = u.id; // later actions in this rule (a notification) go to the new owner
+      return `owner set to ${u.name}`;
     }
     case "notify": {
-      const to = await recipients(db, lead);
+      // taking a lead yourself needs no message about it
+      const to = (await recipients(db, lead)).filter((u) => !(ev.trigger === "owner_changed" && u === userId));
       if (to.length) {
-        const title = a.title.replace("{name}", lead.fullName);
+        const title = a.title.replaceAll("{name}", lead.fullName);
         await db.insert(notifications).values(to.map((u) => ({ userId: u, kind: rule.key ?? "rule", title, leadId: lead.id })));
       }
       return `notified ${to.length}`;
@@ -116,7 +142,7 @@ async function runAction(db: Exec, a: RuleAction, rule: Rule, ev: RuleEvent, lea
 }
 
 /** Runs every enabled rule for this event. Call inside the same transaction as the change itself. */
-export async function fireRules(db: Exec, ev: RuleEvent, userId: number | null, opts: { now?: Date; dedupeKey?: (rule: Rule) => string } = {}): Promise<number> {
+export async function fireRules(db: Exec, ev: RuleEvent, userId: number | null, opts: { now?: Date; dedupeKey?: (rule: Rule) => string; skipKeys?: string[] } = {}): Promise<number> {
   const now = opts.now ?? new Date();
   const rules = await db
     .select()
@@ -129,20 +155,32 @@ export async function fireRules(db: Exec, ev: RuleEvent, userId: number | null, 
 
   let fired = 0;
   for (const rule of rules) {
+    if (rule.key && opts.skipKeys?.includes(rule.key)) continue;
     if (!(await conditionsMatch(db, rule, ev, lead))) continue;
     const dedupeKey = opts.dedupeKey?.(rule) ?? null;
+    let runId: number | null = null;
     if (dedupeKey) {
       // claim the key first: a scheduled trigger fires once per thing, even with two sweeps racing
       const claimed = await db.insert(workflowRuns).values({ ruleId: rule.id, leadId: lead.id, result: "running", dedupeKey, firedAt: now }).onConflictDoNothing().returning({ id: workflowRuns.id });
       if (!claimed.length) continue;
-      const done: string[] = [];
-      for (const a of rule.actions) done.push(await runAction(db, a, rule, ev, lead, userId, now));
-      await db.update(workflowRuns).set({ result: done.join("; ") }).where(eq(workflowRuns.id, claimed[0].id));
-    } else {
-      const done: string[] = [];
-      for (const a of rule.actions) done.push(await runAction(db, a, rule, ev, lead, userId, now));
-      await db.insert(workflowRuns).values({ ruleId: rule.id, leadId: lead.id, result: done.join("; "), firedAt: now });
+      runId = claimed[0].id;
     }
+    // Each rule runs in its own savepoint: a rule that fails is undone and logged, and never blocks the
+    // change that triggered it (saving a lead, logging a message, moving a stage) or the rules after it.
+    let result: string;
+    const before = { ...lead };
+    try {
+      result = await db.transaction(async (sp) => {
+        const done: string[] = [];
+        for (const a of rule.actions) done.push(await runAction(sp as unknown as Exec, a, rule, ev, lead, userId, now));
+        return done.join("; ");
+      });
+    } catch (e) {
+      Object.assign(lead, before);
+      result = `failed: ${(e instanceof Error ? e.message : String(e)).split("\n")[0].replace(/\(.*?\)=\(.*?\)/g, "").slice(0, 160)}`;
+    }
+    if (runId) await db.update(workflowRuns).set({ result }).where(eq(workflowRuns.id, runId));
+    else await db.insert(workflowRuns).values({ ruleId: rule.id, leadId: lead.id, result, firedAt: now });
     fired++;
   }
   return fired;
@@ -203,17 +241,24 @@ async function sweep(db: Db, now: Date): Promise<number> {
   const slaRules = rules.filter((r) => r.trigger === "sla_breached");
   if (slaRules.length) {
     const s = await getSettings(db);
-    // candidates: uncontacted open leads; the exact waiting time (working hours aware) is checked in JS
-    const waiting = await db.execute(sql`
-      select l.id, l.created_at from leads l join stages st on st.key = l.stage
-      where l.deleted_at is null and l.first_contact_at is null and st.kind = 'open'
-        and l.created_at < ${new Date(now.getTime() - s.slaRedMin * 60_000).toISOString()}::timestamptz
-      order by l.created_at asc limit ${SWEEP_BATCH}`);
-    for (const row of waiting as unknown as { id: number; created_at: string }[]) {
-      if (waitingMinutes(new Date(row.created_at), now, s.workingHours) < s.slaRedMin) continue;
-      fired += await db.transaction((tx) =>
-        fireRules(tx as unknown as Db, { trigger: "sla_breached", leadId: row.id }, null, { now, dedupeKey: (r) => `rule:${r.id}:sla:${row.id}` }),
-      );
+    for (const rule of slaRules) {
+      // candidates: uncontacted open leads this rule has not fired for yet (so a backlog of old ones never
+      // starves the newer ones), never do-not-contact; the exact waiting time (working hours) is checked in JS
+      const waiting = await db.execute(sql`
+        select l.id, l.created_at from leads l join stages st on st.key = l.stage
+        where l.deleted_at is null and l.first_contact_at is null and st.kind = 'open' and not l.do_not_contact
+          and l.created_at < ${new Date(now.getTime() - s.slaRedMin * 60_000).toISOString()}::timestamptz
+          and not exists (select 1 from workflow_runs r where r.dedupe_key = ${`rule:${rule.id}:sla:`} || l.id::text)
+        order by l.created_at asc limit ${SWEEP_BATCH * 2}`);
+      let n = 0;
+      for (const row of waiting as unknown as { id: number; created_at: string }[]) {
+        if (n >= SWEEP_BATCH) break;
+        if (waitingMinutes(new Date(row.created_at), now, s.workingHours) < s.slaRedMin) continue;
+        n++;
+        fired += await db.transaction((tx) =>
+          fireRules(tx as unknown as Db, { trigger: "sla_breached", leadId: row.id }, null, { now, dedupeKey: (r) => `rule:${r.id}:sla:${row.id}` }),
+        );
+      }
     }
   }
   return fired;
@@ -221,13 +266,17 @@ async function sweep(db: Db, now: Date): Promise<number> {
 
 // ---- editing rules (Settings → Workflows) ----
 
-const CONDITION_KEYS = ["to_stage", "result", "outcome", "segment", "source", "tier", "lost_reason", "overdue_hours", "unassigned"] as const;
+const CONDITION_KEYS = ["to_stage", "from_stage", "result", "outcome", "segment", "source", "tier", "lost_reason", "overdue_hours", "unassigned", "tag"] as const;
 export type RuleInput = { name: string; trigger: string; conditions: Record<string, string>; actions: RuleAction[] };
 
 export function validateRule(r: RuleInput): string | null {
   if (!r.name.trim() || r.name.length > 120) return "Give the rule a name (up to 120 characters)";
   if (!(r.trigger in TRIGGERS)) return "Unknown trigger";
-  for (const k of Object.keys(r.conditions)) if (!(CONDITION_KEYS as readonly string[]).includes(k)) return `Unknown condition ${k}`;
+  for (const [k, v] of Object.entries(r.conditions)) {
+    if (!(CONDITION_KEYS as readonly string[]).includes(k)) return `Unknown condition ${k}`;
+    if (v !== "" && !CONDITIONS_FOR[r.trigger as Trigger].includes(k)) return `“${COND_NAME[k] ?? k}” never applies to “${TRIGGERS[r.trigger as Trigger].toLowerCase()}”, so the rule would never fire`;
+  }
+  if (r.actions.length > 5) return "Up to 5 actions per rule";
   if (r.conditions.overdue_hours && !/^\d{1,4}$/.test(r.conditions.overdue_hours)) return "Overdue hours must be a whole number";
   if (!r.actions.length) return "Add at least one action";
   for (const a of r.actions) {
@@ -241,8 +290,25 @@ export function validateRule(r: RuleInput): string | null {
   return null;
 }
 
+const COND_NAME: Record<string, string> = { to_stage: "stage becomes", from_stage: "stage was", result: "consult result", outcome: "consult outcome", lost_reason: "lost reason", overdue_hours: "overdue by", unassigned: "no owner", tag: "tag" };
+
+/** Checks that need the database: the person an owner action names is active, the cadence exists. */
+async function checkReferences(db: Db, r: RuleInput): Promise<string | null> {
+  for (const a of r.actions) {
+    if (a.type === "set_owner") {
+      const [u] = await db.select({ id: users.id }).from(users).where(and(eq(users.id, a.userId), eq(users.active, true)));
+      if (!u) return "Choose an active person to assign";
+    }
+    if (a.type === "apply_cadence") {
+      const [c] = await db.select({ id: cadenceTemplates.id }).from(cadenceTemplates).where(eq(cadenceTemplates.name, a.cadence.trim()));
+      if (!c) return `There is no cadence called “${a.cadence.trim()}”`;
+    }
+  }
+  return null;
+}
+
 export async function saveRule(db: Db, id: number | null, r: RuleInput, actorId: number | null): Promise<{ ok: true } | { ok: false; error: string }> {
-  const bad = validateRule(r);
+  const bad = validateRule(r) ?? (await checkReferences(db, r));
   if (bad) return { ok: false, error: bad };
   const conditions = Object.fromEntries(Object.entries(r.conditions).filter(([, v]) => v !== ""));
   if (id) {

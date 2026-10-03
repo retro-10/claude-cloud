@@ -99,6 +99,12 @@ export async function seedDemoIfEmpty(url = process.env.DATABASE_URL, now = new 
 async function seedRelease11(db: ReturnType<typeof drizzle>) {
   await db.insert(s.lostReasons).values(LOST_REASONS_1_1).onConflictDoNothing();
 
+  // built-in rules by key: a rule added in a later release reaches existing databases; edits are never overwritten
+  await db
+    .insert(s.workflowRules)
+    .values(BUILTIN_RULES.map((r) => ({ ...r, builtin: true, enabled: true })))
+    .onConflictDoNothing();
+
   const [marker] = await db.select().from(s.appSettings).where(eq(s.appSettings.key, "seeded_1_1"));
   if (marker) return;
 
@@ -107,10 +113,6 @@ async function seedRelease11(db: ReturnType<typeof drizzle>) {
     stageKeys.has(stageKey) ? checks.map((checkKey) => ({ stageKey, checkKey, required: true })) : [],
   );
   if (criteria.length) await db.insert(s.stageExitCriteria).values(criteria).onConflictDoNothing();
-  await db
-    .insert(s.workflowRules)
-    .values(BUILTIN_RULES.map((r) => ({ ...r, builtin: true, enabled: true })))
-    .onConflictDoNothing();
   const anyTemplate = await db.select({ id: s.messageTemplates.id }).from(s.messageTemplates).limit(1);
   if (!anyTemplate.length) await db.insert(s.messageTemplates).values(TEMPLATES);
   await db.insert(s.appSettings).values({ key: "seeded_1_1", value: true }).onConflictDoNothing();

@@ -136,6 +136,14 @@ export const BUILTIN_RULES: {
     actions: [{ type: "notify", title: "Nobody has answered {name} yet" }],
     position: 8,
   },
+  {
+    key: "owner_assigned",
+    name: "Lead given to someone: tell them",
+    trigger: "owner_changed",
+    conditions: {},
+    actions: [{ type: "notify", title: "{name} is now yours" }],
+    position: 9,
+  },
 ];
 
 // M1: neutral starter templates. No prices, incentives, guarantees or outcome claims: those need

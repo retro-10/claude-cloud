@@ -8,11 +8,17 @@ import { cairoLocalToDate, startOfCairoDay } from "./time";
 
 export const PAGE_SIZE = 50;
 
+// The pipeline's order, not the alphabet: "consult_booked" sorted before "contacted" by key.
+const stagePosition = sql`(select st.position from stages st where st.key = ${leads.stage})`;
+const nextFollowUpSql = sql`(select min(fu.due_at) from follow_ups fu where fu.lead_id = ${leads.id} and fu.done_at is null and fu.cancelled_at is null)`;
+
 export const SORTS = {
   created: leads.createdAt,
   name: leads.fullName,
-  stage: leads.stage,
+  stage: stagePosition,
   updated: leads.updatedAt,
+  activity: lastActivitySql,
+  next: nextFollowUpSql,
 } as const;
 export type SortKey = keyof typeof SORTS;
 
@@ -69,7 +75,10 @@ export function buildWhere(f: LeadFilters, now = new Date(), settings: Settings 
 }
 
 export function buildOrder(f: LeadFilters) {
-  const col = SORTS[(f.sort as SortKey) in SORTS ? (f.sort as SortKey) : "created"];
+  const key: SortKey = (f.sort as SortKey) in SORTS ? (f.sort as SortKey) : "created";
+  const col = SORTS[key];
+  // leads with no date (no activity yet, nothing scheduled) go last either way
+  if (key === "activity" || key === "next") return [f.dir === "asc" ? sql`${col} asc nulls last` : sql`${col} desc nulls last`, desc(leads.id)];
   return [f.dir === "asc" ? asc(col) : desc(col), desc(leads.id)];
 }
 
@@ -98,8 +107,7 @@ export async function listLeads(db: Db, f: LeadFilters, now = new Date()) {
       owner: users.name,
       createdAt: leads.createdAt,
       firstContactAt: leads.firstContactAt,
-      nextFollowUp: sql<Date | null>`(select min(fu.due_at) from follow_ups fu where fu.lead_id = ${leads.id}
-        and fu.done_at is null and fu.cancelled_at is null)`,
+      nextFollowUp: sql<Date | null>`${nextFollowUpSql}`,
     })
     .from(leads)
     .leftJoin(stages, eq(stages.key, leads.stage))

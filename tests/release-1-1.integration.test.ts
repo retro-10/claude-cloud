@@ -57,8 +57,8 @@ d("release 1.1", () => {
   });
   afterAll(() => client.end());
 
-  it("seeds the defaults once: criteria, 8 built-in rules, templates, no-decision reason", async () => {
-    expect(await db.select().from(s.workflowRules)).toHaveLength(8);
+  it("seeds the defaults once: criteria, 9 built-in rules, templates, no-decision reason", async () => {
+    expect(await db.select().from(s.workflowRules)).toHaveLength(9);
     expect((await db.select().from(s.stageExitCriteria)).length).toBeGreaterThanOrEqual(13);
     expect((await db.select().from(s.messageTemplates)).length).toBeGreaterThan(5);
     expect((await reason("No decision")).kind).toBe("no_decision");
