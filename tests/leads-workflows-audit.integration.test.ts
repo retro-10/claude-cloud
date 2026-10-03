@@ -10,7 +10,7 @@ import { saveSettings } from "@/lib/app-settings";
 import { createLead, logActivity, setDeleted, updateLead } from "@/lib/leads";
 import { listLeads } from "@/lib/lead-list";
 import { createUser } from "@/lib/settings";
-import { fireRules, runScheduledRules, saveRule } from "@/lib/workflows";
+import { fireRules, parseRuleJson, ruleStats, runScheduledRules, saveRule } from "@/lib/workflows";
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -136,5 +136,34 @@ d("leads and workflows audit", () => {
     await fireRules(db, { trigger: "stage_changed", leadId: l.id, from: "nurture", to: "contacted" }, me);
     const [row] = await db.select().from(s.leads).where(eq(s.leads.id, l.id));
     expect(row.tags).toEqual(["back-from-nurture"]);
+  });
+
+  it("the rule editor's JSON: a full rule with several actions saves, edits completely, and junk is refused", async () => {
+    const json = JSON.stringify({
+      name: "Dentists from Instagram",
+      trigger: "lead_created",
+      conditions: { segment: "dentist", tag: "" },
+      actions: [
+        { type: "set_owner", userId: sara },
+        { type: "add_tag", tag: "Dentist-IG" },
+        { type: "create_follow_up", kind: "call", note: "Call within a day", dueInMinutes: 1440 },
+      ],
+    });
+    const r = parseRuleJson(json)!;
+    expect(r.actions[1]).toEqual({ type: "add_tag", tag: "dentist-ig" });
+    expect(await saveRule(db, null, r, me)).toEqual({ ok: true });
+    const [saved] = await db.select().from(s.workflowRules).where(eq(s.workflowRules.name, "Dentists from Instagram"));
+    expect(saved.conditions).toEqual({ segment: "dentist" });
+    const l = await mk({ segment: "dentist", ownerId: null });
+    const [row] = await db.select().from(s.leads).where(eq(s.leads.id, l.id));
+    expect(row.ownerId).toBe(sara);
+    expect(row.tags).toContain("dentist-ig");
+    // a custom rule can change trigger and actions entirely
+    expect(await saveRule(db, saved.id, { name: "Now on replies", trigger: "inbound_logged", conditions: {}, actions: [{ type: "notify", title: "{name} wrote" }] }, me)).toEqual({ ok: true });
+    const [after] = await db.select().from(s.workflowRules).where(eq(s.workflowRules.id, saved.id));
+    expect(after.trigger).toBe("inbound_logged");
+    expect((await ruleStats(db)).get(saved.id)?.fired).toBe(1);
+    for (const bad of ["not json", JSON.stringify({ name: "x", trigger: "lead_created", conditions: {}, actions: [{ type: "delete_everything" }] }), JSON.stringify({ name: "x", trigger: "lead_created", conditions: {}, actions: Array(6).fill({ type: "cancel_cadence" }) })])
+      expect(parseRuleJson(bad)).toBeNull();
   });
 });

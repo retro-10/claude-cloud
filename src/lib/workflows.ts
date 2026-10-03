@@ -1,4 +1,5 @@
-import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { z } from "zod";
 import type { Db } from "@/db";
 import { cadenceTemplates, followUps, leads, lostReasons, notifications, users, workflowRules, workflowRuns, type RuleAction } from "@/db/schema";
 import { audit } from "./audit";
@@ -356,4 +357,50 @@ export function describeAction(a: RuleAction): string {
     case "notify":
       return `Notify: “${a.title}”`;
   }
+}
+
+// ---- the rule editor's payload (Settings → Workflows) ----
+
+const actionSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("create_follow_up"), kind: z.enum(["whatsapp", "call", "reply", "instagram", "email"]), note: z.string().max(200), dueInMinutes: z.number().int().min(0).max(525_600).optional(), dueAt: z.literal("decision_date").optional() }),
+  z.object({ type: z.literal("apply_cadence"), cadence: z.string().max(120) }),
+  z.object({ type: z.literal("cancel_follow_ups") }),
+  z.object({ type: z.literal("cancel_cadence") }),
+  z.object({ type: z.literal("add_tag"), tag: z.string().max(40), ifLostReasons: z.array(z.string().max(80)).max(20).optional() }),
+  z.object({ type: z.literal("set_owner"), userId: z.number().int().positive() }),
+  z.object({ type: z.literal("notify"), title: z.string().max(200) }),
+]);
+const ruleSchema = z.object({
+  name: z.string().max(120),
+  trigger: z.string().max(40),
+  conditions: z.record(z.string().max(40), z.string().max(80)),
+  actions: z.array(actionSchema).max(5),
+});
+
+/** The editor posts the rule as JSON; anything malformed is refused before it reaches validateRule. */
+export function parseRuleJson(raw: unknown): RuleInput | null {
+  try {
+    const r = ruleSchema.safeParse(typeof raw === "string" ? JSON.parse(raw) : raw);
+    if (!r.success) return null;
+    const actions = r.data.actions.map((a) => (a.type === "add_tag" ? { ...a, tag: a.tag.trim().toLowerCase() } : a)) as RuleAction[];
+    return { ...r.data, actions };
+  } catch {
+    return null;
+  }
+}
+
+/** Per rule, the last 30 days: how often it fired, how often an action failed, and when it last fired. */
+export async function ruleStats(db: Db, now = new Date()) {
+  const since = new Date(now.getTime() - 30 * 86_400_000);
+  const rows = await db
+    .select({
+      ruleId: workflowRuns.ruleId,
+      fired: sql<number>`count(*)::int`,
+      failed: sql<number>`count(*) filter (where ${workflowRuns.result} like 'failed:%')::int`,
+      last: sql<string>`max(${workflowRuns.firedAt})`,
+    })
+    .from(workflowRuns)
+    .where(gte(workflowRuns.firedAt, since))
+    .groupBy(workflowRuns.ruleId);
+  return new Map(rows.map((r) => [r.ruleId, { fired: Number(r.fired), failed: Number(r.failed), last: r.last ? new Date(r.last) : null }]));
 }

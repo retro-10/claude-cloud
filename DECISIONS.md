@@ -542,3 +542,23 @@ redaction), Ask OrlaDent (tool gating by role and settings, the loop, saving, pr
 every draft (permissions, do-not-contact, consent, the facts given), the drop-risk score and its alert; the
 role matrix with every new action; and the browser suite: switching it on, a question answered with a link,
 a WhatsApp draft, and the new screens in both themes.
+
+## Leads and workflows audit
+
+* **Rules run in savepoints.** Each rule fires inside its own savepoint in the change's transaction: a failing
+  action undoes that rule only and is logged as `failed: …`; the save that triggered it always goes through.
+* **No piling up.** A follow-up action is skipped while the lead already has an open "reply" follow-up (for reply
+  kind) or an open follow-up from the same rule. The response-time sweep runs per rule and skips leads that rule
+  already fired for, so an old backlog can no longer starve newer leads; do-not-contact leads are left out.
+* **Owners are always active people.** Routing, the default owner, rules and lead edits skip or refuse
+  deactivated users. A new trigger, *a lead is given to someone*, drives a built-in rule that tells the new owner
+  (not when you take a lead yourself); bulk reassignment runs the rules per lead but sends one summary.
+* **Rules are checked when saved**: conditions must be ones the trigger can have, the person must be active, the
+  cadence must exist, at most five actions. Built-in rules are now inserted by key on every start, so ones added
+  later reach existing installs without overwriting edits.
+* **Lists**: stage sorts by pipeline position; new sorts by last activity and next follow-up (empty last); deleting
+  a lead cancels its open follow-ups.
+* Compared with trycompai/crm (an agent-first B2B CRM): its list rules (sortable headers with `aria-sort`, URL-held
+  state, saved views, date presets) informed the list changes; its agent and enrichment model does not fit a
+  WhatsApp-first sales team and was not copied.
+

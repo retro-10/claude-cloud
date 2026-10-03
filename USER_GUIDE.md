@@ -523,7 +523,14 @@ If the server's `AUTH_SECRET` is ever changed, everyone's two-factor must be res
   run log of what fired. Built in: new lead → reply task + notification; reply → stop the cadence + reply task;
   consult "thinking" → post-consult cadence; no-show → recovery task in 2 hours; offer sent → decision-day task;
   follow-up 24h overdue → notify; lost → cancel follow-ups, price/timing to nurture review; unassigned lead past
-  red → alert owners. **Rules never send messages.**
+  red → alert owners; a lead given to someone → tell them. **Rules never send messages.**
+  **Making a rule**: pick *When*, then *Only if* (only the conditions that event can have are shown: stage becomes
+  or was, consult result or outcome, lost reason, segment, source, tier, a tag, no owner), then up to five actions
+  in order (follow-up, notify, give the lead to someone, tag, start or stop a cadence, cancel follow-ups). Rules you
+  made can be changed completely; built-in ones keep their shape. Each rule shows how often it fired in the last 30
+  days and any failures; the run log filters by rule and by failures. A rule that fails is undone and logged; it
+  never stops the lead being saved. A rule adds at most one open "reply" follow-up per lead, and never a second copy
+  of its own open follow-up.
 * **Message templates**: add, edit, archive; see how often each is used. Prices, incentives and claims need
   Badr's approval before they go into a template.
 * **Finance split**: the partners and percentages that net income is split by (with Capital, 100% in total).

@@ -1,36 +1,54 @@
 import Link from "next/link";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { cadenceTemplates, leads, sources, stages, workflowRules, workflowRuns } from "@/db/schema";
+import { and, like } from "drizzle-orm";
+import { cadenceTemplates, leads, lostReasons, sources, stages, users, workflowRules, workflowRuns } from "@/db/schema";
+import { RuleEditor, type RuleEditorOptions } from "@/components/settings/RuleEditor";
 import { Flash } from "@/components/Flash";
 import { Card, EmptyState, Icon } from "@/components/ui";
 import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
-import { TRIGGERS, describeAction } from "@/lib/workflows";
+import { CONDITIONS_FOR, TRIGGERS, describeAction, ruleStats } from "@/lib/workflows";
 import { createRuleAction, deleteRuleAction, editRuleAction, toggleRuleAction } from "../actions";
 
 export const metadata = { title: "Workflows · Settings" };
 
-const COND_LABEL: Record<string, string> = { to_stage: "stage", result: "result", outcome: "outcome", segment: "segment", source: "source", tier: "tier", lost_reason: "lost reason", overdue_hours: "overdue by (h)", unassigned: "unassigned" };
+const COND_LABEL: Record<string, string> = { to_stage: "stage becomes", from_stage: "stage was", result: "result", outcome: "outcome", segment: "segment", source: "source", tier: "tier", lost_reason: "lost reason", overdue_hours: "overdue by (h)", unassigned: "no owner", tag: "tag" };
 
-export default async function WorkflowSettings(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
-  const searchParams = await props.searchParams;
+export default async function WorkflowSettings(props: { searchParams: Promise<{ notice?: string; error?: string; rule?: string; failed?: string }> }) {
+  const { rule: ruleParam, failed, ...searchParams } = await props.searchParams;
   await requirePageCan("settings:write");
-  const [rules, runs, stageList, srcs, cads] = await Promise.all([
+  const ruleFilter = Number(ruleParam) || null;
+  const [rules, runs, stageList, srcs, cads, people, reasons, stats] = await Promise.all([
     db.select().from(workflowRules).orderBy(asc(workflowRules.position), asc(workflowRules.id)),
     db
       .select({ r: workflowRuns, rule: workflowRules.name, lead: leads.fullName })
       .from(workflowRuns)
       .leftJoin(workflowRules, eq(workflowRules.id, workflowRuns.ruleId))
       .leftJoin(leads, eq(leads.id, workflowRuns.leadId))
+      .where(and(ruleFilter ? eq(workflowRuns.ruleId, ruleFilter) : undefined, failed === "1" ? like(workflowRuns.result, "failed:%") : undefined))
       .orderBy(desc(workflowRuns.firedAt), desc(workflowRuns.id))
-      .limit(40),
+      .limit(60),
     db.select().from(stages).orderBy(asc(stages.position)),
     db.select().from(sources).orderBy(asc(sources.id)),
     db.select().from(cadenceTemplates).orderBy(asc(cadenceTemplates.id)),
+    db.select({ id: users.id, name: users.name }).from(users).where(eq(users.active, true)).orderBy(asc(users.name)),
+    db.select().from(lostReasons).orderBy(asc(lostReasons.label)),
+    ruleStats(db),
   ]);
+  const options: RuleEditorOptions = {
+    triggers: Object.entries(TRIGGERS),
+    conditionsFor: CONDITIONS_FOR,
+    stages: stageList.map((x) => [x.key, x.label]),
+    sources: srcs.map((x) => [String(x.id), x.label]),
+    people: people.map((x) => [String(x.id), x.name]),
+    cadences: cads.map((c) => c.name),
+    lostReasons: reasons.map((r) => r.label),
+  };
+  const personName = new Map(people.map((x) => [x.id, x.name]));
+  const filtered = ruleFilter ? rules.find((r) => r.id === ruleFilter) : null;
   const condText = (k: string, v: string) =>
-    k === "to_stage" ? `stage is ${stageList.find((s) => s.key === v)?.label ?? v}` : k === "source" ? `source is ${srcs.find((s) => String(s.id) === v)?.label ?? v}` : `${COND_LABEL[k] ?? k} ${v === "1" ? "" : `is ${v.replace(/_/g, " ")}`}`.trim();
+    k === "to_stage" || k === "from_stage" ? `${COND_LABEL[k]} ${stageList.find((s) => s.key === v)?.label ?? v}` : k === "unassigned" ? "it has no owner" : k === "source" ? `source is ${srcs.find((s) => String(s.id) === v)?.label ?? v}` : `${COND_LABEL[k] ?? k} ${v === "1" ? "" : `is ${v.replace(/_/g, " ")}`}`.trim();
 
   return (
     <>
@@ -62,10 +80,28 @@ export default async function WorkflowSettings(props: { searchParams: Promise<{ 
                     {r.actions.map((a, i) => (
                       <li key={i} className="flex items-center gap-2 text-xs">
                         <Icon name="arrowRight" size={12} className="text-accent" />
-                        {describeAction(a)}
+                        {a.type === "set_owner" ? `Give the lead to ${personName.get(a.userId) ?? "someone no longer active"}` : describeAction(a)}
                       </li>
                     ))}
                   </ul>
+                  {(() => {
+                    const st = stats.get(r.id);
+                    return (
+                      <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                        <span>{st ? `Fired ${st.fired} time${st.fired === 1 ? "" : "s"} in 30 days, last ${formatCairo(st.last!)}` : "Not fired in the last 30 days"}</span>
+                        {st?.failed ? (
+                          <Link href={`/settings/workflows?rule=${r.id}&failed=1#log`} className="chip chip-danger">
+                            {st.failed} failed
+                          </Link>
+                        ) : null}
+                        {st ? (
+                          <Link href={`/settings/workflows?rule=${r.id}#log`} className="link">
+                            See its runs
+                          </Link>
+                        ) : null}
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center gap-2">
                   {r.builtin && <span className="chip">built-in</span>}
@@ -82,6 +118,17 @@ export default async function WorkflowSettings(props: { searchParams: Promise<{ 
                 <summary className="btn btn-ghost btn-sm w-fit cursor-pointer list-none">
                   <Icon name="edit" size={12} /> Edit
                 </summary>
+                {!r.builtin ? (
+                  <div className="well mt-3 grid gap-4 p-4">
+                    <RuleEditor options={options} action={editRuleAction} ruleId={r.id} submit="Save the rule" initial={{ name: r.name, trigger: r.trigger, conditions: r.conditions, actions: r.actions }} />
+                    <form action={deleteRuleAction}>
+                      <input type="hidden" name="id" value={r.id} />
+                      <button className="btn btn-ghost btn-sm text-danger">
+                        <Icon name="trash" size={14} /> Delete rule
+                      </button>
+                    </form>
+                  </div>
+                ) : (
                 <form action={editRuleAction} className="well mt-2 flex flex-col gap-3 p-3">
                   <input type="hidden" name="id" value={r.id} />
                   <label className="field">
@@ -117,97 +164,34 @@ export default async function WorkflowSettings(props: { searchParams: Promise<{ 
                   )}
                   <div className="flex gap-2">
                     <button className="btn btn-secondary btn-sm">Save</button>
-                    {!r.builtin && (
-                      <button formAction={deleteRuleAction} className="btn btn-ghost btn-sm text-danger">
-                        Delete rule
-                      </button>
-                    )}
                   </div>
                 </form>
+                )}
               </details>
             </section>
           ))}
 
           <Card title="New rule" icon="plus">
-            <form action={createRuleAction} className="grid gap-3 sm:grid-cols-2">
-              <label className="field sm:col-span-2">
-                Name
-                <input name="name" required maxLength={120} placeholder="e.g. Instagram leads: tag them" className="input" />
-              </label>
-              <label className="field">
-                When
-                <select name="trigger" className="input">
-                  {Object.entries(TRIGGERS).map(([k, v]) => (
-                    <option key={k} value={k}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                Only if the stage becomes
-                <select name="c_to_stage" className="input" defaultValue="">
-                  <option value="">Any</option>
-                  {stageList.map((s) => (
-                    <option key={s.key} value={s.key}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                Only if the source is
-                <select name="c_source" className="input" defaultValue="">
-                  <option value="">Any</option>
-                  {srcs.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                Only if the segment is
-                <select name="c_segment" className="input" defaultValue="">
-                  <option value="">Any</option>
-                  {["fresh_graduate", "technician", "dentist", "other"].map((s) => (
-                    <option key={s} value={s}>
-                      {s.replace(/_/g, " ")}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                Then
-                <select name="a_type" className="input">
-                  <option value="create_follow_up">Create a follow-up</option>
-                  <option value="notify">Notify the owner</option>
-                  <option value="add_tag">Add a tag</option>
-                  <option value="apply_cadence">Start a cadence</option>
-                  <option value="cancel_follow_ups">Cancel open follow-ups</option>
-                </select>
-              </label>
-              <label className="field">
-                Delay for a follow-up (min)
-                <input type="number" name="a_minutes" min={0} defaultValue={60} className="input num" />
-              </label>
-              <label className="field sm:col-span-2">
-                Note, notification text, tag or cadence name
-                <input name="a_text" list="cadence-names" placeholder="e.g. Send the masterclass link" className="input" />
-                <datalist id="cadence-names">
-                  {cads.map((c) => (
-                    <option key={c.id} value={c.name} />
-                  ))}
-                </datalist>
-              </label>
-              <button className="btn btn-primary self-start">Create rule</button>
-            </form>
+            <RuleEditor options={options} action={createRuleAction} submit="Create rule" />
           </Card>
         </div>
 
-        <Card title="Run log" icon="history" bodyClass="p-0">
+        <Card title={filtered ? `Run log: ${filtered.name}` : "Run log"} icon="history" bodyClass="p-0">
+          <div id="log" className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3 text-sm">
+            <Link href={`/settings/workflows${ruleFilter ? `?rule=${ruleFilter}` : ""}#log`} aria-current={failed !== "1" ? "page" : undefined} className={`chip ${failed !== "1" ? "chip-brand" : ""}`}>
+              All runs
+            </Link>
+            <Link href={`/settings/workflows?failed=1${ruleFilter ? `&rule=${ruleFilter}` : ""}#log`} aria-current={failed === "1" ? "page" : undefined} className={`chip ${failed === "1" ? "chip-brand" : ""}`}>
+              Only failures
+            </Link>
+            {ruleFilter ? (
+              <Link href="/settings/workflows#log" className="link ml-auto">
+                Every rule
+              </Link>
+            ) : null}
+          </div>
           {runs.length === 0 ? (
-            <EmptyState icon="flow" title="No rule has fired yet" />
+            <EmptyState icon="flow" title={failed === "1" ? "No failed runs" : "No rule has fired yet"} />
           ) : (
             <ol className="divide-y divide-line/70">
               {runs.map(({ r, rule, lead }) => (
@@ -222,7 +206,7 @@ export default async function WorkflowSettings(props: { searchParams: Promise<{ 
                         {lead}
                       </Link>
                     )}{" "}
-                    · {r.result}
+                    · <span className={r.result.startsWith("failed:") ? "font-medium text-danger" : undefined}>{r.result}</span>
                   </div>
                 </li>
               ))}

@@ -10,7 +10,7 @@ import { VIEW_KEYS, listLeads, type LeadFilters } from "@/lib/lead-list";
 import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 import { formatMinutes, speedBadge } from "@/lib/speed";
-import { formatCairo } from "@/lib/time";
+import { addDaysYmd, cairoYmd, formatCairo } from "@/lib/time";
 import { VIEWS, healthOf, isViewKey } from "@/lib/views";
 import { closeReviewAction, deleteViewAction, reactivateAction, saveViewAction } from "./actions";
 import { bulkAction } from "../followups/actions";
@@ -41,12 +41,26 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
     return `?${p.toString()}`;
   };
   const viewQuery = new URLSearchParams(VIEW_KEYS.flatMap((k) => (searchParams[k] ? [[k, searchParams[k]!] as [string, string]] : []))).toString();
-  const sortHref = (key: string) => qs({ sort: key, dir: f.sort === key && f.dir !== "asc" ? "asc" : "desc", page: undefined });
+  // names, stages and the next follow-up read naturally from the top (A, New, soonest); dates newest first
+  const firstDir = (key: string) => (["name", "stage", "next"].includes(key) ? "asc" : "desc");
+  const sortHref = (key: string) => {
+    const active = f.sort === key || (!f.sort && key === "created");
+    const cur = f.dir === "asc" || f.dir === "desc" ? f.dir : "desc";
+    return qs({ sort: key, dir: active ? (cur === "asc" ? "desc" : "asc") : firstDir(key), page: undefined });
+  };
   const sortMark = (key: string) => (f.sort === key || (!f.sort && key === "created") ? (f.dir === "asc" ? " ↑" : " ↓") : "");
+  const ariaSort = (key: string) => (f.sort === key || (!f.sort && key === "created") ? (f.dir === "asc" ? "ascending" : "descending") : undefined);
   const canWrite = can(user.role, "lead:write");
   const view = isViewKey(f.view) ? f.view : null;
   const reviewing = view === "no_decision_review" || view === "nurture_review";
   const activeFilters = FILTER_KEYS.filter((k) => searchParams[k]).length;
+  const today = cairoYmd(new Date());
+  const datePresets = [
+    { label: "Today", from: today, to: today },
+    { label: "Last 7 days", from: addDaysYmd(today, -6), to: undefined },
+    { label: "Last 30 days", from: addDaysYmd(today, -29), to: undefined },
+    { label: "This month", from: `${today.slice(0, 7)}-01`, to: undefined },
+  ];
   const now = new Date();
   const title = f.deleted === "1" ? "Deleted leads" : view ? VIEWS[view].label : f.tag ? `#${f.tag}` : "Leads";
 
@@ -185,6 +199,33 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
             <label className="flex items-end gap-2 pb-2 text-sm">
               <input type="checkbox" name="overdue" value="1" className="check" defaultChecked={f.overdue === "1"} /> Overdue follow-up
             </label>
+            <label className="field">
+              Sort by
+              <select name="sort" defaultValue={f.sort ?? "created"} className="input">
+                <option value="created">Created</option>
+                <option value="updated">Last edited</option>
+                <option value="activity">Last activity</option>
+                <option value="next">Next follow-up</option>
+                <option value="name">Name</option>
+                <option value="stage">Stage</option>
+              </select>
+            </label>
+            <label className="field">
+              Order
+              <select name="dir" defaultValue={f.dir === "asc" ? "asc" : "desc"} className="input">
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted">Created:</span>
+            {datePresets.map((d) => (
+              <Link key={d.label} href={qs({ from: d.from, to: d.to, page: undefined })} aria-current={f.from === d.from && (f.to ?? "") === (d.to ?? "") ? "true" : undefined} className={`chip ${f.from === d.from && (f.to ?? "") === (d.to ?? "") ? "chip-brand" : ""}`}>
+                {d.label}
+              </Link>
+            ))}
+            <button className="btn btn-primary btn-sm ml-auto">Apply filters</button>
           </div>
         </details>
       </form>
@@ -271,20 +312,24 @@ export default async function LeadsPage(props: { searchParams: Promise<Record<st
                     <SelectAll />
                   </th>
                 )}
-                <th>
+                <th aria-sort={ariaSort("name")}>
                   <Link href={sortHref("name")} className="hover:text-fg">
                     Name{sortMark("name")}
                   </Link>
                 </th>
-                <th>
+                <th aria-sort={ariaSort("stage")}>
                   <Link href={sortHref("stage")} className="hover:text-fg">
                     Stage{sortMark("stage")}
                   </Link>
                 </th>
                 <th className="hidden lg:table-cell">Source</th>
                 <th className="hidden md:table-cell">Owner</th>
-                <th className="hidden whitespace-nowrap md:table-cell">Next follow-up</th>
-                <th className="hidden xl:table-cell">
+                <th aria-sort={ariaSort("next")} className="hidden whitespace-nowrap md:table-cell">
+                  <Link href={sortHref("next")} className="hover:text-fg">
+                    Next follow-up{sortMark("next")}
+                  </Link>
+                </th>
+                <th aria-sort={ariaSort("created")} className="hidden xl:table-cell">
                   <Link href={sortHref("created")} className="hover:text-fg">
                     Created{sortMark("created")}
                   </Link>

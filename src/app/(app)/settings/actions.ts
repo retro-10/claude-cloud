@@ -32,7 +32,7 @@ import { getSettings, saveSettings, type Route } from "@/lib/app-settings";
 import { CHECK_KEYS, type CheckKey } from "@/lib/exit-criteria";
 import { saveMessageTemplate, setTemplateActive } from "@/lib/message-templates";
 import { createStage, setCriterion } from "@/lib/settings";
-import { deleteRule, saveRule, setRuleEnabled, type RuleInput } from "@/lib/workflows";
+import { deleteRule, parseRuleJson, saveRule, setRuleEnabled, type RuleInput } from "@/lib/workflows";
 
 const id = z.coerce.number().int().positive();
 const role = z.enum(["owner", "sales", "viewer", "finance", "instructor", "designer"]);
@@ -229,6 +229,8 @@ export async function setCriterionAction(form: FormData) {
 }
 
 function ruleFromForm(form: FormData): RuleInput {
+  // the rule editor sends the whole rule as JSON; the older single-action fields still work
+  if (form.get("rule") !== null) return parseRuleJson(form.get("rule")) ?? { name: "", trigger: "", conditions: {}, actions: [] };
   const conditions: Record<string, string> = {};
   for (const k of ["to_stage", "result", "outcome", "segment", "source", "tier", "overdue_hours"]) {
     const v = String(form.get(`c_${k}`) ?? "").trim();
@@ -257,6 +259,8 @@ export async function editRuleAction(form: FormData) {
   const ruleId = id.parse(form.get("id"));
   const [cur] = await db.select().from(workflowRules).where(eq(workflowRules.id, ruleId));
   if (!cur) bad("/settings/workflows");
+  // a rule you made can be changed completely; a built-in keeps its trigger and the kinds of its actions
+  if (!cur!.builtin && form.get("rule") !== null) done("/settings/workflows", await saveRule(db, ruleId, ruleFromForm(form), me.id));
   const actions = cur!.actions.map((a, i): RuleAction => {
     const note = String(form.get(`note_${i}`) ?? "").trim();
     const mins = form.get(`minutes_${i}`);
