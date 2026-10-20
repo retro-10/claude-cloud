@@ -4,6 +4,7 @@ import type { Db } from "@/db";
 import { cohorts, leads, tasks, users } from "@/db/schema";
 import { audit } from "./audit";
 import { startOfCairoDay, startOfNextCairoDay } from "./time";
+import { type Result, clean } from "./result";
 
 export const TASK_PRIORITIES = ["high", "normal", "low"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
@@ -18,9 +19,7 @@ export type TaskInput = {
   cohortId?: number | null;
 };
 
-type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
-const clean = (s: string | null | undefined) => (s?.trim() ? s.trim() : null);
 
 async function checkLinks(db: Db, input: Pick<TaskInput, "assigneeId" | "leadId" | "cohortId">): Promise<string | null> {
   if (input.assigneeId) {

@@ -86,13 +86,14 @@ export async function assignOwner(db: Pick<Db, "select">, input: Pick<NewLeadInp
   const s = await getSettings(db);
   const active = new Set((await db.select({ id: users.id }).from(users).where(eq(users.active, true))).map((u) => u.id));
   const ok = (id: number | null | undefined) => (id != null && active.has(id) ? id : null);
+  const sourceLabel =
+    input.sourceId && s.routes.some((r) => r.field === "source")
+      ? (await db.select({ label: sources.label }).from(sources).where(eq(sources.id, input.sourceId)))[0]?.label
+      : undefined;
   for (const r of s.routes) {
     if (!ok(r.userId)) continue;
     if (r.field === "segment" && input.segment && r.value === input.segment) return r.userId;
-    if (r.field === "source" && input.sourceId) {
-      const [src] = await db.select({ label: sources.label }).from(sources).where(eq(sources.id, input.sourceId));
-      if (src && (src.label === r.value || String(input.sourceId) === r.value)) return r.userId;
-    }
+    if (r.field === "source" && input.sourceId && (sourceLabel === r.value || String(input.sourceId) === r.value)) return r.userId;
   }
   return ok(s.defaultOwnerId) ?? ok(creatorId);
 }

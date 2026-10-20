@@ -149,13 +149,13 @@ export function toolsFor(db: Db, v: Viewer, ai: AiSettings): ToolDef[] {
         const [s, risks] = await Promise.all([standings(db, batch), studentRisks(db, { cohortId: batch, money })]);
         const risk = new Map(risks.map((r) => [r.enrolmentId, r]));
         return {
-          data: { rules: s.rules, students: s.rows.map((r) => ({ dropRisk: risk.get(r.enrolmentId) ? { level: risk.get(r.enrolmentId)!.level, reasons: risk.get(r.enrolmentId)!.reasons } : "none", name: r.fullName, status: r.status, attendance: r.attendance, passed: `${r.passed}/${r.assignments}`, missing: r.missing, certificate: r.certificate?.code ?? null, link: `/leads/${r.leadId}`, ...(money ? { stillOwesEgp: r.remaining } : {}) })) },
+          data: { rules: s.rules, students: s.rows.map((r) => ({ dropRisk: ((x) => (x ? { level: x.level, reasons: x.reasons } : "none"))(risk.get(r.enrolmentId)), name: r.fullName, status: r.status, attendance: r.attendance, passed: `${r.passed}/${r.assignments}`, missing: r.missing, certificate: r.certificate?.code ?? null, link: `/leads/${r.leadId}`, ...(money ? { stillOwesEgp: r.remaining } : {}) })) },
           summary: "Students of a batch",
         };
       },
     });
   }
-  if (money && can(v.role, "finance:read")) {
+  if (money) {
     out.push({
       tool: {
         name: "money_month",
@@ -175,7 +175,10 @@ export function toolsFor(db: Db, v: Viewer, ai: AiSettings): ToolDef[] {
   if (productionOk && (can(v.role, "production:manage") || can(v.role, "finance:read"))) {
     out.push({
       tool: { name: "production", description: "The production studio now: open, late, waiting for QC, unassigned and to-invoice cases, and each designer's last 90 days (delivered, first-time QC pass, on time, turnaround).", input_schema: obj({}) },
-      run: async () => ({ data: { now: await productionPulse(db), designers: await designerStats(db, new Date(Date.now() - 90 * 86_400_000)), link: "/production" }, summary: "Production studio" }),
+      run: async () => {
+        const [now, designers] = await Promise.all([productionPulse(db), designerStats(db, new Date(Date.now() - 90 * 86_400_000))]);
+        return { data: { now, designers, link: "/production" }, summary: "Production studio" };
+      },
     });
   }
   return out;

@@ -4,6 +4,7 @@ import { batchClasses, classAttendance, cohorts, enrolments, leads, tasks, users
 import { audit } from "./audit";
 import { createTask } from "./tasks";
 import { addDaysYmd, cairoLocalToDate, cairoYmd, toCairoLocalInput } from "./time";
+import { type Fail, clean } from "./result";
 
 export const ATTENDANCE = { present: "Present", late: "Late", absent: "Absent", excused: "Excused" } as const;
 export type AttendanceStatus = keyof typeof ATTENDANCE;
@@ -22,8 +23,6 @@ export type ClassInput = {
   materialsUrl?: string | null;
   notes?: string | null;
 };
-type Fail = { ok: false; error: string };
-const clean = (s: string | null | undefined, n: number) => (s?.trim() ? s.trim().slice(0, n) : null);
 const url = (s: string | null | undefined) => {
   const v = clean(s, 500);
   return v && !/^https?:\/\/\S+$/i.test(v) ? "bad" : v;

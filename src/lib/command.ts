@@ -2,9 +2,11 @@ import { desc, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { notionSyncRuns, weeklyReviews } from "@/db/schema";
 import { getSettings } from "./app-settings";
+import { egp } from "./cohort-format";
 import { budgetVsActual } from "./money";
 import { audit } from "./audit";
 import { navCounts } from "./nav-counts";
+import { OPEN_STATUSES } from "./production";
 import { can, type Role } from "./rbac";
 import { studentRisks } from "./risk";
 import { actuals, progressFor, quarterOf } from "./targets";
@@ -46,9 +48,16 @@ export type Alert = { key: string; severity: "danger" | "warn" | "info"; title: 
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-export async function alerts(db: Db, role: Role, now = new Date()): Promise<Alert[]> {
+/** `known.progress` lets a page that also shows the quarter's progress compute it once. */
+export async function alerts(
+  db: Db,
+  role: Role,
+  now = new Date(),
+  known: { progress?: ReturnType<typeof progressFor> } = {},
+): Promise<Alert[]> {
   const settings = await getSettings(db);
   const today = startOfCairoDay(now).toISOString();
+  const nowIso = now.toISOString();
   const redBefore = new Date(now.getTime() - settings.slaRedMin * 60_000).toISOString();
   const soon = new Date(now.getTime() + 14 * 86_400_000).toISOString();
   const money = can(role, "finance:read");
@@ -69,37 +78,37 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
         (select count(*) from follow_ups f join leads l on l.id = f.lead_id
           where f.kind = 'reply' and f.done_at is null and f.cancelled_at is null and l.deleted_at is null)::int as replies,
         (select count(*) from tasks where done_at is null and cancelled_at is null and due_at < ${today}::timestamptz)::int as tasks_overdue,
-        (select count(*) from ledger_entries x left join enrolments e on e.id = x.enrolment_id
-          where x.deleted_at is null and x.section = 'income' and x.status = 'expected' and x.date < ${today}::timestamptz
-            and e.status is distinct from 'dropped')::int as instalments_overdue,
-        (select coalesce(sum(x.amount_egp), 0) from ledger_entries x left join enrolments e on e.id = x.enrolment_id
-          where x.deleted_at is null and x.section = 'income' and x.status = 'expected' and x.date < ${today}::timestamptz
-            and e.status is distinct from 'dropped')::int as instalments_egp,
+        i.n as instalments_overdue, i.egp as instalments_egp,
         (select count(*) from ledger_entries where deleted_at is null and status = 'owed' and date < ${today}::timestamptz)::int as owed_overdue,
-        (select count(*) from content_items where deleted_at is null and status <> 'posted' and publish_at < ${now.toISOString()}::timestamptz)::int as content_late,
+        (select count(*) from content_items where deleted_at is null and status <> 'posted' and publish_at < ${nowIso}::timestamptz)::int as content_late,
         (select count(*) from referral_rewards where status = 'pending')::int as rewards_pending,
         (select count(*) from submissions x join assignments a on a.id = x.assignment_id and a.deleted_at is null where x.status = 'submitted')::int as to_review,
-        (select count(*) from batch_classes b where b.deleted_at is null and b.starts_at < ${now.toISOString()}::timestamptz
+        (select count(*) from batch_classes b where b.deleted_at is null and b.starts_at < ${nowIso}::timestamptz
            and b.starts_at > ${new Date(now.getTime() - 7 * 86_400_000).toISOString()}::timestamptz
            and not exists (select 1 from class_attendance x where x.class_id = b.id))::int as unmarked,
-        (select count(*) from production_cases where status in ('received', 'assigned', 'designing', 'qc') and due_at < ${now.toISOString()}::timestamptz)::int as cases_late,
+        (select count(*) from production_cases where status in (${sql.join(OPEN_STATUSES.map((x) => sql`${x}`), sql`, `)}) and due_at < ${nowIso}::timestamptz)::int as cases_late,
         (select count(*) from production_cases where status = 'qc' and qc_passed_at is null)::int as cases_qc,
         (select count(*) from production_cases where status = 'received')::int as cases_unassigned,
-        (select count(distinct i.id) from invoices i join ledger_entries x on x.invoice_id = i.id and x.deleted_at is null and x.status = 'expected'
-          where i.status = 'issued' and i.due_at < ${now.toISOString()}::timestamptz)::int as invoices_overdue,
-        (select coalesce(sum(x.amount_egp), 0) from invoices i join ledger_entries x on x.invoice_id = i.id and x.deleted_at is null and x.status = 'expected'
-          where i.status = 'issued' and i.due_at < ${now.toISOString()}::timestamptz)::int as invoices_egp,
-        (select count(*) from decisions where status = 'open' and due_at < ${now.toISOString()}::timestamptz)::int as decisions_overdue,
-        (select count(*) from sop_runs where completed_at is null and cancelled_at is null and due_at < ${now.toISOString()}::timestamptz)::int as runs_overdue,
+        v.n as invoices_overdue, v.egp as invoices_egp,
+        (select count(*) from decisions where status = 'open' and due_at < ${nowIso}::timestamptz)::int as decisions_overdue,
+        (select count(*) from sop_runs where completed_at is null and cancelled_at is null and due_at < ${nowIso}::timestamptz)::int as runs_overdue,
         (select count(*) from responsibilities r left join users u on u.id = r.responsible_id
-          where r.deleted_at is null and (r.responsible_id is null or not u.active))::int as gaps`),
+          where r.deleted_at is null and (r.responsible_id is null or not u.active))::int as gaps
+      from
+        (select count(*)::int as n, coalesce(sum(x.amount_egp), 0)::int as egp
+          from ledger_entries x left join enrolments e on e.id = x.enrolment_id
+          where x.deleted_at is null and x.section = 'income' and x.status = 'expected' and x.date < ${today}::timestamptz
+            and e.status is distinct from 'dropped') i,
+        (select count(distinct i.id)::int as n, coalesce(sum(x.amount_egp), 0)::int as egp
+          from invoices i join ledger_entries x on x.invoice_id = i.id and x.deleted_at is null and x.status = 'expected'
+          where i.status = 'issued' and i.due_at < ${nowIso}::timestamptz) v`),
     db.execute<{ id: number; name: string; seat_cap: number; used: number; close_at: string }>(sql`
       select c.id, c.name, c.seat_cap, count(e.id)::int as used, c.enrolment_close_at as close_at
       from cohorts c left join enrolments e on e.cohort_id = c.id and e.status is distinct from 'dropped'
-      where c.status <> 'closed' and c.enrolment_close_at >= ${now.toISOString()}::timestamptz and c.enrolment_close_at < ${soon}::timestamptz
+      where c.status <> 'closed' and c.enrolment_close_at >= ${nowIso}::timestamptz and c.enrolment_close_at < ${soon}::timestamptz
       group by c.id order by c.enrolment_close_at limit 3`),
     db.select().from(notionSyncRuns).orderBy(desc(notionSyncRuns.id)).limit(1),
-    progressFor(db, quarterOf(now), now),
+    known.progress ?? progressFor(db, quarterOf(now), now),
     money ? budgetVsActual(db, cairoYmd(now).slice(0, 7)) : Promise.resolve(null),
     studentRisks(db, { money, now }),
   ]);
@@ -139,9 +148,9 @@ export async function alerts(db: Db, role: Role, now = new Date()): Promise<Aler
   }
   add({ key: "tasks_overdue", severity: "warn", title: "Overdue tasks", detail: `${plural(Number(r.tasks_overdue), "task")} past due across the team`, count: Number(r.tasks_overdue), href: "/tasks?who=all&due=overdue" });
   if (money) {
-    add({ key: "instalments", severity: "danger", title: "Overdue instalments", detail: `${plural(Number(r.instalments_overdue), "payment")}, ${new Intl.NumberFormat("en-US").format(Number(r.instalments_egp))} EGP expected and not received`, count: Number(r.instalments_overdue), href: "/finance" });
+    add({ key: "instalments", severity: "danger", title: "Overdue instalments", detail: `${plural(Number(r.instalments_overdue), "payment")}, ${egp(Number(r.instalments_egp))} expected and not received`, count: Number(r.instalments_overdue), href: "/finance" });
     add({ key: "rewards", severity: "info", title: "Referral rewards to decide", detail: `${plural(Number(r.rewards_pending), "referred student")} enrolled; their referrer's reward is waiting`, count: Number(r.rewards_pending), href: "/growth/referrals" });
-    add({ key: "invoices", severity: "danger", title: "Client invoices overdue", detail: `${plural(Number(r.invoices_overdue), "invoice")}, ${new Intl.NumberFormat("en-US").format(Number(r.invoices_egp))} EGP past its due date`, count: Number(r.invoices_overdue), href: "/production/invoices" });
+    add({ key: "invoices", severity: "danger", title: "Client invoices overdue", detail: `${plural(Number(r.invoices_overdue), "invoice")}, ${egp(Number(r.invoices_egp))} past its due date`, count: Number(r.invoices_overdue), href: "/production/invoices" });
     const over = budget?.rows.filter((x) => x.over || x.unplanned) ?? [];
     add({ key: "budget", severity: "warn", title: "Spending over budget this month", detail: over.map((x) => x.category).slice(0, 3).join(", ") + (over.length > 3 ? ` and ${over.length - 3} more` : ""), count: over.length, href: "/finance/budget" });
     add({ key: "owed", severity: "warn", title: "Bills past due", detail: `${plural(Number(r.owed_overdue), "cost")} marked Owed with a date in the past`, count: Number(r.owed_overdue), href: "/finance/ledger" });

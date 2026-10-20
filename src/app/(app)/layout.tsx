@@ -11,54 +11,54 @@ import { VIEWS, VIEW_ORDER } from "@/lib/views";
 import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
 import { taskCounts } from "@/lib/tasks";
-import { twoFactorStatus } from "@/lib/two-factor";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const [src, counts, notes, myTasks, tf] = await Promise.all([
-    db.select().from(sources).orderBy(asc(sources.id)),
-    navCounts(db),
+  // Designers have no lead list: their app is the production studio, so skip the lead counts entirely.
+  const sales = can(user.role, "lead:read");
+  const [src, counts, notes, myTasks] = await Promise.all([
+    sales ? db.select().from(sources).orderBy(asc(sources.id)) : [],
+    sales ? navCounts(db) : null,
     recentNotifications(db, user.id),
-    taskCounts(db, user.id),
-    twoFactorStatus(db, user.id),
+    sales ? taskCounts(db, user.id) : null,
   ]);
   // people who see the money get a standing reminder until two-factor is on
-  const nudge2fa = user.passwordChanged && !tf.enabled && can(user.role, "finance:read");
+  const nudge2fa = user.passwordChanged && !user.twoFactor && can(user.role, "finance:read");
 
-  let nav: NavItem[] = [
-    { href: "/command", label: "Command centre", icon: "gauge", section: "OrlaDent OS", keys: "G O" },
-    ...(can(user.role, "ai:use") ? [{ href: "/ask", label: "Ask OrlaDent", icon: "chat" as const, section: "OrlaDent OS", keys: "G A" }] : []),
-    { href: "/tools", label: "Tools", icon: "sparkle", section: "OrlaDent OS" },
-    { href: "/team", label: "Team & ops", icon: "user", section: "OrlaDent OS" },
-    { href: "/", label: "Today", icon: "today", section: "Work", count: counts.today, alert: counts.overdue > 0, keys: "G T", exact: true },
-    { href: "/leads", label: "Leads", icon: "leads", section: "Work", keys: "G L" },
-    { href: "/pipeline", label: "Pipeline", icon: "pipeline", section: "Work", keys: "G P" },
-    { href: "/tasks", label: "Tasks", icon: "list", section: "Work", count: myTasks.mine, alert: myTasks.mineOverdue > 0, keys: "G K" },
-    { href: "/growth/campaigns", label: "Campaigns", icon: "target", section: "Growth", keys: "G M" },
-    { href: "/growth/content", label: "Content", icon: "sparkle", section: "Growth" },
-    { href: "/growth/events", label: "Masterclasses", icon: "calendar", section: "Growth" },
-    { href: "/growth/forms", label: "Lead forms", icon: "send", section: "Growth" },
-    { href: "/growth/referrals", label: "Referrals", icon: "user", section: "Growth" },
-    { href: "/cohorts", label: "Batches", icon: "cohorts", section: "Programme", keys: "G C" },
-    { href: "/classes", label: "Classes", icon: "calendar", section: "Programme" },
-    { href: "/assignments", label: "Assignments", icon: "list", section: "Programme" },
-    { href: "/alumni", label: "Alumni", icon: "user", section: "Programme" },
-    { href: "/proof", label: "Proof bank", icon: "sparkle", section: "Programme" },
-    { href: "/dashboard", label: "Dashboard", icon: "dashboard", section: "Insight", keys: "G D" },
-  ];
-  if (can(user.role, "production:read")) nav.splice(nav.findIndex((n) => n.section === "Insight"), 0, { href: "/production", label: "Production", icon: "layers", section: "Studio", keys: "G R" });
-  if (can(user.role, "finance:read")) nav.push({ href: "/finance", label: "Finance", icon: "trend", section: "Insight", keys: "G F" });
-  // V1: smart views with live counts; the ones that are warnings use the attention colour
-  for (const k of VIEW_ORDER) {
-    const v = VIEWS[k];
-    nav.push({ href: `/leads?view=${k}`, label: v.label, icon: v.icon, section: "Views", count: counts.views[k], alert: ["no_next_step", "neglected"].includes(k) && counts.views[k] > 0 });
-  }
-  if (can(user.role, "settings:write")) nav.push({ href: "/settings", label: "Settings", icon: "settings", section: "Admin", keys: "G S" });
-
-  // Designers have no lead list: their app is the production studio.
-  if (!can(user.role, "lead:read")) nav = nav.filter((n) => n.href.startsWith("/production"));
+  const studio: NavItem = { href: "/production", label: "Production", icon: "layers", section: "Studio", keys: "G R" };
+  const nav: NavItem[] = !counts || !myTasks
+    ? [studio]
+    : [
+        { href: "/command", label: "Command centre", icon: "gauge", section: "OrlaDent OS", keys: "G O" },
+        can(user.role, "ai:use") && { href: "/ask", label: "Ask OrlaDent", icon: "chat", section: "OrlaDent OS", keys: "G A" },
+        { href: "/tools", label: "Tools", icon: "sparkle", section: "OrlaDent OS" },
+        { href: "/team", label: "Team & ops", icon: "user", section: "OrlaDent OS" },
+        { href: "/", label: "Today", icon: "today", section: "Work", count: counts.today, alert: counts.overdue > 0, keys: "G T", exact: true },
+        { href: "/leads", label: "Leads", icon: "leads", section: "Work", keys: "G L" },
+        { href: "/pipeline", label: "Pipeline", icon: "pipeline", section: "Work", keys: "G P" },
+        { href: "/tasks", label: "Tasks", icon: "list", section: "Work", count: myTasks.mine, alert: myTasks.mineOverdue > 0, keys: "G K" },
+        { href: "/growth/campaigns", label: "Campaigns", icon: "target", section: "Growth", keys: "G M" },
+        { href: "/growth/content", label: "Content", icon: "sparkle", section: "Growth" },
+        { href: "/growth/events", label: "Masterclasses", icon: "calendar", section: "Growth" },
+        { href: "/growth/forms", label: "Lead forms", icon: "send", section: "Growth" },
+        { href: "/growth/referrals", label: "Referrals", icon: "user", section: "Growth" },
+        { href: "/cohorts", label: "Batches", icon: "cohorts", section: "Programme", keys: "G C" },
+        { href: "/classes", label: "Classes", icon: "calendar", section: "Programme" },
+        { href: "/assignments", label: "Assignments", icon: "list", section: "Programme" },
+        { href: "/alumni", label: "Alumni", icon: "user", section: "Programme" },
+        { href: "/proof", label: "Proof bank", icon: "sparkle", section: "Programme" },
+        can(user.role, "production:read") && studio,
+        { href: "/dashboard", label: "Dashboard", icon: "dashboard", section: "Insight", keys: "G D" },
+        can(user.role, "finance:read") && { href: "/finance", label: "Finance", icon: "trend", section: "Insight", keys: "G F" },
+        // smart views with live counts; the ones that are warnings use the attention colour
+        ...VIEW_ORDER.map((k): NavItem => ({
+          href: `/leads?view=${k}`, label: VIEWS[k].label, icon: VIEWS[k].icon, section: "Views",
+          count: counts.views[k], alert: ["no_next_step", "neglected"].includes(k) && counts.views[k] > 0,
+        })),
+        can(user.role, "settings:write") && { href: "/settings", label: "Settings", icon: "settings", section: "Admin", keys: "G S" },
+      ].filter((n): n is NavItem => !!n);
 
   const goKeys: GoKey[] = nav.filter((n) => n.keys).map((n) => ({ key: n.keys!.slice(-1).toLowerCase(), href: n.href, label: n.label }));
 
@@ -90,7 +90,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Link>
           </div>
         )}
-        <main id="main" tabIndex={-1} className="mx-auto max-w-[1440px] px-4 pb-28 pt-8 outline-none has-[.board-wide]:max-w-none sm:px-8 sm:pb-16 lg:px-10 lg:pt-10">
+        <main id="main" tabIndex={-1} className="shell-container min-w-0 overflow-x-clip pb-28 pt-8 outline-none has-[.board-wide]:max-w-none sm:pb-16 lg:pt-10">
           {children}
         </main>
       </AppFrame>

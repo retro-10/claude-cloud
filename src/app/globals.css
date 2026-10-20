@@ -54,12 +54,19 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    --sidebar-w: 18rem; /* desktop sidebar width: the sidebar and the page's left padding both read it */
   }
   body {
     @apply min-h-screen bg-bg font-sans text-[15px] leading-relaxed text-fg antialiased;
     background-image: radial-gradient(1100px 520px at 85% -8%, rgb(var(--glow) / 0.07), transparent 60%),
       radial-gradient(800px 420px at -10% 110%, rgb(var(--glow) / 0.035), transparent 60%);
     background-attachment: fixed;
+  }
+  /* Grid and flex items default to min-width:auto, so one wide table pushes the whole page sideways and drags
+     the fixed sidebar and top bar off-screen. Inside the page area, let them shrink so the tables' own scrollers work. */
+  #main .grid > *,
+  #main .flex > * {
+    min-width: 0;
   }
   [data-theme="light"] body {
     background-image: radial-gradient(1100px 520px at 85% -8%, rgb(var(--glow) / 0.1), transparent 60%);
@@ -85,6 +92,10 @@
 }
 
 @layer components {
+  /* The page column: the top bar and <main> share it so they always line up. */
+  .shell-container {
+    @apply mx-auto w-full max-w-[1440px] px-4 sm:px-8 lg:px-10;
+  }
   .eyebrow {
     @apply text-xs font-semibold uppercase tracking-[0.12em] text-muted;
   }

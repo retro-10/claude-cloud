@@ -69,8 +69,10 @@ export async function draftCaption(db: Db, v: Viewer, contentId: number, opts: {
   if (!can(v.role, "growth:write")) throw new AiError("Only people who plan content can draft captions");
   const [c] = await db.select().from(contentItems).where(and(eq(contentItems.id, contentId), isNull(contentItems.deletedAt)));
   if (!c) throw new AiError("Content piece not found");
-  const [camp] = c.campaignId ? await db.select().from(campaigns).where(eq(campaigns.id, c.campaignId)) : [];
-  const [proof] = c.proofItemId ? await db.select().from(proofItems).where(eq(proofItems.id, c.proofItemId)) : [];
+  const [[camp], [proof]] = await Promise.all([
+    c.campaignId ? db.select().from(campaigns).where(eq(campaigns.id, c.campaignId)) : [],
+    c.proofItemId ? db.select().from(proofItems).where(eq(proofItems.id, c.proofItemId)) : [],
+  ]);
   const l = lang(opts.lang);
   const facts = json({
     title: c.title,
@@ -104,10 +106,12 @@ export async function draftScript(db: Db, v: Viewer, campaignId: number, opts: {
   const minutes = [45, 60, 90].includes(Number(opts.minutes)) ? Number(opts.minutes) : 60;
   const l = lang(opts.lang);
   const ids = people.map((p) => p.id);
-  const segs = ids.length ? await db.select({ segment: leads.segment }).from(leads).where(inArray(leads.id, ids)) : [];
+  const [segs, ctx] = await Promise.all([
+    ids.length ? db.select({ segment: leads.segment }).from(leads).where(inArray(leads.id, ids)) : [],
+    templateContext(db, ids[0] ?? 0, l),
+  ]);
   const segments: Record<string, number> = {};
   for (const p of segs) segments[p.segment ?? "unknown"] = (segments[p.segment ?? "unknown"] ?? 0) + 1;
-  const ctx = await templateContext(db, ids[0] ?? 0, l);
   const facts = json({
     title: c.label,
     when: c.eventAt ? formatCairo(c.eventAt) : null,

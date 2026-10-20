@@ -1,6 +1,8 @@
 // Pure calculations behind the Tools menu. No database, no server imports: the browser components use them
 // directly, and the tests check them without a database.
 
+import { egp } from "./cohort-format";
+
 export type Tier = "foundation" | "freelance_ready" | "production_partner";
 
 const fmt = (n: number) => new Intl.NumberFormat("en-US").format(n);
@@ -59,17 +61,17 @@ export function buildOffer(o: OfferInput): OfferResult {
 /** A plain, factual WhatsApp message: programme, price, schedule, link. No incentives or claims (QUESTIONS.md 28). */
 export function offerMessage(o: OfferInput, r: Extract<OfferResult, { ok: true }>, opts: { firstName?: string; tierLabel: string; paymentLink?: string; decisionBy?: string }) {
   const lines = [`Hi${opts.firstName ? ` ${opts.firstName}` : ""}, here is your OrlaDent Camp offer:`, `• Programme: ${opts.tierLabel}`];
-  lines.push(o.discountEgp > 0 ? `• Price: ${fmt(r.total)} EGP (${fmt(o.priceEgp)} less ${fmt(o.discountEgp)} discount)` : `• Price: ${fmt(r.total)} EGP`);
+  lines.push(o.discountEgp > 0 ? `• Price: ${egp(r.total)} (${fmt(o.priceEgp)} less ${fmt(o.discountEgp)} discount)` : `• Price: ${egp(r.total)}`);
   if (o.plan === "one_time") lines.push("• Payment: in full");
   else {
     const inst = r.schedule.filter((s) => s.due);
     const same = inst.every((s) => s.amount === inst[0].amount);
     const dates = inst.map((s) => prettyDate(s.due!)).join(", ");
-    const deposit = o.depositEgp > 0 ? `${fmt(o.depositEgp)} EGP now, then ` : "";
+    const deposit = o.depositEgp > 0 ? `${egp(o.depositEgp)} now, then ` : "";
     lines.push(
       same
-        ? `• Payment: ${deposit}${inst.length} instalment${inst.length === 1 ? "" : "s"} of ${fmt(inst[0].amount)} EGP on ${dates}`
-        : `• Payment: ${deposit}${inst.map((s) => `${fmt(s.amount)} EGP on ${prettyDate(s.due!)}`).join(", ")}`,
+        ? `• Payment: ${deposit}${inst.length} instalment${inst.length === 1 ? "" : "s"} of ${egp(inst[0].amount)} on ${dates}`
+        : `• Payment: ${deposit}${inst.map((s) => `${egp(s.amount)} on ${prettyDate(s.due!)}`).join(", ")}`,
     );
   }
   if (opts.paymentLink) lines.push(`• Payment link: ${opts.paymentLink}`);

@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { budgets } from "@/db/schema";
 import { audit } from "./audit";
-import { SECTIONS, listCandidates, monthRange, shiftMonth } from "./finance";
+import { SECTIONS, effectiveDate, listCandidates, monthRange, shiftMonth } from "./finance";
 import { listCohorts } from "./cohorts";
 import { addDaysYmd, cairoYmd, startOfCairoDay } from "./time";
 
@@ -27,7 +27,7 @@ export async function budgetVsActual(db: Db, month: string): Promise<{ rows: Bud
         coalesce(sum(amount_egp) filter (where status = 'owed'), 0)::int as owed
       from ledger_entries
       where deleted_at is null and section in ('fixed_costs', 'variable_costs')
-        and coalesce(date, created_at) >= ${start.toISOString()}::timestamptz and coalesce(date, created_at) < ${end.toISOString()}::timestamptz
+        and ${effectiveDate} >= ${start.toISOString()}::timestamptz and ${effectiveDate} < ${end.toISOString()}::timestamptz
       group by section, category`),
   ]);
   const key = (s: string, c: string) => `${s}|${c}`;
@@ -118,8 +118,9 @@ export async function cashForecast(db: Db, opts: { weeks?: number; opening?: num
   // what is left of each month's budget, not yet booked, spread over the month's days from today on
   const months: string[] = [];
   for (let m = today.slice(0, 7); m <= endYmd.slice(0, 7); m = shiftMonth(m, 1)) months.push(m);
-  for (const m of months) {
-    const bva = await budgetVsActual(db, m);
+  const plans = await Promise.all(months.map((m) => budgetVsActual(db, m)));
+  for (const [i, m] of months.entries()) {
+    const bva = plans[i];
     const left = bva.rows.reduce((a, r) => a + Math.max(0, r.left), 0);
     if (!left) continue;
     const days: string[] = [];
@@ -167,7 +168,7 @@ export async function unitEconomics(db: Db, period: { from: Date; to: Date }) {
       select
         (select coalesce(sum(amount_egp), 0) from ledger_entries where deleted_at is null and status = 'paid' and section in ('fixed_costs', 'variable_costs')
           and (category in (${sql.join(MARKETING_CATEGORIES.map((c) => sql`${c}`), sql`, `)}) or campaign_id is not null)
-          and coalesce(date, created_at) >= ${period.from.toISOString()}::timestamptz and coalesce(date, created_at) < ${period.to.toISOString()}::timestamptz)::int as spend,
+          and ${effectiveDate} >= ${period.from.toISOString()}::timestamptz and ${effectiveDate} < ${period.to.toISOString()}::timestamptz)::int as spend,
         (select count(*) from leads where deleted_at is null and created_at >= ${period.from.toISOString()}::timestamptz and created_at < ${period.to.toISOString()}::timestamptz)::int as leads,
         (select count(*) from enrolments where created_at >= ${period.from.toISOString()}::timestamptz and created_at < ${period.to.toISOString()}::timestamptz)::int as enrolments,
         (select coalesce(sum(case when payment_plan = 'free_seat' then 0 else amount_egp - discount_egp end), 0) from enrolments

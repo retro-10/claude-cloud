@@ -80,20 +80,20 @@ export default async function CommandCentre(props: {
   const now = new Date();
   const money = can(user.role, "finance:read");
   const owner = can(user.role, "settings:write");
-  const ai =
-    owner && can(user.role, "ops:manage") && (await aiOffered(db, user.role));
   const thisWeek = weekStartOf(now);
   const week = isWeek(sp.week) ? sp.week : thisWeek;
 
-  const [p, inbox, quarter, myTasks, review, numbers, history] =
+  const progress = progressFor(db, quarterOf(now), now);
+  const [p, inbox, quarter, myTasks, review, numbers, history, ai] =
     await Promise.all([
       pulse(db, now),
-      alerts(db, user.role, now),
-      progressFor(db, quarterOf(now), now),
+      alerts(db, user.role, now, { progress }),
+      progress,
       listTasks(db, { assigneeId: user.id, due: "week" }, now, 6),
       getReview(db, week),
       weekNumbers(db, week),
       listReviews(db, 8),
+      owner && can(user.role, "ops:manage") && aiOffered(db, user.role),
     ]);
   const pulseItems = PULSE.filter((k) => !k.money || money);
   const targetRows = quarter.rows.filter((r) => !r.money || money);

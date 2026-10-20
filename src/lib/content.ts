@@ -4,6 +4,7 @@ import { campaigns, contentItems, enrolments, proofItems, users } from "@/db/sch
 import { audit } from "./audit";
 import { slugify } from "./campaigns";
 import { publishable } from "./programme";
+import { type Fail, clean } from "./result";
 
 export const PLATFORMS = { instagram: "Instagram", tiktok: "TikTok", facebook: "Facebook", youtube: "YouTube", linkedin: "LinkedIn", whatsapp: "WhatsApp", other: "Other" } as const;
 export const FORMATS = { reel: "Reel", post: "Post", carousel: "Carousel", story: "Story", live: "Live", video: "Video", broadcast: "Broadcast", other: "Other" } as const;
@@ -24,8 +25,6 @@ export type ContentInput = {
   caption?: string | null;
   postUrl?: string | null;
 };
-type Fail = { ok: false; error: string };
-const clean = (s: string | null | undefined, n: number) => (s?.trim() ? s.trim().slice(0, n) : null);
 
 export async function saveContent(db: Db, id: number | null, c: ContentInput, userId: number | null): Promise<{ ok: true; id: number } | Fail> {
   const title = clean(c.title, 200);

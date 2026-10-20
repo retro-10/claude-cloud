@@ -8,6 +8,7 @@ import { recordConsent } from "./consent";
 import { createLead, findDuplicates, logActivity } from "./leads";
 import { normalizePhone } from "./phone";
 import { referrerByCode } from "./referrals";
+import { type Fail, clean } from "./result";
 
 export const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "ref"] as const;
 
@@ -26,7 +27,6 @@ export type FormInput = {
   askTier: boolean;
   active: boolean;
 };
-type Fail = { ok: false; error: string };
 
 export async function saveForm(db: Db, id: number | null, f: FormInput, userId: number | null): Promise<{ ok: true; id: number } | Fail> {
   const slug = f.slug.trim().toLowerCase();
@@ -139,7 +139,6 @@ export type IntakeInput = {
 };
 export type IntakeResult = { ok: true; leadId: number; existing: boolean } | { ok: false; error: "name" | "phone" | "email" };
 
-const clip = (v: string | null | undefined, n: number) => (v && v.trim() ? v.trim().slice(0, n) : null);
 
 /** Keep only known tracking keys, short and printable. */
 export function cleanAttribution(raw: Record<string, unknown>): Record<string, string> {
@@ -159,11 +158,11 @@ async function sourceIdByLabel(db: Db, label: string) {
 }
 
 export async function intake(db: Db, i: IntakeInput): Promise<IntakeResult> {
-  const name = clip(i.name, 120);
+  const name = clean(i.name, 120);
   if (!name) return { ok: false, error: "name" };
   const phone = normalizePhone(i.phone ?? "");
   if (!phone) return { ok: false, error: "phone" };
-  const email = clip(i.email, 200)?.toLowerCase() ?? null;
+  const email = clean(i.email, 200)?.toLowerCase() ?? null;
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: "email" };
 
   // campaign: the form's own, else the link's utm_campaign when it names one of ours
@@ -194,7 +193,7 @@ export async function intake(db: Db, i: IntakeInput): Promise<IntakeResult> {
     const referredById = i.attribution.ref ? await referrerByCode(db, i.attribution.ref) : null;
     const r = await createLead(
       db,
-      { fullName: name, phone, email, city: clip(i.city, 80), segment: i.segment ?? null, tierInterest: i.tier ?? "unsure", sourceId, campaignId, attribution, referredById },
+      { fullName: name, phone, email, city: clean(i.city, 80), segment: i.segment ?? null, tierInterest: i.tier ?? "unsure", sourceId, campaignId, attribution, referredById },
       null,
       { allowNameMatch: true },
     );

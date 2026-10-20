@@ -2,10 +2,8 @@ import { and, asc, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
 import type { Db } from "@/db";
 import { cohorts, decisions, leads, meetings, responsibilities, sopRuns, sops, users, type RunStep } from "@/db/schema";
 import { audit } from "./audit";
+import { type Result, clean } from "./result";
 
-type Fail = { ok: false; error: string };
-type Result<T = object> = ({ ok: true } & T) | Fail;
-const clean = (s: string | null | undefined, n: number) => (s?.trim() ? s.trim().slice(0, n) : null);
 
 // ---------------- responsibilities (RACI) ----------------
 

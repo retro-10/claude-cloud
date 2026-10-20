@@ -8,10 +8,8 @@ import { normalizePhone } from "./phone";
 import { dueAtFor, quote } from "./production-quote";
 import { can, type Role } from "./rbac";
 import { cairoYmd } from "./time";
+import { type Fail, type Result, clean } from "./result";
 
-type Fail = { ok: false; error: string };
-type Result<T = object> = ({ ok: true } & T) | Fail;
-const clean = (s: string | null | undefined, n: number) => (s?.trim() ? s.trim().slice(0, n) : null);
 
 export const CLIENT_KIND = { clinic: "Clinic", lab: "Lab", other: "Other" } as const;
 export const CASE_STATUS = {

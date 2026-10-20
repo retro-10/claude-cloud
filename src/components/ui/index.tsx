@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Icon, type IconName } from "./Icon";
+import { TabBar } from "./TabBar";
 
 export { Icon, type IconName };
 
@@ -131,26 +132,7 @@ export function Kbd({ children }: { children: React.ReactNode }) {
 }
 
 export function Tabs({ items, current, label = "Sections" }: { items: { href: string; label: string; count?: number }[]; current: string; label?: string }) {
-  return (
-    <nav aria-label={label} className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
-      {items.map((t) => {
-        const active = current === t.href;
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            aria-current={active ? "page" : undefined}
-            className={`relative -mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm transition ${
-              active ? "border-brand font-medium text-fg" : "border-transparent text-muted hover:text-fg"
-            }`}
-          >
-            {t.label}
-            {t.count !== undefined && <span className="count">{t.count}</span>}
-          </Link>
-        );
-      })}
-    </nav>
-  );
+  return <TabBar label={label} items={items.map((t) => ({ ...t, active: t.href === current }))} />;
 }
 
 export const pretty = (s: string | null | undefined) => (s ? s.replace(/_/g, " ") : "");
