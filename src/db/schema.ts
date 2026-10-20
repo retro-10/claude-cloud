@@ -584,7 +584,63 @@ export const notionSyncRuns = pgTable("notion_sync_runs", {
 
 // ---------------- OrlaDent OS · Phase 1 ----------------
 
-export const taskPriorityEnum = pgEnum("task_priority", ["low", "normal", "high"]);
+export const taskPriorityEnum = pgEnum("task_priority", ["low", "normal", "high", "urgent"]);
+
+// ---------------- HQ: spaces > lists > tasks, and docs ----------------
+
+/** A status a space's tasks move through. `group` decides what it means: todo and active are open, done is finished. */
+export type SpaceStatus = { key: string; label: string; color: string; group: "todo" | "active" | "done" };
+
+// A space is one area of the company (Sales, Academy, Studio...). It owns the statuses its tasks move through.
+export const spaces = pgTable("spaces", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  color: text("color").notNull().default("brand"),
+  icon: text("icon").notNull().default("layers"),
+  statuses: jsonb("statuses").$type<SpaceStatus[]>().notNull(),
+  position: integer("position").notNull().default(0),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: createdAt(),
+  archivedAt: ts("archived_at"),
+});
+
+// A list groups the tasks of one project or stream of work inside a space.
+export const taskLists = pgTable(
+  "task_lists",
+  {
+    id: serial("id").primaryKey(),
+    spaceId: integer("space_id")
+      .notNull()
+      .references(() => spaces.id),
+    name: text("name").notNull(),
+    description: text("description"),
+    position: integer("position").notNull().default(0),
+    createdAt: createdAt(),
+    archivedAt: ts("archived_at"),
+  },
+  (t) => [index("task_lists_space_idx").on(t.spaceId)],
+);
+
+// Written knowledge: how-tos, briefs, meeting notes. A doc can sit in a space and have child pages; a wiki doc is
+// the trusted version people should read first.
+export const docs = pgTable(
+  "docs",
+  {
+    id: serial("id").primaryKey(),
+    spaceId: integer("space_id").references(() => spaces.id),
+    parentId: integer("parent_id"),
+    title: text("title").notNull(),
+    body: text("body").notNull().default(""),
+    wiki: boolean("wiki").notNull().default(false),
+    createdBy: integer("created_by").references(() => users.id),
+    updatedBy: integer("updated_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+    archivedAt: ts("archived_at"),
+  },
+  (t) => [index("docs_space_idx").on(t.spaceId), index("docs_parent_idx").on(t.parentId)],
+);
 
 // Team tasks: anything someone must do, optionally tied to a lead (or student) or a batch. Follow-ups stay the
 // sales cadence on a lead; a task is the rest of the work (prepare a masterclass, chase a certificate, edit a reel).
@@ -605,8 +661,17 @@ export const tasks = pgTable(
     doneAt: ts("done_at"),
     doneBy: integer("done_by").references(() => users.id),
     cancelledAt: ts("cancelled_at"),
+    // HQ: where the task lives and how far along it is (a status key of its list's space)
+    listId: integer("list_id").references(() => taskLists.id),
+    status: text("status"),
+    parentId: integer("parent_id"), // a subtask's parent task
+    startAt: ts("start_at"),
+    position: real("position").notNull().default(0), // manual order inside a status
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
   },
   (t) => [
+    index("tasks_list_idx").on(t.listId),
+    index("tasks_parent_idx").on(t.parentId),
     index("tasks_assignee_open_idx").on(t.assigneeId).where(sql`${t.doneAt} is null and ${t.cancelledAt} is null`),
     index("tasks_due_idx").on(t.dueAt),
     index("tasks_lead_idx").on(t.leadId),

@@ -7,7 +7,7 @@ import { formatCairo } from "@/lib/time";
 type Person = { id: number; name: string };
 type Batch = { id: number; name: string };
 
-const PRIORITY_CHIP: Record<string, string> = { high: "chip chip-danger", normal: "chip", low: "chip" };
+const PRIORITY_CHIP: Record<string, string> = { urgent: "chip chip-danger", high: "chip chip-warn", normal: "chip", low: "chip" };
 
 /** The add-a-task form. On a lead or batch page the link is fixed; on the Tasks page a batch can be picked. */
 export function TaskForm({ people, back, leadId, cohortId, batches, me, open = false }: { people: Person[]; back: string; leadId?: number; cohortId?: number; batches?: Batch[]; me: number; open?: boolean }) {
@@ -38,6 +38,7 @@ export function TaskForm({ people, back, leadId, cohortId, batches, me, open = f
       <label className="field">
         Priority
         <select name="priority" defaultValue="normal" className="input">
+          <option value="urgent">Urgent</option>
           <option value="high">High</option>
           <option value="normal">Normal</option>
           <option value="low">Low</option>
@@ -102,7 +103,10 @@ export function TaskList({ rows, back, canWrite, showLinks = true, empty = "Noth
           <li key={t.id} className="flex flex-wrap items-start gap-3 py-3">
             <div className="min-w-0 flex-1">
               <div className={`flex flex-wrap items-center gap-2 text-sm ${finished ? "text-muted line-through" : "font-medium"}`}>
-                {t.title}
+                <Link href={`/tasks/${t.id}`} className="hover:text-accent">
+                  {t.title}
+                </Link>
+                {t.listName && <span className="chip">{t.listName}</span>}
                 {t.priority !== "normal" && !finished && <span className={PRIORITY_CHIP[t.priority]}>{t.priority}</span>}
                 {t.cancelledAt && <span className="chip">cancelled</span>}
               </div>

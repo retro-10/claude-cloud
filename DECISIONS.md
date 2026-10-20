@@ -562,3 +562,40 @@ a WhatsApp draft, and the new screens in both themes.
   state, saved views, date presets) informed the list changes; its agent and enrichment model does not fit a
   WhatsApp-first sales team and was not copied.
 
+
+## HQ (spaces, lists, tasks, docs) and the shell fix
+
+* **Why.** The team asked for one HQ for the whole company, in the way ClickUp organises work. ClickUp was studied
+  from its public help centre, feature pages and reviews only (no login, no code or assets copied); the notes are
+  the three research specs kept outside the repo. What was taken is the model, not the look: *Space > List > Task >
+  Subtask*, statuses owned by the space and grouped *Not started / In progress / Done*, four fixed priorities,
+  List / Board / Calendar / Table views over the same tasks, inline add rows that inherit where they were typed,
+  a My Work home with date buckets, an Inbox, and docs with nested pages and a "wiki" mark.
+* **What was left out, on purpose.** Folders (lists inside spaces are enough at this size), custom fields, Gantt
+  and Workload, automations on tasks (the lead workflow rules stay the automation engine), chat, whiteboards,
+  goals (the quarterly targets already cover them), time tracking, multiple homes per task. Each can be added if
+  asked; see QUESTIONS.
+* **One task table.** HQ tasks are the existing `tasks` rows with a list, a status key, a parent, a start date, a
+  manual position and tags. So a task made on a lead can be filed into a list, and finishing a task anywhere keeps
+  its HQ status in step (`syncStatus`). Done statuses set `done_at`; leaving them clears it.
+* **Statuses live on the space** as a small JSON list (key, label, colour, group). Keys stay stable when a status
+  is renamed; removing one hands its tasks to the first status of the same group, so nothing is orphaned.
+* **Subtasks go one level deep** and always live in their parent's list.
+* **Docs are Markdown rendered by our own small renderer** into React elements: no HTML is ever injected, links go
+  only to http(s), mailto or a path in the app, external links open with `noopener`.
+* **Permissions.** Read: `lead:read` (everyone but designers, whose app is the studio). Lists, tasks, docs:
+  `task:write`. Spaces and statuses: `ops:manage` (owners). Inbox actions are self-service.
+* **Starter spaces are offered, never created on their own**: an owner clicks once on an empty HQ.
+* **The clipped sidebar and top bar.** Wide tables made grid and flex items grow past the window (they default to
+  `min-width: auto`), the whole page scrolled sideways and dragged the fixed sidebar and the top bar off-screen at
+  laptop widths. Fixed once at the root: inside `<main>` grid and flex children may shrink, and `<main>` clips
+  sideways overflow, so tables scroll inside their own cards. A browser test checks that no page scrolls sideways
+  at 1024 and 1280 px. The sidebar width and the page column are now defined once (`--sidebar-w`, `.shell-container`).
+* **/simplify pass.** One `TabBar` for every tab row, one collapsed-sections state shared by the sidebar and the
+  drawer, a shared `Result` / `clean` helper, `getCurrentUser` cached per request (it also carries two-factor
+  status, so the layout no longer re-reads the user), designers no longer pay for lead counts they never see, and
+  repeated or sequential queries folded (command centre, cash forecast, AI tools, owner routing).
+
+Verified: types, lint, unit and integration tests (HQ data rules, Markdown safety, the role matrix with every new
+action, the guards), the production build, and the browser suite including a full HQ journey (set up, all four
+views, drag to Done, subtasks, docs, inbox, status rename) scanned for WCAG 2.1 AA in both themes.

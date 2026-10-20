@@ -5,17 +5,63 @@ when the buyer moved, and log everything** so the numbers are true.
 
 ## Finding your way
 
-* **Sidebar** (left; on a phone, **More** at the bottom): **Command centre** and **Tools** first, then Today,
-  Leads, Pipeline, Tasks, Batches, Dashboard, then **Views** with live counts (see below), then Settings for owners.
+* **Sidebar** (left; on a phone, **More** at the bottom): **HQ** first (Home, Inbox, Docs), then your **Spaces**,
+  then **Command centre** and **Tools**, Today, Leads, Pipeline, Tasks, Batches, Dashboard, then **Views** with live
+  counts (see below), then Settings for owners. Click a section's title to fold it away; the browser remembers.
 * **Ctrl K** (⌘K on a Mac), or the search box at the top of the sidebar, opens the **command palette**: type part
   of a name or a phone number in any format (`0100 777 66`, `+20 100…`, Arabic spelling variants are matched) to
   jump to a lead, or type a command ("new lead", "pipeline", "dark theme", "sign out").
-* **Keyboard**: `n` new lead · `/` search on the page · `g` then `o` / `t` / `l` / `p` / `k` / `c` / `d` / `s` goes to
-  Command centre, Today, Leads, Pipeline, Tasks, Batches, Dashboard, Settings · `?` shows every shortcut · `Esc`
+* **Keyboard**: `n` new lead · `/` search on the page · `g` then `h` / `i` / `o` / `t` / `l` / `p` / `k` / `c` / `d` / `s`
+  goes to HQ Home, Inbox, Command centre, Today, Leads, Pipeline, Tasks, Batches, Dashboard, Settings · `?` shows every shortcut · `Esc`
   closes a dialog.
 * The **bell** (top right) holds notifications from the workflow rules: a new lead arrived, a follow-up is 24
   hours overdue, nobody has answered an unassigned lead.
 * Sun/moon icon: light or dark theme (remembered per browser).
+
+## HQ: spaces, lists, tasks and docs
+
+HQ is where the company's work lives outside the sales pipeline. It is organised the way most work tools are:
+
+* **Space**: one area of the company (Sales, Academy, Studio, Marketing, Operations to start with). An owner sets
+  them up: on an empty HQ, **Create the five spaces** makes that layout in one click, and everything can be renamed.
+  **Space settings** changes the name, colour, icon and the **statuses** its tasks move through. Each status belongs
+  to a group: *Not started* and *In progress* keep a task open; a *Done* status finishes it. Removing a status moves
+  its tasks to another status of the same group.
+* **List**: one project or stream of work inside a space ("October batch prep", "Hiring an instructor"). Anyone who
+  works can add a list with **New list**.
+* **Task**: a title, status, assignee, priority (Urgent, High, Normal, Low), start and due dates, tags and a
+  description, with **subtasks** one level deep. Tasks made on a lead or a batch still appear on the Tasks page; a
+  task can be put in a list from its own page.
+
+**Views.** Every space (and every list) can be seen four ways, from the bar under its name:
+
+* **List**: tasks grouped by status (or by assignee, priority or list). Type in the *Add a task* row of a group to
+  add one there; change a status with the picker at the end of the row.
+* **Board**: one column per status. Drag a card to another column, or use the small picker on the card (no mouse
+  needed); a Done column finishes the task. Done columns show the last 14 days; tick *All done* for everything.
+* **Calendar**: the month, tasks on their due day; the side panel lists tasks with no date. Hover a day and click
+  `+` to add a task due that day.
+* **Table**: every field in columns; change assignee and priority in place.
+
+The bar also has search (words in the title, or a tag), **Only mine**, and **Show done**.
+
+**A task's page** (click any task): edit the title and description, set the details on the right, add subtasks,
+and see its history (who created, edited and moved it). **Mark done**, **Cancel task** or **Reopen** at the bottom.
+
+**HQ Home** is your own start page: your open tasks from everywhere, bucketed *Overdue*, *Today*, *Next 7 days*,
+*Later* and *No date*; a quick-add box; the spaces; the newest docs; and what is new in your inbox.
+
+**Inbox**: everything the app sent you (the same items as the bell). **Clear** an item once handled (it moves to
+*Cleared*, where **Move back** returns it), or **Clear all**.
+
+**Docs**: playbooks, briefs, policies, notes. A doc can belong to a space or the whole company, and can have
+**sub-pages**. Tick **Wiki** on the trusted version; wiki docs list first. Docs are written in simple Markdown:
+`# Heading`, `- list`, `1. numbered`, `- [ ] checklist` / `- [x] done`, `**bold**`, `*italic*`, `` `code` ``,
+`> quote` and `[link text](https://…)`. Search finds words in titles and text. **Archive** removes a doc together
+with its sub-pages.
+
+Who can do what: everyone except designers reads HQ; everyone who can work tasks adds lists, tasks and docs; only
+owners create, change and archive spaces and their statuses.
 
 ## Command centre (start here)
 

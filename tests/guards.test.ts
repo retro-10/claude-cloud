@@ -60,6 +60,9 @@ describe("every server action checks the caller on the server", () => {
     const selfService = new Set([
       "changePasswordAction",
       "markNotificationsReadAction",
+      // your own inbox
+      "inboxReadAction",
+      "inboxClearAllAction",
       // your own two-factor: every user, any role
       "startTwoFactorAction",
       "confirmTwoFactorAction",

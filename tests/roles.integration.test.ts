@@ -86,6 +86,15 @@ d("role rules on the server", () => {
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let A: Record<string, any> = {};
+  // an HQ space and list for the HQ actions, made on first use
+  let hq: { spaceId: number; listId: number } | undefined;
+  const hqList = async () => {
+    if (hq) return hq;
+    const [sp] = await db.insert(s.spaces).values({ name: "Roles space", statuses: [{ key: "todo", label: "To do", color: "slate", group: "todo" }, { key: "done", label: "Done", color: "ok", group: "done" }] }).returning();
+    const [l] = await db.insert(s.taskLists).values({ spaceId: sp.id, name: "Roles list" }).returning();
+    return (hq = { spaceId: sp.id, listId: l.id });
+  };
+  const hqTask = async () => (await db.insert(s.tasks).values({ title: `HQ ${++n}`, listId: (await hqList()).listId, status: "todo" }).returning())[0].id;
 
   async function signInAs(e: string | null) {
     if (!e) return void (jar.cookie = undefined);
@@ -146,6 +155,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/leads/portal-actions")),
       ...(await import("@/app/(app)/production/actions")),
       ...(await import("@/app/(app)/team/actions")),
+      ...(await import("@/app/(app)/hq/actions")),
     };
   });
   afterAll(async () => {
@@ -300,6 +310,22 @@ d("role rules on the server", () => {
     ["draftLeadMessageAction (assistant off)", ["owner", "sales", "viewer", "finance", "instructor"], () => A.draftLeadMessageAction(leadId, fd({ lang: "en", kind: "reply" }))],
     ["draftBriefAction (assistant off)", ["owner", "sales", "viewer", "finance", "instructor"], () => A.draftBriefAction(leadId, fd({}))],
     ["draftWeeklyAction (assistant off)", ["owner", "sales", "viewer", "finance", "instructor"], () => A.draftWeeklyAction("2026-09-28", fd({}))],
+    ["saveSpaceAction", ["owner"], () => strict(() => A.saveSpaceAction(fd({ name: `Space ${++n}`, description: "", color: "brand", icon: "layers" })))],
+    ["archiveSpaceAction", ["owner"], async () => {
+      const [sp] = await db.insert(s.spaces).values({ name: `Gone ${++n}`, statuses: [{ key: "a", label: "A", color: "slate", group: "todo" }, { key: "b", label: "B", color: "ok", group: "done" }] }).returning();
+      return strict(() => A.archiveSpaceAction(fd({ id: sp.id })));
+    }],
+    ["saveListAction", ["owner", "sales", "finance", "instructor"], async () => strict(async () => A.saveListAction(fd({ spaceId: (await hqList()).spaceId, name: `List ${++n}`, description: "" })))],
+    ["quickTaskAction", ["owner", "sales", "finance", "instructor"], async () => strict(async () => A.quickTaskAction(fd({ title: `Quick ${++n}`, listId: (await hqList()).listId, status: "todo", back: "/hq" })))],
+    ["moveTaskAction", ["owner", "sales", "finance", "instructor"], async () => {
+      const r = await A.moveTaskAction({ id: await hqTask(), status: "done" });
+      if (!r.ok) throw new Error(r.error);
+      return r;
+    }],
+    ["saveTaskDetailsAction", ["owner", "sales", "finance", "instructor"], async () => strict(async () => A.saveTaskDetailsAction(fd({ id: await hqTask(), title: "Edited", notes: "", priority: "high", assigneeId: "", start: "", due: "2030-01-02", tags: "a, b", status: "done" })))],
+    ["patchTaskAction", ["owner", "sales", "finance", "instructor"], async () => strict(async () => A.patchTaskAction(fd({ id: await hqTask(), field: "priority", value: "urgent" })))],
+    ["saveDocAction", ["owner", "sales", "finance", "instructor"], () => strict(() => A.saveDocAction(fd({ title: `Doc ${++n}`, body: "# Hi", spaceId: "", parentId: "" })))],
+    ["inboxClearAllAction (your own inbox)", ROLES, () => A.inboxClearAllAction(fd({ back: "/inbox" }))],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];
 

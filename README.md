@@ -4,6 +4,9 @@ Self-hosted, lead-and-sales CRM for OrlaDent Camp course sales (Egypt, EGP, Cair
 always know who to contact today, and see where the funnel leaks. Next.js 15 + PostgreSQL 16, one
 `docker compose up`.
 
+It is also the company's **HQ**: spaces for each area of the business, lists of tasks with List, Board,
+Calendar and Table views, subtasks, a personal Home, an Inbox and docs (see the user guide).
+
 * How to use it day to day: [`USER_GUIDE.md`](USER_GUIDE.md)
 * Why it is built the way it is (and what was and was not verified): [`DECISIONS.md`](DECISIONS.md)
 * Open questions for the owner: [`QUESTIONS.md`](QUESTIONS.md)

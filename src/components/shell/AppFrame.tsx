@@ -22,6 +22,7 @@ export type NavItem = {
   alert?: boolean; // count shown in the attention colour
   keys?: string; // "G T"
   exact?: boolean;
+  color?: string; // HQ spaces show their colour instead of an icon
 };
 
 type Props = {
@@ -135,7 +136,13 @@ function NavList({ nav, pathname, onNavigate, idPrefix, collapsed, toggle }: {
                       }`}
                     >
                       {n.active && <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-brand" />}
-                      <Icon name={n.icon} size={18} className={`shrink-0 ${n.active ? "text-accent" : "text-muted group-hover:text-fg"}`} />
+                      {n.color ? (
+                        <span aria-hidden className="grid h-[18px] w-[18px] shrink-0 place-items-center">
+                          <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: `rgb(var(--c-${n.color}, var(--c-slate)))` }} />
+                        </span>
+                      ) : (
+                        <Icon name={n.icon} size={18} className={`shrink-0 ${n.active ? "text-accent" : "text-muted group-hover:text-fg"}`} />
+                      )}
                       <span className="min-w-0 flex-1 truncate">{n.label}</span>
                       {n.count !== undefined && n.count > 0 && (
                         <span className={n.alert ? "count bg-danger/15 text-danger" : "count"} aria-label={`${n.count} items`}>
@@ -217,6 +224,7 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
     group: n.section === "Views" ? "Smart views" : "Go to",
   }));
   links.push({ href: "/account", label: "My account", icon: "user", keywords: "password profile" });
+  if (canWrite) links.push({ href: "/docs/new", label: "Write a new doc", icon: "note", group: "Actions", keywords: "wiki page playbook" });
   if (canWrite) links.push({ href: "/leads/import", label: "Import leads from CSV", icon: "upload", group: "Actions", keywords: "upload spreadsheet" });
 
   const current = nav.find((n) => isActive(pathname, n));

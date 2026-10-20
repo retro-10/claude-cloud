@@ -5,6 +5,7 @@ import { sources } from "@/db/schema";
 import { AppFrame, type NavItem } from "@/components/shell/AppFrame";
 import type { GoKey } from "@/components/shell/Shortcuts";
 import { Icon } from "@/components/ui/Icon";
+import { listSpaces } from "@/lib/hq";
 import { navCounts } from "@/lib/nav-counts";
 import { recentNotifications } from "@/lib/notifications";
 import { VIEWS, VIEW_ORDER } from "@/lib/views";
@@ -18,11 +19,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   // Designers have no lead list: their app is the production studio, so skip the lead counts entirely.
   const sales = can(user.role, "lead:read");
-  const [src, counts, notes, myTasks] = await Promise.all([
+  const [src, counts, notes, myTasks, spaces] = await Promise.all([
     sales ? db.select().from(sources).orderBy(asc(sources.id)) : [],
     sales ? navCounts(db) : null,
     recentNotifications(db, user.id),
     sales ? taskCounts(db, user.id) : null,
+    sales ? listSpaces(db) : [],
   ]);
   // people who see the money get a standing reminder until two-factor is on
   const nudge2fa = user.passwordChanged && !user.twoFactor && can(user.role, "finance:read");
@@ -31,6 +33,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const nav: NavItem[] = !counts || !myTasks
     ? [studio]
     : [
+        { href: "/hq", label: "Home", icon: "today", section: "HQ", keys: "G H" },
+        { href: "/inbox", label: "Inbox", icon: "inbox", section: "HQ", count: notes.unread, keys: "G I" },
+        { href: "/docs", label: "Docs", icon: "note", section: "HQ" },
+        ...spaces.map((s): NavItem => ({ href: `/spaces/${s.id}`, label: s.name, icon: "layers", color: s.color, section: "Spaces", count: s.open })),
         { href: "/command", label: "Command centre", icon: "gauge", section: "OrlaDent OS", keys: "G O" },
         can(user.role, "ai:use") && { href: "/ask", label: "Ask OrlaDent", icon: "chat", section: "OrlaDent OS", keys: "G A" },
         { href: "/tools", label: "Tools", icon: "sparkle", section: "OrlaDent OS" },

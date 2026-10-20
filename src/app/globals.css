@@ -29,6 +29,15 @@
   --glow: 94 80 255;
   /* chart series: slot 1 is the brand indigo; slot 2 validated against it (dataviz validator, dark surface) */
   --series-2: 217 89 38; /* #d95926 */
+  /* HQ status and space colours: used as dots and edges next to text, never as the text itself */
+  --c-slate: 140 136 160;
+  --c-brand: 124 110 255;
+  --c-info: 86 160 245;
+  --c-ok: 94 214 160;
+  --c-warn: 245 190 70;
+  --c-danger: 240 118 118;
+  --c-pink: 236 110 190;
+  --c-teal: 64 200 200;
 }
 [data-theme="light"] {
   color-scheme: light;
@@ -49,6 +58,14 @@
   --ok: 6 95 70;
   --glow: 94 80 255;
   --series-2: 235 104 52; /* #eb6834, validated on the light surface */
+  --c-slate: 120 116 140;
+  --c-brand: 94 80 255;
+  --c-info: 37 116 220;
+  --c-ok: 16 150 100;
+  --c-warn: 210 140 20;
+  --c-danger: 210 60 60;
+  --c-pink: 210 60 150;
+  --c-teal: 20 150 150;
 }
 
 @layer base {
@@ -149,6 +166,14 @@
   }
   select.input-sm {
     @apply pr-7;
+  }
+  /* the compact in-place pickers of HQ's list and table rows */
+  .input-xs {
+    @apply h-8 rounded-md px-2 text-xs;
+  }
+  select.input-xs {
+    @apply pr-6;
+    background-position: right 0.35rem center;
   }
   .field {
     @apply flex min-w-0 flex-col gap-2 text-[13px] font-medium text-muted;

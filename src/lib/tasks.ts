@@ -1,12 +1,13 @@
 import { and, asc, desc, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db } from "@/db";
-import { cohorts, leads, tasks, users } from "@/db/schema";
+import { cohorts, leads, taskLists, tasks, users } from "@/db/schema";
 import { audit } from "./audit";
 import { startOfCairoDay, startOfNextCairoDay } from "./time";
+import { statusForNewTask, syncStatus } from "./hq";
 import { type Result, clean } from "./result";
 
-export const TASK_PRIORITIES = ["high", "normal", "low"] as const;
+export const TASK_PRIORITIES = ["urgent", "high", "normal", "low"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
 export type TaskInput = {
@@ -17,11 +18,21 @@ export type TaskInput = {
   dueAt?: Date | null;
   leadId?: number | null;
   cohortId?: number | null;
+  // HQ placement: a list (and a status of its space), a parent task, a start date, tags
+  listId?: number | null;
+  status?: string | null;
+  parentId?: number | null;
+  startAt?: Date | null;
+  tags?: string[];
 };
 
+const cleanTags = (tags: string[]) => [...new Set(tags.map((t) => clean(t, 30)?.toLowerCase()).filter((t): t is string => !!t))].slice(0, 10);
 
-
-async function checkLinks(db: Db, input: Pick<TaskInput, "assigneeId" | "leadId" | "cohortId">): Promise<string | null> {
+async function checkLinks(db: Db, input: Pick<TaskInput, "assigneeId" | "leadId" | "cohortId" | "listId">): Promise<string | null> {
+  if (input.listId) {
+    const [l] = await db.select({ archivedAt: taskLists.archivedAt }).from(taskLists).where(eq(taskLists.id, input.listId));
+    if (!l || l.archivedAt) return "That list no longer exists";
+  }
   if (input.assigneeId) {
     const [u] = await db.select({ active: users.active }).from(users).where(eq(users.id, input.assigneeId));
     if (!u?.active) return "Pick an active team member";
@@ -41,11 +52,35 @@ export async function createTask(db: Db, input: TaskInput, userId: number | null
   const title = clean(input.title);
   if (!title) return { ok: false, error: "Give the task a title" };
   if (title.length > 200) return { ok: false, error: "Keep the title under 200 characters" };
-  const problem = await checkLinks(db, input);
+  // a subtask lives in its parent's list
+  let listId = input.listId ?? null;
+  if (input.parentId) {
+    const [p] = await db.select({ listId: tasks.listId, parentId: tasks.parentId, cancelledAt: tasks.cancelledAt }).from(tasks).where(eq(tasks.id, input.parentId));
+    if (!p || p.cancelledAt) return { ok: false, error: "The parent task no longer exists" };
+    if (p.parentId) return { ok: false, error: "Subtasks go one level deep: add this under the main task" };
+    listId = p.listId;
+  }
+  const problem = await checkLinks(db, { ...input, listId });
   if (problem) return { ok: false, error: problem };
+  let status: string | null = null;
+  let done = false;
+  if (listId) {
+    const st = await statusForNewTask(db, listId, input.status);
+    if (!st.ok) return st;
+    ({ status, done } = st);
+  }
+  const now = new Date();
   const [row] = await db
     .insert(tasks)
     .values({
+      listId,
+      status,
+      parentId: input.parentId ?? null,
+      startAt: input.startAt ?? null,
+      tags: cleanTags(input.tags ?? []),
+      position: now.getTime() / 1000, // newest last in a manual order
+      doneAt: done ? now : null,
+      doneBy: done ? userId : null,
       title,
       notes: clean(input.notes),
       priority: input.priority ?? "normal",
@@ -74,6 +109,8 @@ export async function updateTask(db: Db, id: number, patch: Partial<TaskInput>, 
   if (patch.dueAt !== undefined) set.dueAt = patch.dueAt;
   if (patch.leadId !== undefined) set.leadId = patch.leadId;
   if (patch.cohortId !== undefined) set.cohortId = patch.cohortId;
+  if (patch.startAt !== undefined) set.startAt = patch.startAt;
+  if (patch.tags !== undefined) set.tags = cleanTags(patch.tags);
   const problem = await checkLinks(db, patch);
   if (problem) return { ok: false, error: problem };
   const rows = await db.update(tasks).set(set).where(eq(tasks.id, id)).returning({ id: tasks.id });
@@ -92,7 +129,10 @@ export async function setTaskState(db: Db, id: number, state: "done" | "reopen" 
       : state === "cancel"
         ? await db.update(tasks).set({ cancelledAt: now, updatedAt: now }).where(open).returning({ id: tasks.id })
         : await db.update(tasks).set({ doneAt: null, doneBy: null, cancelledAt: null, updatedAt: now }).where(eq(tasks.id, id)).returning({ id: tasks.id });
-  if (rows.length) await audit(db, { userId, entity: "task", entityId: id, action: state });
+  if (rows.length) {
+    await audit(db, { userId, entity: "task", entityId: id, action: state });
+    await syncStatus(db, id);
+  }
   return rows.length > 0;
 }
 
@@ -120,10 +160,14 @@ export type TaskRow = {
   leadName: string | null;
   cohortId: number | null;
   cohortName: string | null;
+  listId: number | null;
+  listName: string | null;
+  spaceId: number | null;
+  parentId: number | null;
   overdue: boolean;
 };
 
-const PRIORITY_ORDER = sql`case ${tasks.priority} when 'high' then 0 when 'normal' then 1 else 2 end`;
+export const PRIORITY_ORDER = sql`case ${tasks.priority} when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end`;
 
 export async function listTasks(db: Db, f: TaskFilter = {}, now = new Date(), limit = 300): Promise<TaskRow[]> {
   const creator = alias(users, "creator");
@@ -149,12 +193,15 @@ export async function listTasks(db: Db, f: TaskFilter = {}, now = new Date(), li
       createdByName: creator.name,
       leadName: leads.fullName,
       cohortName: cohorts.name,
+      listName: taskLists.name,
+      spaceId: taskLists.spaceId,
     })
     .from(tasks)
     .leftJoin(users, eq(users.id, tasks.assigneeId))
     .leftJoin(creator, eq(creator.id, tasks.createdBy))
     .leftJoin(leads, eq(leads.id, tasks.leadId))
     .leftJoin(cohorts, eq(cohorts.id, tasks.cohortId))
+    .leftJoin(taskLists, eq(taskLists.id, tasks.listId))
     .where(and(...where))
     .orderBy(
       ...(status === "done"
@@ -162,7 +209,7 @@ export async function listTasks(db: Db, f: TaskFilter = {}, now = new Date(), li
         : [sql`${tasks.dueAt} asc nulls last`, asc(PRIORITY_ORDER), asc(tasks.id)]),
     )
     .limit(limit);
-  return rows.map(({ t, assignee, createdByName, leadName, cohortName }) => ({
+  return rows.map(({ t, assignee, createdByName, leadName, cohortName, listName, spaceId }) => ({
     id: t.id,
     title: t.title,
     notes: t.notes,
@@ -178,6 +225,10 @@ export async function listTasks(db: Db, f: TaskFilter = {}, now = new Date(), li
     leadName,
     cohortId: t.cohortId,
     cohortName,
+    listId: t.listId,
+    listName,
+    spaceId,
+    parentId: t.parentId,
     overdue: !t.doneAt && !t.cancelledAt && !!t.dueAt && t.dueAt < today,
   }));
 }

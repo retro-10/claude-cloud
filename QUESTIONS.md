@@ -136,3 +136,14 @@ Each has a safe default already applied. Answer any and it will be changed.
 64. **Prices in drafts.** Drafts never state a price unless it is in the app (an offer on the lead). Should the
     tier prices be given to the assistant so it can answer "how much is it?"
 
+
+## HQ
+
+65. **The five spaces.** Sales, Academy, Studio, Marketing and Operations, each with one or two lists, are a
+    starting guess. Which areas and projects should HQ really start with?
+66. **Statuses.** Every space starts with To do, In progress, Review, Done. Does any area need its own steps (for
+    example the studio: Brief, Designing, QC, Delivered)?
+67. **What is not built yet.** Custom fields, Gantt and workload views, automations on HQ tasks, recurring tasks,
+    task comments and mentions, and time tracking. Which of these would you use first?
+68. **Who manages spaces.** Only owners create spaces and change statuses; everyone who works can add lists,
+    tasks and docs. Is that right, or should team leads manage their own space?
