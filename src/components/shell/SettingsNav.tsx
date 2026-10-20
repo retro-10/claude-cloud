@@ -8,6 +8,7 @@ import { Icon, type IconName } from "../ui/Icon";
 const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/settings/users", label: "Users", icon: "user" },
   { href: "/settings/pipeline", label: "Stages & criteria", icon: "pipeline" },
+  { href: "/settings/targets", label: "Targets", icon: "target" },
   { href: "/settings/rules", label: "Thresholds & routing", icon: "gauge" },
   { href: "/settings/workflows", label: "Workflows", icon: "flow" },
   { href: "/settings/templates", label: "Message templates", icon: "template" },
@@ -15,6 +16,7 @@ const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/settings/cadences", label: "Cadences", icon: "calendar" },
   { href: "/settings/finance", label: "Finance split", icon: "trend" },
   { href: "/settings/team", label: "Team", icon: "user" },
+  { href: "/settings/ai", label: "AI assistant", icon: "sparkle" },
   { href: "/settings/integrations", label: "Integrations", icon: "layers" },
   { href: "/settings/audit", label: "Audit log", icon: "history" },
 ];

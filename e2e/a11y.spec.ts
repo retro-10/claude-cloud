@@ -27,13 +27,22 @@ async function theme(page: Page, t: "dark" | "light") {
 }
 
 for (const t of ["dark", "light"] as const) {
-  test(`login page has no accessibility violations (${t})`, async ({ page }) => {
+  test(`login and public pages have no accessibility violations (${t})`, async ({ page }) => {
     await page.goto("/login");
     await theme(page, t);
     await scan(page, `login ${t}`);
+    // the other public pages (no app shell)
+    for (const path of ["/portal/login", "/c/OC-AAAA-AAAA"]) {
+      await page.goto(path);
+      await theme(page, t);
+      await expect(page.locator("h1").first()).toBeVisible();
+      await scan(page, `${path} ${t}`);
+    }
   });
 
   test(`every signed-in screen has no accessibility violations (${t})`, async ({ page }) => {
+    // some 60 screens, each scanned in full: about a minute on a quiet machine, so more room than one journey gets
+    test.setTimeout(240_000);
     await signIn(page, "retro@orladent.local");
     await page.goto("/leads");
     await ready(page);
@@ -44,7 +53,7 @@ for (const t of ["dark", "light"] as const) {
       "/dashboard?all=1", "/account", "/settings/users", "/settings/pipeline", "/settings/lists", "/settings/cadences", "/settings/audit",
       "/settings/rules", "/settings/workflows", "/settings/templates", "/leads?view=no_next_step", "/leads?view=no_decision_review",
       `/leads/merge?a=${firstLead!.split("/").pop()}`, "/finance", "/finance/ledger", "/finance/candidates", "/settings/finance",
-      "/settings/integrations", "/settings/team", "/proof",
+      "/settings/integrations", "/settings/team", "/proof", "/tasks", "/tasks?who=done", "/settings/targets", "/command", "/tools", "/tools/offer", `/tools/offer?lead=${firstLead!.split("/").pop()}`, "/tools/planner", "/growth/campaigns", "/growth/forms", "/growth/events", "/growth/content", "/growth/content?view=board", "/growth/referrals", "/tools/roi", "/classes", "/assignments", "/alumni", "/tools/links",
     ];
     for (const path of screens) {
       await page.goto(path);
@@ -53,6 +62,13 @@ for (const t of ["dark", "light"] as const) {
       await expect(page.locator("h1").first()).toBeVisible();
       await scan(page, `${path} (${t})`);
     }
+    // a campaign's page (the demo data has one)
+    await page.goto("/growth/campaigns");
+    await ready(page);
+    await page.locator("main tbody a[href^='/growth/campaigns/']").first().click();
+    await page.waitForURL("**/growth/campaigns/*");
+    await theme(page, t);
+    await scan(page, `campaign detail (${t})`);
     // the cohort detail page too
     await page.goto("/cohorts");
     await ready(page);
@@ -63,7 +79,7 @@ for (const t of ["dark", "light"] as const) {
     await page.locator("main tbody a[href^='/leads/']").first().click();
     await ready(page);
     await theme(page, t);
-    await page.evaluate(() => document.querySelectorAll("section[aria-label='Programme'] details").forEach((d) => d.setAttribute("open", "")));
+    await page.evaluate(() => document.querySelectorAll("section[aria-label='Programme'] details, section[aria-label='Tasks'] details").forEach((d) => d.setAttribute("open", "")));
     await scan(page, `student with programme (${t})`);
   });
 
@@ -97,6 +113,8 @@ for (const t of ["dark", "light"] as const) {
       if (!(await page.locator("[role=dialog][aria-label='Command palette']").isVisible())) await page.keyboard.press("Control+k");
       await expect(page.locator("[role=dialog][aria-label='Command palette']")).toBeVisible({ timeout: 1000 });
     }).toPass();
+    // the box is focused a frame after the dialog shows: wait for it, or the first keys are lost
+    await expect(page.locator("[role=dialog][aria-label='Command palette'] input").first()).toBeFocused();
     await page.keyboard.type("demo");
     await expect(page.locator("[role=option]").first()).toBeVisible();
     await scan(page, `command palette (${t})`);

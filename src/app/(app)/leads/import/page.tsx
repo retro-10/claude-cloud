@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { ImportClient } from "@/components/ImportClient";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 
 export default async function ImportPage() {
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   if (!can(user.role, "lead:write")) return <p className="text-sm text-muted">Your role cannot import leads.</p>;
   return (
     <>

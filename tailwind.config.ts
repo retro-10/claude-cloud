@@ -7,6 +7,12 @@ const config: Config = {
   darkMode: ["class", '[data-theme="dark"]'],
   theme: {
     extend: {
+      // A roomier scale than Tailwind's default: 13 / 15 / 16px body sizes, so nothing reads as cramped.
+      fontSize: {
+        xs: ["0.8125rem", { lineHeight: "1.25rem" }],
+        sm: ["0.9375rem", { lineHeight: "1.5rem" }],
+        base: ["1rem", { lineHeight: "1.625rem" }],
+      },
       colors: {
         // Camp's one accent (Indigo, Brand Guardrails)
         brand: {
@@ -28,6 +34,8 @@ const config: Config = {
         warn: token("warn"),
         danger: token("danger"),
         ok: token("ok"),
+        // second chart series (the first is the brand)
+        series2: token("series-2"),
       },
       fontFamily: {
         // one clean, highly readable family everywhere; Arabic names fall back to Noto Sans Arabic

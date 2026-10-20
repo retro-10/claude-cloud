@@ -2,7 +2,7 @@ import Link from "next/link";
 import { listCohorts } from "@/lib/cohorts";
 import { db } from "@/db";
 import { can } from "@/lib/rbac";
-import { requireUser } from "@/lib/server-auth";
+import { requirePageCan } from "@/lib/server-auth";
 import { closeLabel, egp } from "@/lib/cohort-format";
 import { formatCairo } from "@/lib/time";
 import { createCohortAction } from "./actions";
@@ -13,7 +13,7 @@ const box = "input";
 
 export default async function CohortsPage(props: { searchParams: Promise<{ error?: string }> }) {
   const searchParams = await props.searchParams;
-  const user = await requireUser();
+  const user = await requirePageCan("lead:read");
   const list = await listCohorts(db);
   const now = new Date();
   return (
@@ -55,13 +55,15 @@ export default async function CohortsPage(props: { searchParams: Promise<{ error
                   </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-raised" role="progressbar" aria-label={`${c.name} seats taken`} aria-valuenow={c.seatsUsed} aria-valuemin={0} aria-valuemax={c.seatCap}>
-                  <div className={`h-full rounded-full ${full ? "bg-warn" : "bg-gradient-to-r from-brand-deep to-brand"}`} style={{ width: `${pct}%` }} />
+                  <div className={`h-full rounded-full ${full ? "bg-warn" : "bg-brand"}`} style={{ width: `${pct}%` }} />
                 </div>
               </div>
-              <div className="flex items-baseline justify-between border-t border-line pt-3">
-                <span className="text-xs text-muted">Revenue</span>
-                <span className="num font-display text-lg font-semibold">{egp(c.revenueEgp)}</span>
-              </div>
+              {can(user.role, "finance:read") && (
+                <div className="flex items-baseline justify-between border-t border-line pt-3">
+                  <span className="text-xs text-muted">Revenue</span>
+                  <span className="num font-display text-lg font-semibold">{egp(c.revenueEgp)}</span>
+                </div>
+              )}
             </Link>
           );
         })}

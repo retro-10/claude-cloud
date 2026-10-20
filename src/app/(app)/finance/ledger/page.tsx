@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/db";
+import { listCohorts } from "@/lib/cohorts";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { Flash } from "@/components/Flash";
 import { AddEntry } from "@/components/finance/AddEntry";
@@ -13,6 +14,7 @@ import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 import { cairoYmd, formatCairo } from "@/lib/time";
 import { deleteEntryAction, settleEntryAction } from "../actions";
+import { ScrollX } from "@/components/ui/ScrollX";
 
 export const metadata = { title: "Ledger" };
 
@@ -27,11 +29,12 @@ export default async function LedgerPage(props: {
   const section = sp.section && sp.section in SECTIONS ? (sp.section as Section) : undefined;
   const status = sp.status && sp.status in STATUS_LABEL ? (sp.status as Status) : undefined;
   const enrolmentId = Number(sp.candidate) || undefined;
-  const [rows, candidates, settings, team] = await Promise.all([
+  const [rows, candidates, settings, team, batches] = await Promise.all([
     listEntries(db, { month, section, status, q: sp.q, enrolmentId }, 500),
     listCandidates(db),
     getSettings(db),
     listTeam(db),
+    listCohorts(db),
   ]);
   const write = can(user.role, "payment:write");
   const qs = new URLSearchParams(
@@ -52,7 +55,7 @@ export default async function LedgerPage(props: {
         title="Ledger"
         subtitle="Every payment, cost and withdrawal. Expected and owed rows count only once they are received or paid."
         actions={
-          write ? <AddEntry label="New entry" back={here} partners={partners} candidates={opts} team={team} variant="btn btn-primary" initial={who ? { section: "income", enrolmentId: who.enrolmentId } : undefined} /> : undefined
+          write ? <AddEntry label="New entry" back={here} partners={partners} candidates={opts} team={team} batches={batches} variant="btn btn-primary" initial={who ? { section: "income", enrolmentId: who.enrolmentId } : undefined} /> : undefined
         }
       />
       <FinanceNav />
@@ -115,7 +118,7 @@ export default async function LedgerPage(props: {
             Try another month or clear the filters.
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto">
+          <ScrollX label="Ledger entries">
             <table className="table min-w-[980px]">
               <thead>
                 <tr>
@@ -167,6 +170,11 @@ export default async function LedgerPage(props: {
                       {write && (
                         <td>
                           <div className="flex items-center justify-end gap-1">
+                            {e.section === "income" && e.status === "received" && e.category !== "Refund" && (
+                              <a href={`/receipts/${e.id}`} className="btn btn-ghost btn-icon btn-sm" title="Receipt" aria-label={`Receipt for ${e.entry}`}>
+                                <Icon name="note" size={14} />
+                              </a>
+                            )}
                             {open && (
                               <form action={settleEntryAction}>
                                 <input type="hidden" name="id" value={e.id} />
@@ -184,6 +192,7 @@ export default async function LedgerPage(props: {
                               partners={partners}
                               candidates={opts}
                               team={team}
+                              batches={batches}
                               initial={{
                                 id: e.id,
                                 entry: e.entry,
@@ -199,6 +208,7 @@ export default async function LedgerPage(props: {
                                 notes: e.notes,
                                 enrolmentId: e.enrolmentId,
                                 teamMemberId: e.teamMemberId,
+                                cohortId: e.enrolmentId ? null : e.cohortId,
                               }}
                             />
                             <form action={deleteEntryAction}>
@@ -230,7 +240,7 @@ export default async function LedgerPage(props: {
                 </tr>
               </tfoot>
             </table>
-          </div>
+          </ScrollX>
         )}
       </Card>
     </>

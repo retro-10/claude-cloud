@@ -1,6 +1,7 @@
-// Small, dependency-free charts rendered on the server. One hue (the brand accent) for magnitude; text
-// always in text colours; every mark is focusable and shows its value on hover or keyboard focus, and
-// every chart has a table view, so no value depends on hovering.
+// Small, dependency-free charts rendered on the server. One hue (the brand accent) for a single series; a second
+// series takes the validated slot 2 (orange; checked with the dataviz palette validator in both themes). Flat
+// fills, 4px rounded data-ends, hairline axes; text always in text colours; every mark is focusable and shows its
+// value on hover or keyboard focus, and every chart has a table view, so no value depends on hovering.
 
 const fmt = (n: number) => new Intl.NumberFormat("en-US").format(n);
 
@@ -30,23 +31,23 @@ export function BarList({
 }) {
   const top = max ?? Math.max(1, ...rows.map((r) => r.value));
   return (
-    <ul className="flex flex-col gap-2.5">
+    <ul className="flex flex-col gap-3">
       {rows.map((r) => {
         const w = top ? Math.max(r.value ? 1.5 : 0, (r.value / top) * 100) : 0;
         return (
-          <li key={r.label} className="grid grid-cols-[minmax(6rem,9rem)_1fr_auto] items-center gap-3 text-sm">
+          <li key={r.label} className="grid grid-cols-[minmax(7rem,10rem)_1fr_auto] items-center gap-4 text-sm">
             <span dir="auto" className="truncate text-fg/90" title={r.label}>
               {r.label}
             </span>
-            <span className="relative h-5">
+            <span className="relative h-6">
               <span
                 tabIndex={0}
                 role="img"
                 aria-label={`${r.label}: ${fmt(r.value)}${unit}`}
-                className="group absolute inset-y-0.5 left-0 block rounded-r-[4px] outline-none"
+                className="group absolute inset-y-1.5 left-0 block rounded-r-[4px] outline-none"
                 style={{ width: `${w}%`, minWidth: r.value ? 4 : 0 }}
               >
-                <span className={`block h-full rounded-r-[4px] transition group-hover:brightness-110 ${r.muted ? "bg-muted/50" : "bg-gradient-to-r from-brand-deep to-brand"}`} />
+                <span className={`block h-full rounded-r-[4px] transition group-hover:brightness-110 ${r.muted ? "bg-muted/50" : "bg-brand"}`} />
                 <Tip value={`${fmt(r.value)}${unit}`} label={r.note ? `${r.label} · ${r.note}` : r.label} />
               </span>
             </span>
@@ -91,7 +92,7 @@ export function Columns({ title, data, total }: { title: string; data: { x: stri
               className="group relative flex h-full flex-1 items-end justify-center outline-none"
             >
               <span
-                className="block w-full max-w-[24px] rounded-t-[4px] bg-gradient-to-t from-brand-deep to-brand transition group-hover:brightness-110 group-focus-visible:ring-2 group-focus-visible:ring-brand/60"
+                className="block w-full max-w-[24px] rounded-t-[4px] bg-brand transition group-hover:brightness-110 group-focus-visible:ring-2 group-focus-visible:ring-brand/60"
                 style={{ height: `${(d.v / tick) * 100}%`, minHeight: d.v ? 3 : 0 }}
               />
               <Tip value={String(d.v)} label={d.label} />
@@ -115,7 +116,7 @@ export function Split({ a, b }: { a: { label: string; value: number }; b: { labe
     <div>
       <div className="flex h-3 gap-[2px] overflow-hidden rounded-full">
         {a.value > 0 && <span className="bg-brand" style={{ width: `${(a.value / total) * 100}%` }} />}
-        {b.value > 0 && <span className="bg-muted/60" style={{ width: `${(b.value / total) * 100}%` }} />}
+        {b.value > 0 && <span className="bg-series2" style={{ width: `${(b.value / total) * 100}%` }} />}
       </div>
       <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
         <li className="flex items-center gap-2">
@@ -123,7 +124,7 @@ export function Split({ a, b }: { a: { label: string; value: number }; b: { labe
           {a.label} <span className="num font-semibold">{a.value}</span>
         </li>
         <li className="flex items-center gap-2">
-          <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-muted/60" />
+          <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-series2" />
           {b.label} <span className="num font-semibold">{b.value}</span>
         </li>
       </ul>
@@ -133,7 +134,7 @@ export function Split({ a, b }: { a: { label: string; value: number }; b: { labe
 
 /**
  * Two series of the same unit on one shared axis (e.g. income and costs per month): grouped columns,
- * the accent for the first series and a neutral for the second, a legend, and hover / focus values.
+ * the brand for the first series and slot 2 for the second, a legend, and hover / focus values.
  */
 export function PairColumns({
   data,
@@ -159,7 +160,7 @@ export function PairColumns({
           <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-brand" /> {a}
         </span>
         <span className="flex items-center gap-1.5">
-          <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-muted/50" /> {b}
+          <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-series2" /> {b}
         </span>
       </figcaption>
       <div className="relative h-44">
@@ -173,7 +174,7 @@ export function PairColumns({
           {data.map((d) => (
             <span key={d.x} tabIndex={0} role="img" aria-label={`${d.label}: ${a} ${fmt(d.a)}${unit}, ${b} ${fmt(d.b)}${unit}`} className="group relative flex h-full flex-1 items-end justify-center gap-[2px] outline-none">
               <span className="block w-full max-w-[14px] rounded-t-[4px] bg-brand transition group-hover:brightness-110" style={{ height: `${(d.a / nice) * 100}%`, minHeight: d.a ? 3 : 0 }} />
-              <span className="block w-full max-w-[14px] rounded-t-[4px] bg-muted/50 transition group-hover:bg-muted/70" style={{ height: `${(d.b / nice) * 100}%`, minHeight: d.b ? 3 : 0 }} />
+              <span className="block w-full max-w-[14px] rounded-t-[4px] bg-series2 transition group-hover:brightness-110" style={{ height: `${(d.b / nice) * 100}%`, minHeight: d.b ? 3 : 0 }} />
               <span
                 role="tooltip"
                 className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-line bg-raised px-2.5 py-1.5 text-xs shadow-lift group-hover:block group-focus-visible:block"

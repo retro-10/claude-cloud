@@ -8,6 +8,9 @@ const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/finance", label: "Overview", icon: "dashboard" },
   { href: "/finance/candidates", label: "Candidates", icon: "leads" },
   { href: "/finance/ledger", label: "Ledger", icon: "list" },
+  { href: "/finance/budget", label: "Budget", icon: "target" },
+  { href: "/finance/forecast", label: "Cash forecast", icon: "trend" },
+  { href: "/finance/economics", label: "Unit economics", icon: "gauge" },
 ];
 
 export function FinanceNav() {

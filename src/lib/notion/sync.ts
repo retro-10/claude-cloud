@@ -718,12 +718,19 @@ const leadSpec: Spec = {
     if (!l) return "was removed from the CRM";
     const set: Partial<typeof leads.$inferInsert> = {};
     if (f.name !== l.fullName) set.fullName = String(f.name).slice(0, 200);
-    if ((str(f.email)?.toLowerCase() ?? null) !== l.email) set.email = str(f.email)?.toLowerCase() ?? null;
     if (str(f.notes) !== l.notes) set.notes = str(f.notes);
+    // a phone or email that belongs to another lead is left alone (merge them in the CRM); saving it would
+    // break the unique index and stop every later lead from syncing
+    const email = str(f.email)?.toLowerCase() ?? null;
+    if (email !== l.email) {
+      const [taken] = email ? await c.db.select({ id: leads.id }).from(leads).where(sql`lower(${leads.email}) = ${email} and ${leads.deletedAt} is null and ${leads.id} <> ${id}`) : [];
+      if (taken) c.error(`${l.fullName}: the email typed in Notion belongs to another lead (#${taken.id}); merge them in the CRM`);
+      else set.email = email;
+    }
     if (phone !== l.phoneWhatsapp) {
-      // a number that belongs to another lead is left alone (merge them in the CRM)
       const [taken] = phone ? await c.db.select({ id: leads.id }).from(leads).where(eq(leads.phoneWhatsapp, phone)) : [];
-      if (!taken) {
+      if (taken) c.error(`${l.fullName}: the phone typed in Notion belongs to another lead (#${taken.id}); merge them in the CRM`);
+      else {
         set.phoneWhatsapp = phone;
         set.phoneRaw = rawPhone;
       }
@@ -1166,6 +1173,23 @@ export async function runNotionSync(db: Db, cfg: NotionConfig, api: NotionApi = 
     .set({ finishedAt: new Date(), pushed: c.r.pushed, pulled: c.r.pulled, created: c.r.created, conflicts: c.r.conflicts, errors: c.r.errors })
     .where(eq(notionSyncRuns.id, run.id));
   return c.r;
+}
+
+/** Archives pages whose CRM rows were removed (their links are already "gone"). Best effort: returns how many failed. */
+export async function archiveNotionPages(pages: string[], cfg = notionConfig(), api?: NotionApi): Promise<{ archived: number; failed: number }> {
+  const r = { archived: 0, failed: 0 };
+  if (!cfg || !pages.length) return r;
+  const client = api ?? new NotionHttp(cfg.token);
+  for (const page of pages) {
+    try {
+      await client.archive(page);
+      r.archived++;
+    } catch (e) {
+      if (isGone(e)) r.archived++;
+      else r.failed++;
+    }
+  }
+  return r;
 }
 
 // single flight: the interval and the "Sync now" button never overlap
