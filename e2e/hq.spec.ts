@@ -24,7 +24,8 @@ async function noSidewaysScroll(page: Page, label: string) {
 test("HQ: set up spaces, plan work in every view, finish it from the board, write a doc, clear the inbox", async ({ page }) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1280, height: 860 });
-  await signIn(page, "retro@orladent.local");
+  // Sayed (an owner) and not Retro: the tasks made here must not change the counts other journeys check for Retro
+  await signIn(page, "sayed@orladent.local");
 
   // an empty HQ offers the starter layout
   await page.goto("/hq");
@@ -62,9 +63,13 @@ test("HQ: set up spaces, plan work in every view, finish it from the board, writ
   await scan(page, "space, board view");
   await page.locator("li[draggable=true]", { hasText: "Record the welcome video" }).dragTo(page.locator("section[aria-label^='Done']"));
   await expect(page.locator("section[aria-label^='Done'] li", { hasText: "Record the welcome video" })).toBeVisible();
+  // wait for the save itself: reloading while it is in flight would cancel it
+  // (server actions run one at a time, so wait for this one's request, not the drag's)
+  const saved = page.waitForResponse((r) => r.request().method() === "POST" && (r.request().postData() ?? "").includes('"status":"doing"'));
   await page.getByLabel("Move Book the venue for the October batch to").selectOption({ label: "In progress" });
   await expect(page.locator("section[aria-label^='In progress'] li", { hasText: "Book the venue" })).toBeVisible();
-  await page.waitForLoadState("networkidle"); // the save is in flight until the server answers
+  await saved;
+  await expect(page.locator("main [role=alert]")).toHaveCount(0);
   await page.reload();
   await expect(page.locator("section[aria-label^='In progress'] li", { hasText: "Book the venue" })).toBeVisible();
   await expect(page.locator("section[aria-label^='Done'] li", { hasText: "Record the welcome video" })).toBeVisible();
