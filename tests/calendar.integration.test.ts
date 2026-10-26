@@ -16,10 +16,13 @@ import {
   listEntries,
   listEvents,
   mondayOf,
+  monthHours,
+  stopForgottenClocks,
   presence,
   saveEntry,
   saveEvent,
   workedByDay,
+  clockState,
 } from "@/lib/calendar";
 import { createUser } from "@/lib/settings";
 import { cairoLocalToDate } from "@/lib/time";
@@ -119,5 +122,35 @@ d("team calendar: clock in and out, hours, events, who is free", () => {
     expect(p.find((x) => x.id === owner.id)).toMatchObject({ state: "off" });
     p = await presence(db, at("2026-10-29T10:00"));
     expect(p.find((x) => x.id === omar.id)).toMatchObject({ state: "away", current: { title: "Annual leave" } });
+  });
+
+  it("a clock left running stops at the midnight after it started, is marked, and the person is told", async () => {
+    // Mona (since 28 Oct 09:00) and Omar (since 28 Oct 08:30) never clocked out
+    const later = at("2026-10-30T09:00");
+    // before the sweep, reads already treat it as stopped: not working, and the day ends at midnight
+    expect(await clockState(db, mona.id, later)).toEqual({ running: false, since: null });
+    expect((await workedByDay(db, "2026-10-28", 2, later)).get(omar.id)!.get("2026-10-29")).toBeUndefined();
+    expect(await stopForgottenClocks(db, later)).toBe(2);
+    expect(await stopForgottenClocks(db, later)).toBe(0);
+    const [e] = await listEntries(db, mona.id, at("2026-10-28T00:00"), at("2026-10-29T00:00"));
+    expect(e).toMatchObject({ endedAt: at("2026-10-29T00:00"), autoStopped: true });
+    const notes = await db.select().from(s.notifications).where(eq(s.notifications.userId, mona.id));
+    expect(notes.map((n) => n.kind)).toContain("clock_auto_stopped");
+    // a clock still running today is left alone
+    await clockIn(db, mona.id, null, at("2026-10-30T09:30"));
+    expect(await stopForgottenClocks(db, at("2026-10-30T18:00"))).toBe(0);
+    expect(await clockOut(db, mona.id, null, at("2026-10-30T17:30"))).toEqual({ ok: true, minutes: 480 });
+  });
+
+  it("payroll export: hours per person for a month, clipped at the month's edges, auto-stops marked", async () => {
+    await saveEntry(db, owner, null, { userId: owner.id, start: at("2026-10-31T22:00"), end: at("2026-11-01T02:00") }, at("2026-11-02T00:00"));
+    const oct = await monthHours(db, "2026-10", at("2026-11-02T00:00"));
+    const nov = await monthHours(db, "2026-11", at("2026-11-02T00:00"));
+    expect(oct.summary.find((t) => t.email !== "mona@cal.local" && t.email !== "omar@cal.local")).toMatchObject({ minutes: 120, stretches: 1 });
+    expect(nov.summary).toEqual([expect.objectContaining({ minutes: 120, days: 1 })]);
+    const monaOct = oct.summary.find((t) => t.email === "mona@cal.local")!;
+    expect(monaOct).toMatchObject({ autoStopped: 1 });
+    expect(Math.round(monaOct.minutes)).toBe(210 + 150 + 900 + 480); // 26th (210 + 150), 28th 09:00 to midnight, 30th
+    expect(oct.detail.filter((r) => r.autoStopped).map((r) => r.person).sort()).toEqual(["Mona", "Omar"]);
   });
 });

@@ -37,7 +37,14 @@ when the buyer moved, and log everything** so the numbers are true.
   **remove** it; **Add hours by hand** if you forgot to clock in or worked away from the app. Hours cannot be in
   the future or overlap each other, and one stretch covers at most 24 hours (split longer ones per day). A stretch
   that crosses midnight counts on both days.
+* **Forgot to clock out?** A clock still running from an earlier day stops by itself at midnight (Cairo). The
+  stretch is marked *stopped at midnight* in **My time**, and your inbox tells you, so you can fix the end time.
+  Working past midnight on purpose? Clock in again after midnight.
 * Owners can add, change and remove events on anyone's calendar (pick the person under **Whose calendar**).
+* **Hours for payroll** (owners and finance, at the bottom of the Team tab): pick a month and download a CSV,
+  either **Total per person** (hours, days worked, number of stretches, how many were stopped at midnight) or
+  **Every stretch** (date, start, end, hours, note). Months follow the Cairo calendar; a stretch crossing into the
+  next month is split. Each download is recorded in the audit log.
 
 ## HQ: spaces, lists, tasks and docs
 

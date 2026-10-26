@@ -100,4 +100,13 @@ test("team calendar: clock in and out, plan events, everyone sees them, fix hour
   await page.getByRole("textbox", { name: "To", exact: true }).fill(`${yesterday}T11:00`);
   await page.getByRole("button", { name: "Add hours" }).click();
   await expect(page.locator("main [role=alert]")).toContainText("overlaps");
+
+  // payroll: finance downloads the month's hours, a total per person
+  await page.getByRole("link", { name: "Team", exact: true }).click();
+  await ready(page);
+  const [file] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Total per person (CSV)" }).click()]);
+  expect(file.suggestedFilename()).toMatch(/^hours-\d{4}-\d{2}-summary\.csv$/);
+  const csv = await (await file.createReadStream()).toArray().then((b) => Buffer.concat(b).toString("utf8"));
+  expect(csv.split("\n")[0]).toContain("person,email,role,month,hours");
+  expect(csv).toContain("Mo,mo@orladent.local");
 });

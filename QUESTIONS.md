@@ -150,10 +150,10 @@ Each has a safe default already applied. Answer any and it will be changed.
 
 ## Team calendar
 
-69. **Forgotten clock-outs.** A clock left running keeps counting. Should it stop by itself (for example at
-    midnight, or after 12 hours) and tell the person?
-70. **Working hours.** Is there a standard day (for example 9 hours, Sunday to Thursday) that the week view should
-    compare against, and should overtime be flagged?
-71. **Privacy of events.** Everyone sees every event's title. Should some kinds (for example personal leave)
-    show only "Away" to others?
-72. **Payroll.** Should hours be exportable (CSV per person per month) or feed the designers' pay?
+69. ~~Forgotten clock-outs~~ **Answered: yes, stop at midnight.** A clock still running from an earlier day stops at
+    the midnight after it started (Cairo), is marked "stopped at midnight", and the person gets an inbox note to
+    fix it if needed.
+70. ~~Working hours~~ **Answered: no standard day.** Hours are shown as logged; no overtime is flagged.
+71. ~~Privacy of events~~ **Answered: titles stay visible**, leave included.
+72. ~~Payroll~~ **Answered: yes.** Owners and finance download a month as CSV: a total per person, or every
+    stretch (Team calendar > Hours for payroll).

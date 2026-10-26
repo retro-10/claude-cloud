@@ -11,6 +11,7 @@ import { ScrollX } from "@/components/ui/ScrollX";
 import {
   EVENT_KINDS,
   daysRange,
+  effectiveEnd,
   getEvent,
   hours,
   kindOf,
@@ -356,6 +357,24 @@ export default async function CalendarPage(props: { searchParams: Promise<Search
               })()}
             </Card>
           </div>
+
+          {can(user.role, "finance:read") && (
+            <Card title="Hours for payroll" icon="download">
+              <form action="/calendar/export" method="get" className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <label className="field">
+                  Month
+                  <input type="month" name="month" required defaultValue={today.slice(0, 7)} className="input input-sm sm:w-48" />
+                </label>
+                <button name="kind" value="summary" className="btn btn-secondary btn-sm">
+                  <Icon name="download" size={14} /> Total per person (CSV)
+                </button>
+                <button name="kind" value="detail" className="btn btn-ghost btn-sm">
+                  <Icon name="download" size={14} /> Every stretch (CSV)
+                </button>
+              </form>
+              <p className="mt-3 text-xs text-muted">Hours are split by Cairo calendar month. Clocks someone forgot to stop were stopped at midnight and are marked, so you can check them.</p>
+            </Card>
+          )}
         </div>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -430,9 +449,12 @@ export default async function CalendarPage(props: { searchParams: Promise<Search
                         <tr key={e.id}>
                           <td className="whitespace-nowrap">{dayLabel(cairoYmd(e.startedAt))}</td>
                           <td className="tabular-nums">{hhmm(e.startedAt)}</td>
-                          <td className="tabular-nums">{e.endedAt ? (cairoYmd(e.endedAt) === cairoYmd(e.startedAt) ? hhmm(e.endedAt) : formatCairo(e.endedAt)) : <span className="chip chip-ok">running</span>}</td>
-                          <td className="tabular-nums">{hours(((e.endedAt ?? now).getTime() - e.startedAt.getTime()) / 60_000)}</td>
-                          <td className="max-w-[220px] truncate text-muted">{e.note ?? ""}</td>
+                          <td className="tabular-nums">{e.endedAt ? (cairoYmd(e.endedAt) === cairoYmd(e.startedAt) || e.autoStopped ? hhmm(e.endedAt) : formatCairo(e.endedAt)) : <span className="chip chip-ok">running</span>}</td>
+                          <td className="tabular-nums">{hours((effectiveEnd(e, now).getTime() - e.startedAt.getTime()) / 60_000)}</td>
+                          <td className="max-w-[220px] truncate text-muted">
+                            {e.autoStopped && <span className="chip chip-warn mr-1.5">stopped at midnight</span>}
+                            {e.note ?? ""}
+                          </td>
                           <td className="whitespace-nowrap text-right">
                             <Link href={base({ entry: String(e.id) })} className="btn btn-ghost btn-sm" aria-label={`Fix the hours from ${hhmm(e.startedAt)}`}>
                               <Icon name="edit" size={14} />

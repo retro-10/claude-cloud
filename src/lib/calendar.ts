@@ -1,11 +1,11 @@
 import { and, asc, desc, eq, gt, isNull, lt, ne, or } from "drizzle-orm";
 import type { Db } from "@/db";
-import { calendarEvents, timeEntries, users } from "@/db/schema";
+import { calendarEvents, notifications, timeEntries, users } from "@/db/schema";
 import { audit } from "./audit";
 import { isUniqueViolation } from "./db-errors";
 import { can, type Role } from "./rbac";
 import { type Result, clean } from "./result";
-import { addDaysYmd, cairoLocalToDate, cairoYmd } from "./time";
+import { addDaysYmd, cairoLocalToDate, cairoYmd, startOfCairoDay, startOfNextCairoDay } from "./time";
 
 // The team calendar: who is working right now (clock in / clock out), how many hours each person put in, and
 // what everyone has planned (meetings, focus time, days off) so the others can see when they are free.
@@ -49,12 +49,50 @@ async function activeUser(db: Db, id: number) {
 
 // ---------------- clock in / clock out ----------------
 
+/**
+ * A clock is never left running past the day it started: it stops at the next midnight (Cairo). Reads apply the
+ * same rule, so totals are right even before the sweep has written it down.
+ */
+export const effectiveEnd = (e: { startedAt: Date; endedAt: Date | null }, now: Date) =>
+  e.endedAt ?? new Date(Math.min(now.getTime(), startOfNextCairoDay(e.startedAt).getTime()));
+
+/**
+ * Stops every clock still running from an earlier day, at the midnight after it started, and tells the person in
+ * their inbox so they can fix the hours. Runs every few minutes and before anyone clocks in.
+ */
+export async function stopForgottenClocks(db: Db, now = new Date()): Promise<number> {
+  const stale = await db
+    .select({ id: timeEntries.id, userId: timeEntries.userId, startedAt: timeEntries.startedAt })
+    .from(timeEntries)
+    .where(and(isNull(timeEntries.endedAt), lt(timeEntries.startedAt, startOfCairoDay(now))));
+  let n = 0;
+  for (const e of stale) {
+    const endedAt = startOfNextCairoDay(e.startedAt);
+    const done = await db
+      .update(timeEntries)
+      .set({ endedAt, autoStopped: true, updatedAt: now })
+      .where(and(eq(timeEntries.id, e.id), isNull(timeEntries.endedAt)))
+      .returning({ id: timeEntries.id });
+    if (!done.length) continue; // clocked out meanwhile
+    n++;
+    const day = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "Africa/Cairo" }).format(e.startedAt);
+    await db.insert(notifications).values({
+      userId: e.userId,
+      kind: "clock_auto_stopped",
+      title: `You did not clock out on ${day}: the clock stopped at midnight (${hours((endedAt.getTime() - e.startedAt.getTime()) / 60_000)}). Fix it in Team calendar > My time if that is wrong.`,
+    });
+    await audit(db, { userId: null, entity: "time_entry", entityId: e.id, action: "auto_stop", diff: { for: e.userId } });
+  }
+  return n;
+}
+
 export async function openEntry(db: Db, userId: number) {
   const [e] = await db.select().from(timeEntries).where(and(eq(timeEntries.userId, userId), isNull(timeEntries.endedAt)));
   return e ?? null;
 }
 
 export async function clockIn(db: Db, userId: number, note?: string | null, now = new Date()): Promise<Result<{ id: number }>> {
+  await stopForgottenClocks(db, now);
   if (await openEntry(db, userId)) return { ok: false, error: "You are already clocked in" };
   try {
     const [row] = await db.insert(timeEntries).values({ userId, startedAt: now, note: clean(note, 300) }).returning({ id: timeEntries.id });
@@ -69,7 +107,7 @@ export async function clockIn(db: Db, userId: number, note?: string | null, now 
 export async function clockOut(db: Db, userId: number, note?: string | null, now = new Date()): Promise<Result<{ minutes: number }>> {
   const open = await openEntry(db, userId);
   if (!open) return { ok: false, error: "You are not clocked in" };
-  const endedAt = now < open.startedAt ? open.startedAt : now;
+  const endedAt = now < open.startedAt ? open.startedAt : effectiveEnd(open, now);
   const n = clean(note, 300);
   await db
     .update(timeEntries)
@@ -156,7 +194,7 @@ export async function workedByDay(db: Db, firstYmd: string, days: number, now = 
   });
   const out = new Map<number, Map<string, number>>();
   for (const r of rows) {
-    const end = r.endedAt ?? now;
+    const end = effectiveEnd(r, now);
     for (const b of bounds) {
       const ms = Math.min(end.getTime(), b.to.getTime()) - Math.max(r.startedAt.getTime(), b.from.getTime());
       if (ms <= 0) continue;
@@ -263,7 +301,7 @@ export async function presence(db: Db, now = new Date()): Promise<Presence[]> {
     const mine = events.filter((e) => e.userId === p.id);
     const current = mine.find((e) => e.startsAt <= now && e.endsAt > now) ?? null;
     const next = mine.find((e) => e.startsAt > now) ?? null;
-    const clock = open.find((o) => o.userId === p.id);
+    const clock = open.find((o) => o.userId === p.id && effectiveEnd(o, now) >= now);
     const away = current && kindOf(current.kind).away;
     const state: Presence["state"] = away ? "away" : clock ? (current ? "busy" : "working") : current ? "busy" : "off";
     return { ...p, state, since: clock?.startedAt ?? null, current, next, todayMinutes: worked.get(p.id)?.get(today) ?? 0 };
@@ -271,7 +309,44 @@ export async function presence(db: Db, now = new Date()): Promise<Presence[]> {
 }
 
 /** For the top bar: is this person's clock running, and since when. */
-export async function clockState(db: Db, userId: number) {
+export async function clockState(db: Db, userId: number, now = new Date()) {
   const e = await openEntry(db, userId);
-  return e ? { running: true as const, since: e.startedAt } : { running: false as const, since: null };
+  return e && effectiveEnd(e, now) >= now ? { running: true as const, since: e.startedAt } : { running: false as const, since: null };
+}
+
+// ---------------- payroll export ----------------
+
+export type HoursRow = { person: string; email: string; role: string; date: string; start: Date; end: Date; minutes: number; note: string | null; autoStopped: boolean; running: boolean };
+
+/**
+ * Every stretch of work in a month (Cairo calendar), clipped to the month, with each person's total. For payroll:
+ * a running clock counts up to now and is marked as such; clocks stopped at midnight are marked too.
+ */
+export async function monthHours(db: Db, month: string, now = new Date()) {
+  const from = cairoLocalToDate(`${month}-01T00:00`)!;
+  const [y, m] = month.split("-").map(Number);
+  const next = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}`;
+  const to = cairoLocalToDate(`${next}-01T00:00`)!;
+  const rows = await db
+    .select({ e: timeEntries, person: users.name, email: users.email, role: users.role })
+    .from(timeEntries)
+    .innerJoin(users, eq(users.id, timeEntries.userId))
+    .where(and(lt(timeEntries.startedAt, to), or(isNull(timeEntries.endedAt), gt(timeEntries.endedAt, from))))
+    .orderBy(asc(users.name), asc(timeEntries.startedAt));
+  const detail: HoursRow[] = rows.map(({ e, person, email, role }) => {
+    const start = e.startedAt < from ? from : e.startedAt;
+    const rawEnd = effectiveEnd(e, now);
+    const end = rawEnd > to ? to : rawEnd;
+    return { person, email, role, date: cairoYmd(start), start, end, minutes: Math.max(0, (end.getTime() - start.getTime()) / 60_000), note: e.note, autoStopped: e.autoStopped, running: !e.endedAt && rawEnd >= now };
+  });
+  const totals = new Map<string, { person: string; email: string; role: string; minutes: number; days: Set<string>; stretches: number; autoStopped: number }>();
+  for (const r of detail) {
+    const t = totals.get(r.email) ?? { person: r.person, email: r.email, role: r.role, minutes: 0, days: new Set<string>(), stretches: 0, autoStopped: 0 };
+    t.minutes += r.minutes;
+    t.days.add(r.date);
+    t.stretches++;
+    if (r.autoStopped) t.autoStopped++;
+    totals.set(r.email, t);
+  }
+  return { detail, summary: [...totals.values()].map((t) => ({ ...t, days: t.days.size })) };
 }

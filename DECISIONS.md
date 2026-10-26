@@ -619,8 +619,15 @@ views, drag to Done, subtasks, docs, inbox, status rename) scanned for WCAG 2.1 
   your own hours for now (QUESTIONS 72).
   A new permission, `calendar:write`, is given to every role, designers and viewers included; the page needs only
   that, so designers reach it from their Studio menu.
-* **No automatic clock-out, overtime or payroll rules.** Those are business rules for the owners to decide (see
-  QUESTIONS); nothing is assumed.
+* **Forgotten clocks stop at midnight** (owners' answer, QUESTIONS 69). The 5-minute background tick and every
+  clock-in close any clock started on an earlier Cairo day at the midnight after its start, set `auto_stopped`,
+  audit it and notify the person. Reads apply the same rule before the sweep has run, so the top bar, Right now
+  and the totals never show a stale clock. Consequence: work that genuinely runs past midnight needs a fresh clock-in.
+* **No standard working day** (QUESTIONS 70): hours are shown as logged, nothing is flagged as overtime.
+* **Event titles are visible to everyone, leave included** (QUESTIONS 71).
+* **Payroll export** (QUESTIONS 72): `/calendar/export?month=YYYY-MM&kind=summary|detail`, owners and finance
+  (`finance:read`, the same people who see pay), audited. Stretches are clipped to the Cairo month; a running
+  clock counts up to now and is flagged. CSV cells go through the same formula-injection guard as other exports.
 
 Verified: unit and integration tests (one running clock, minutes, manual-hour rules, per-day split across
 midnight, events and permissions, presence), the role matrix (every role can clock and plan its own), the guards,

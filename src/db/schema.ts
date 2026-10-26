@@ -599,6 +599,7 @@ export const timeEntries = pgTable(
     startedAt: ts("started_at").notNull(),
     endedAt: ts("ended_at"),
     note: text("note"),
+    autoStopped: boolean("auto_stopped").notNull().default(false), // the clock was left running and stopped at midnight
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
