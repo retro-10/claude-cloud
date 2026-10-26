@@ -599,3 +599,30 @@ a WhatsApp draft, and the new screens in both themes.
 Verified: types, lint, unit and integration tests (HQ data rules, Markdown safety, the role matrix with every new
 action, the guards), the production build, and the browser suite including a full HQ journey (set up, all four
 views, drag to Done, subtasks, docs, inbox, status rename) scanned for WCAG 2.1 AA in both themes.
+
+## Team calendar (clock in and out, availability)
+
+* **Why.** Everyone asked to mark when they start and stop working and to show when they are unavailable, so the
+  team can plan around each other.
+* **Hours are stretches, not timesheets.** `time_entries` holds one row per stretch of work (start, end, note). A
+  partial unique index allows at most one running clock per person, so double clicks cannot open two. Totals are
+  computed per Cairo day, a stretch crossing midnight is split between the days, and a running clock counts up to
+  now. Manual hours must end after they start, cannot be in the future, cannot overlap the person's other hours,
+  and cover at most 24 hours each.
+* **Events** (`calendar_events`) are kinds, not free colours: meeting, busy, focus time, out of office, day off /
+  leave, other. Out of office and leave make the person *Away*; the others make them *Busy*. All-day events run
+  from the first day's midnight to the midnight after the last day, Cairo time. Removing an event keeps the row
+  (cancelled), for the audit log.
+* **Who sees and changes what.** Everyone sees everyone's status, hours and events (the point is shared
+  availability). Each person clocks, logs and plans only their own; owners (`users:manage`) can plan anyone's
+  calendar from the page. The hour rules also let owners fix anyone's hours, but the page offers that only for
+  your own hours for now (QUESTIONS 72).
+  A new permission, `calendar:write`, is given to every role, designers and viewers included; the page needs only
+  that, so designers reach it from their Studio menu.
+* **No automatic clock-out, overtime or payroll rules.** Those are business rules for the owners to decide (see
+  QUESTIONS); nothing is assumed.
+
+Verified: unit and integration tests (one running clock, minutes, manual-hour rules, per-day split across
+midnight, events and permissions, presence), the role matrix (every role can clock and plan its own), the guards,
+and a browser journey (clock in from the top bar, events seen by another person, edit, clock out with a note,
+manual hours refused and accepted) scanned for WCAG 2.1 AA in both themes.

@@ -5,6 +5,7 @@ import { sources } from "@/db/schema";
 import { AppFrame, type NavItem } from "@/components/shell/AppFrame";
 import type { GoKey } from "@/components/shell/Shortcuts";
 import { Icon } from "@/components/ui/Icon";
+import { clockState } from "@/lib/calendar";
 import { listSpaces } from "@/lib/hq";
 import { navCounts } from "@/lib/nav-counts";
 import { recentNotifications } from "@/lib/notifications";
@@ -19,22 +20,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   // Designers have no lead list: their app is the production studio, so skip the lead counts entirely.
   const sales = can(user.role, "lead:read");
-  const [src, counts, notes, myTasks, spaces] = await Promise.all([
+  const [src, counts, notes, myTasks, spaces, clock] = await Promise.all([
     sales ? db.select().from(sources).orderBy(asc(sources.id)) : [],
     sales ? navCounts(db) : null,
     recentNotifications(db, user.id),
     sales ? taskCounts(db, user.id) : null,
     sales ? listSpaces(db) : [],
+    clockState(db, user.id),
   ]);
   // people who see the money get a standing reminder until two-factor is on
   const nudge2fa = user.passwordChanged && !user.twoFactor && can(user.role, "finance:read");
 
   const studio: NavItem = { href: "/production", label: "Production", icon: "layers", section: "Studio", keys: "G R" };
+  const calendar: NavItem = { href: "/calendar", label: "Team calendar", icon: "calendar", section: "HQ", keys: "G Y" };
   const nav: NavItem[] = !counts || !myTasks
-    ? [studio]
+    ? [studio, { ...calendar, section: "Studio" }]
     : [
         { href: "/hq", label: "Home", icon: "today", section: "HQ", keys: "G H" },
         { href: "/inbox", label: "Inbox", icon: "inbox", section: "HQ", count: notes.unread, keys: "G I" },
+        calendar,
         { href: "/docs", label: "Docs", icon: "note", section: "HQ" },
         ...spaces.map((s): NavItem => ({ href: `/spaces/${s.id}`, label: s.name, icon: "layers", color: s.color, section: "Spaces", count: s.open })),
         { href: "/command", label: "Command centre", icon: "gauge", section: "OrlaDent OS", keys: "G O" },
@@ -75,6 +79,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </a>
       <AppFrame user={{ name: user.name, role: user.role }} nav={nav} canWrite={can(user.role, "lead:write")} sources={src}
         goKeys={goKeys}
+        clock={{ running: clock.running, since: clock.since?.toISOString() ?? null }}
         bell={{ unread: notes.unread, items: notes.items.map((n) => ({ id: n.id, title: n.title, leadId: n.leadId, at: n.createdAt.toISOString(), unread: !n.readAt })) }}
       >
         {!user.passwordChanged && (

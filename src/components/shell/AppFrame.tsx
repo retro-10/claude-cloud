@@ -7,6 +7,7 @@ import { logout } from "@/app/login/actions";
 import { QuickAdd } from "../QuickAdd";
 import { ThemeToggle } from "../ThemeToggle";
 import { Icon, type IconName } from "../ui/Icon";
+import { ClockButton } from "../calendar/Clock";
 import { Composer } from "../crm/Composer";
 import { CommandPalette, type PaletteLink } from "./CommandPalette";
 import { NotificationBell, type BellItem } from "./NotificationBell";
@@ -32,6 +33,7 @@ type Props = {
   sources: { id: number; label: string }[];
   goKeys: GoKey[];
   bell: { items: BellItem[]; unread: number };
+  clock: { running: boolean; since: string | null };
   children: React.ReactNode;
 };
 
@@ -200,7 +202,7 @@ function SidebarBody({ user, children }: { user: Props["user"]; children: React.
   );
 }
 
-export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children }: Props) {
+export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, clock, children }: Props) {
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
   const collapse = useCollapsed();
@@ -289,6 +291,7 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
               <Icon name="command" />
               <span className="hidden text-xs xl:inline">Commands</span>
             </button>
+            <ClockButton running={clock.running} since={clock.since} />
             <NotificationBell items={bell.items} unread={bell.unread} />
             <ThemeToggle />
             {canWrite && <QuickAdd sources={sources} />}

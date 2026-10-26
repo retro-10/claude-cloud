@@ -11,12 +11,33 @@ when the buyer moved, and log everything** so the numbers are true.
 * **Ctrl K** (⌘K on a Mac), or the search box at the top of the sidebar, opens the **command palette**: type part
   of a name or a phone number in any format (`0100 777 66`, `+20 100…`, Arabic spelling variants are matched) to
   jump to a lead, or type a command ("new lead", "pipeline", "dark theme", "sign out").
-* **Keyboard**: `n` new lead · `/` search on the page · `g` then `h` / `i` / `o` / `t` / `l` / `p` / `k` / `c` / `d` / `s`
+* **Keyboard**: `n` new lead · `/` search on the page · `g` then `y` (Team calendar) / `h` / `i` / `o` / `t` / `l` / `p` / `k` / `c` / `d` / `s`
   goes to HQ Home, Inbox, Command centre, Today, Leads, Pipeline, Tasks, Batches, Dashboard, Settings · `?` shows every shortcut · `Esc`
   closes a dialog.
 * The **bell** (top right) holds notifications from the workflow rules: a new lead arrived, a follow-up is 24
   hours overdue, nobody has answered an unassigned lead.
 * Sun/moon icon: light or dark theme (remembered per browser).
+
+## Team calendar (everyone)
+
+**Team calendar** (sidebar, under HQ; `g` then `y`) is for every role, designers included.
+
+* **Clock in / Clock out.** The button at the top of every page starts your working time; while it runs it shows
+  how long you have worked, and clicking it clocks you out. In **My time** you can add a short note ("Month-end
+  close") when you clock in or out.
+* **Right now** shows each person: *Working* (clocked in, with the time so far), *Meeting / Busy / Focus time until
+  …* (inside an event), *Away* (out of office or on leave), or *Not working*, with their hours today and their
+  next event.
+* **The week**: one row per person, one column per day, Monday to Sunday. Each cell shows that person's events and
+  the hours they logged that day; the last column is the week's total. Use the arrows to move between weeks.
+* **Add to my calendar**: meetings, busy time, focus time, out of office, days off. Tick **All day** for whole days
+  (from the start date to the end date). Click your own event in the week to change or remove it. Everyone sees
+  everyone's events, so plan here when you will not be available.
+* **My time**: your clock, a bar per day, and every stretch you logged this week. **Fix** a stretch (edit icon) or
+  **remove** it; **Add hours by hand** if you forgot to clock in or worked away from the app. Hours cannot be in
+  the future or overlap each other, and one stretch covers at most 24 hours (split longer ones per day). A stretch
+  that crosses midnight counts on both days.
+* Owners can add, change and remove events on anyone's calendar (pick the person under **Whose calendar**).
 
 ## HQ: spaces, lists, tasks and docs
 

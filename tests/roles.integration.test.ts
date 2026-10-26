@@ -156,6 +156,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/production/actions")),
       ...(await import("@/app/(app)/team/actions")),
       ...(await import("@/app/(app)/hq/actions")),
+      ...(await import("@/app/(app)/calendar/actions")),
     };
   });
   afterAll(async () => {
@@ -325,6 +326,13 @@ d("role rules on the server", () => {
     ["saveTaskDetailsAction", ["owner", "sales", "finance", "instructor"], async () => strict(async () => A.saveTaskDetailsAction(fd({ id: await hqTask(), title: "Edited", notes: "", priority: "high", assigneeId: "", start: "", due: "2030-01-02", tags: "a, b", status: "done" })))],
     ["patchTaskAction", ["owner", "sales", "finance", "instructor"], async () => strict(async () => A.patchTaskAction(fd({ id: await hqTask(), field: "priority", value: "urgent" })))],
     ["saveDocAction", ["owner", "sales", "finance", "instructor"], () => strict(() => A.saveDocAction(fd({ title: `Doc ${++n}`, body: "# Hi", spaceId: "", parentId: "" })))],
+    // the team calendar is everyone's, designers and viewers included: each person their own clock and plans
+    ["clockInAction then clockOutAction", ROLES, async () => {
+      await strict(() => A.clockInAction(fd({ back: "/calendar" })));
+      return strict(() => A.clockOutAction(fd({ back: "/calendar" })));
+    }],
+    ["saveHoursAction (own hours)", ROLES, () => strict(() => A.saveHoursAction(fd({ start: `2026-0${1 + (++n % 9)}-0${1 + (n % 9)}T08:00`, end: `2026-0${1 + (n % 9)}-0${1 + (n % 9)}T08:30`, note: "", back: "/calendar" })))],
+    ["saveEventAction (own calendar)", ROLES, () => strict(() => A.saveEventAction(fd({ title: `Event ${++n}`, kind: "meeting", start: "2030-01-01T10:00", end: "2030-01-01T11:00", note: "", back: "/calendar" })))],
     ["inboxClearAllAction (your own inbox)", ROLES, () => A.inboxClearAllAction(fd({ back: "/inbox" }))],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];

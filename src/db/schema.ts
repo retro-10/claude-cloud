@@ -586,6 +586,52 @@ export const notionSyncRuns = pgTable("notion_sync_runs", {
 
 export const taskPriorityEnum = pgEnum("task_priority", ["low", "normal", "high", "urgent"]);
 
+// ---------------- Team calendar: time worked and availability ----------------
+
+// One row per stretch of work: started when the person clocked in, ended when they clocked out (null while working).
+export const timeEntries = pgTable(
+  "time_entries",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    startedAt: ts("started_at").notNull(),
+    endedAt: ts("ended_at"),
+    note: text("note"),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("time_entries_user_idx").on(t.userId, t.startedAt),
+    // at most one running clock per person
+    uniqueIndex("time_entries_one_open_uq").on(t.userId).where(sql`${t.endedAt} is null`),
+  ],
+);
+
+export const calendarEventKindEnum = pgEnum("calendar_event_kind", ["meeting", "busy", "focus", "out_of_office", "leave", "other"]);
+
+// What a person has planned, so everyone can see when they are free: meetings, focus time, days off.
+export const calendarEvents = pgTable(
+  "calendar_events",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    title: text("title").notNull(),
+    kind: calendarEventKindEnum("kind").notNull().default("busy"),
+    startsAt: ts("starts_at").notNull(),
+    endsAt: ts("ends_at").notNull(),
+    allDay: boolean("all_day").notNull().default(false),
+    note: text("note"),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    cancelledAt: ts("cancelled_at"),
+  },
+  (t) => [index("calendar_events_time_idx").on(t.startsAt, t.endsAt), index("calendar_events_user_idx").on(t.userId)],
+);
+
 // ---------------- HQ: spaces > lists > tasks, and docs ----------------
 
 /** A status a space's tasks move through. `group` decides what it means: todo and active are open, done is finished. */
