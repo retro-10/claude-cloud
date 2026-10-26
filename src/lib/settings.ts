@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { cadenceTemplates, campaigns, followUps, leads, lostReasons, objections, sources, stageExitCriteria, stages, users, consultObjections } from "@/db/schema";
+import { cadenceTemplates, campaigns, followUps, leads, lostReasons, objections, sources, stageExitCriteria, stages, users, consultObjections, ledgerEntries } from "@/db/schema";
 import type { CadenceStep } from "@/db/schema";
 import { audit } from "./audit";
 import { isUniqueViolation } from "./db-errors";
@@ -214,6 +214,8 @@ export async function renameCampaign(db: Db, id: number, label: string, actorId:
 export async function deleteCampaign(db: Db, id: number, actorId: number | null): Promise<Result> {
   const [u] = await db.select({ n: sql<number>`count(*)::int` }).from(leads).where(eq(leads.campaignId, id));
   if (u.n > 0) return { ok: false, error: `In use by ${u.n} lead${u.n === 1 ? "" : "s"}; rename it instead` };
+  const [c] = await db.select({ n: sql<number>`count(*)::int` }).from(ledgerEntries).where(eq(ledgerEntries.campaignId, id));
+  if (c.n > 0) return { ok: false, error: `${c.n} cost${c.n === 1 ? " is" : "s are"} tagged to it; rename it instead` };
   const rows = await db.delete(campaigns).where(eq(campaigns.id, id)).returning({ id: campaigns.id });
   if (!rows.length) return { ok: false, error: "Not found" };
   await audit(db, { userId: actorId, entity: "campaign", entityId: id, action: "delete" });

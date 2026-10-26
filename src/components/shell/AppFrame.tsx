@@ -7,6 +7,7 @@ import { logout } from "@/app/login/actions";
 import { QuickAdd } from "../QuickAdd";
 import { ThemeToggle } from "../ThemeToggle";
 import { Icon, type IconName } from "../ui/Icon";
+import { ClockButton } from "../calendar/Clock";
 import { Composer } from "../crm/Composer";
 import { CommandPalette, type PaletteLink } from "./CommandPalette";
 import { NotificationBell, type BellItem } from "./NotificationBell";
@@ -22,6 +23,7 @@ export type NavItem = {
   alert?: boolean; // count shown in the attention colour
   keys?: string; // "G T"
   exact?: boolean;
+  color?: string; // HQ spaces show their colour instead of an icon
 };
 
 type Props = {
@@ -31,6 +33,7 @@ type Props = {
   sources: { id: number; label: string }[];
   goKeys: GoKey[];
   bell: { items: BellItem[]; unread: number };
+  clock: { running: boolean; since: string | null };
   children: React.ReactNode;
 };
 
@@ -62,45 +65,100 @@ function Brand() {
   );
 }
 
-function NavList({ nav, pathname, onNavigate }: { nav: NavItem[]; pathname: string; onNavigate?: () => void }) {
+const COLLAPSED_KEY = "nav:collapsed";
+const COLLAPSED_DEFAULT = ["Views"]; // the smart views are a shortcut list: closed until wanted
+
+const badge = (n: number) => (n > 99 ? "99+" : n);
+
+/** Which sidebar sections are closed, remembered in this browser and shared by the sidebar and the drawer. */
+function useCollapsed() {
+  const [collapsed, setCollapsed] = useState<string[]>(COLLAPSED_DEFAULT);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COLLAPSED_KEY);
+      if (saved) setCollapsed(JSON.parse(saved));
+    } catch {}
+  }, []);
+  const toggle = (s: string) =>
+    setCollapsed((cur) => {
+      const next = cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s];
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  return { collapsed, toggle };
+}
+
+/**
+ * The sidebar, in sections that open and close. The section holding the page you are on is always open, so you
+ * never lose your place.
+ */
+function NavList({ nav, pathname, onNavigate, idPrefix, collapsed, toggle }: {
+  nav: NavItem[];
+  pathname: string;
+  onNavigate?: () => void;
+  idPrefix: string;
+} & ReturnType<typeof useCollapsed>) {
   const search = useSearchParams().toString();
-  const sections = nav.reduce<string[]>((a, n) => (a.includes(n.section) ? a : [...a, n.section]), []);
+  const sections = [...new Set(nav.map((n) => n.section))];
   return (
-    <nav aria-label="Main" className="flex flex-col gap-5">
-      {sections.map((s) => (
-        <div key={s}>
-          <div className="eyebrow mb-1.5 px-3">{s}</div>
-          <ul className="flex flex-col gap-0.5">
-            {nav
-              .filter((n) => n.section === s)
-              .map((n) => {
-                const active = isActive(pathname, n, search);
-                return (
+    <nav aria-label="Main" className="flex flex-col gap-4">
+      {sections.map((s) => {
+        const items = nav.filter((n) => n.section === s).map((n) => ({ ...n, active: isActive(pathname, n, search) }));
+        const here = items.some((n) => n.active);
+        const open = here || !collapsed.includes(s);
+        const listId = `${idPrefix}-nav-${s.replace(/\W+/g, "-").toLowerCase()}`;
+        const total = items.reduce((a, n) => a + (n.count ?? 0), 0);
+        return (
+          <div key={s}>
+            <button
+              type="button"
+              onClick={() => toggle(s)}
+              aria-expanded={open}
+              aria-controls={listId}
+              disabled={here}
+              className="eyebrow group flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left hover:text-fg disabled:cursor-default disabled:hover:text-muted"
+            >
+              <span className="min-w-0 flex-1 truncate">{s}</span>
+              {!open && total > 0 && <span className="count normal-case tracking-normal">{badge(total)}</span>}
+              {!here && <Icon name={open ? "chevronDown" : "chevronRight"} size={14} className="shrink-0 text-faint group-hover:text-muted" />}
+            </button>
+            {open && (
+              <ul id={listId} className="mt-1 flex flex-col gap-1">
+                {items.map((n) => (
                   <li key={n.href}>
                     <Link
                       href={n.href}
                       onClick={onNavigate}
-                      aria-current={active ? "page" : undefined}
+                      aria-current={n.active ? "page" : undefined}
                       title={n.keys ? `${n.label} (${n.keys})` : undefined}
-                      className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                        active ? "bg-raised font-medium text-fg" : "text-muted hover:bg-raised/60 hover:text-fg"
+                      className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                        n.active ? "bg-raised font-medium text-fg" : "text-muted hover:bg-raised/60 hover:text-fg"
                       }`}
                     >
-                      {active && <span aria-hidden className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-brand" />}
-                      <Icon name={n.icon} size={17} className={active ? "text-accent" : "text-muted group-hover:text-fg"} />
+                      {n.active && <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-brand" />}
+                      {n.color ? (
+                        <span aria-hidden className="grid h-[18px] w-[18px] shrink-0 place-items-center">
+                          <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: `rgb(var(--c-${n.color}, var(--c-slate)))` }} />
+                        </span>
+                      ) : (
+                        <Icon name={n.icon} size={18} className={`shrink-0 ${n.active ? "text-accent" : "text-muted group-hover:text-fg"}`} />
+                      )}
                       <span className="min-w-0 flex-1 truncate">{n.label}</span>
                       {n.count !== undefined && n.count > 0 && (
                         <span className={n.alert ? "count bg-danger/15 text-danger" : "count"} aria-label={`${n.count} items`}>
-                          {n.count > 99 ? "99+" : n.count}
+                          {badge(n.count)}
                         </span>
                       )}
                     </Link>
                   </li>
-                );
-              })}
-          </ul>
-        </div>
-      ))}
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })}
     </nav>
   );
 }
@@ -132,9 +190,22 @@ function UserCard({ user }: { user: Props["user"] }) {
   );
 }
 
-export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children }: Props) {
+/** The sidebar's scrolling nav and account footer, shared by the desktop sidebar and the mobile drawer. */
+function SidebarBody({ user, children }: { user: Props["user"]; children: React.ReactNode }) {
+  return (
+    <>
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">{children}</div>
+      <div className="border-t border-line p-3">
+        <UserCard user={user} />
+      </div>
+    </>
+  );
+}
+
+export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, clock, children }: Props) {
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
+  const collapse = useCollapsed();
   useEffect(() => setDrawer(false), [pathname]);
   // Marks the page as interactive (keyboard shortcuts work from here on). Browser tests wait for it.
   useEffect(() => {
@@ -155,34 +226,32 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
     group: n.section === "Views" ? "Smart views" : "Go to",
   }));
   links.push({ href: "/account", label: "My account", icon: "user", keywords: "password profile" });
+  if (canWrite) links.push({ href: "/docs/new", label: "Write a new doc", icon: "note", group: "Actions", keywords: "wiki page playbook" });
   if (canWrite) links.push({ href: "/leads/import", label: "Import leads from CSV", icon: "upload", group: "Actions", keywords: "upload spreadsheet" });
 
   const current = nav.find((n) => isActive(pathname, n));
   const mobileTabs = nav.filter((n) => ["/", "/leads", "/pipeline"].includes(n.href));
 
   return (
-    <div className="min-h-screen lg:pl-64">
+    <div className="min-h-screen lg:pl-[var(--sidebar-w)]">
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-line bg-surface/60 backdrop-blur-xl lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--sidebar-w)] flex-col border-r border-line bg-surface/60 backdrop-blur-xl lg:flex">
         <div className="px-4 pb-4 pt-5">
           <Brand />
         </div>
         <div className="px-4 pb-4">
           <button
             onClick={() => emit(OPEN_PALETTE)}
-            className="flex h-9 w-full items-center gap-2 rounded-lg border border-line bg-bg/70 px-3 text-sm text-muted transition hover:border-brand/50 hover:text-fg"
+            className="flex h-10 w-full items-center gap-2 rounded-lg border border-line bg-bg/70 px-3 text-sm text-muted transition hover:border-brand/50 hover:text-fg"
           >
             <Icon name="search" />
             <span className="flex-1 text-left">Search…</span>
             <kbd className="kbd">Ctrl K</kbd>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-2 pb-4">
-          <NavList nav={nav} pathname={pathname} />
-        </div>
-        <div className="border-t border-line p-3">
-          <UserCard user={user} />
-        </div>
+        <SidebarBody user={user}>
+          <NavList nav={nav} pathname={pathname} idPrefix="side" {...collapse} />
+        </SidebarBody>
       </aside>
 
       {/* Mobile drawer */}
@@ -196,19 +265,16 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
                 <Icon name="x" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-2 py-2">
-              <NavList nav={nav} pathname={pathname} onNavigate={() => setDrawer(false)} />
-            </div>
-            <div className="border-t border-line p-3">
-              <UserCard user={user} />
-            </div>
+            <SidebarBody user={user}>
+              <NavList nav={nav} pathname={pathname} onNavigate={() => setDrawer(false)} idPrefix="drawer" {...collapse} />
+            </SidebarBody>
           </div>
         </div>
       )}
 
       {/* Top bar */}
       <header className="sticky top-0 z-40 border-b border-line/80 bg-bg/75 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-4 sm:px-6">
+        <div className="shell-container flex h-16 items-center gap-2">
           <button onClick={() => setDrawer(true)} className="btn btn-ghost btn-icon -ml-2 lg:hidden" aria-label="Open menu">
             <Icon name="menu" size={18} />
           </button>
@@ -217,14 +283,15 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
             <Icon name="chevronRight" size={14} className="hidden text-faint sm:block" />
             <span className="truncate font-medium">{current?.label ?? "CRM"}</span>
           </div>
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <button onClick={() => emit(OPEN_PALETTE)} className="btn btn-ghost btn-icon lg:hidden" aria-label="Search">
               <Icon name="search" size={18} />
             </button>
             <button onClick={() => emit(OPEN_PALETTE)} className="btn btn-ghost hidden lg:inline-flex" title="Command palette (Ctrl K)">
               <Icon name="command" />
-              <span className="text-xs">Commands</span>
+              <span className="hidden text-xs xl:inline">Commands</span>
             </button>
+            <ClockButton running={clock.running} since={clock.since} />
             <NotificationBell items={bell.items} unread={bell.unread} />
             <ThemeToggle />
             {canWrite && <QuickAdd sources={sources} />}
@@ -236,7 +303,7 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
 
       {/* Mobile bottom bar: the things a seller reaches for with a thumb */}
       <nav aria-label="Quick" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden">
-        <div className="grid grid-cols-5">
+        <div className="grid auto-cols-fr grid-flow-col">
           {mobileTabs.map((n) => {
             const active = isActive(pathname, n);
             return (
@@ -247,15 +314,13 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, children 
               </Link>
             );
           })}
-          {canWrite ? (
+          {canWrite && (
             <button onClick={() => emit(OPEN_QUICK_ADD)} className="flex flex-col items-center gap-0.5 py-2 text-[11px] text-muted">
               <span className="grid h-6 w-6 place-items-center rounded-full bg-brand text-onbrand">
                 <Icon name="plus" size={16} />
               </span>
               Add
             </button>
-          ) : (
-            <span />
           )}
           <button onClick={() => setDrawer(true)} className="flex flex-col items-center gap-0.5 py-2 text-[11px] text-muted">
             <Icon name="menu" size={20} />

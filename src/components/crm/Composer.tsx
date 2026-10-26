@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { draftLeadMessageAction } from "@/app/(app)/ask/drafts";
 import { logSentMessageAction } from "@/app/(app)/leads/actions";
 import { CATEGORIES, PLACEHOLDERS, renderTemplate, unfilled, whatsappPrefill, type TemplateContext } from "@/lib/templates-render";
 import { Icon } from "../ui/Icon";
@@ -14,6 +15,7 @@ type Data = {
   templates: Template[];
   ctx: { ar: TemplateContext; en: TemplateContext };
   canWrite: boolean;
+  ai: boolean; // AI drafts are on for this person
 };
 
 /** Opens the composer for a lead from anywhere (Today, board card, lead page). */
@@ -61,7 +63,9 @@ export function Composer() {
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const [lang, setLang] = useState<"ar" | "en">("ar");
-  const [tplId, setTplId] = useState<number | null>(null);
+  const [tplId, setTplId] = useState<number | "ai" | null>(null);
+  const [drafting, startDraft] = useTransition();
+  const [draftError, setDraftError] = useState("");
   const [text, setText] = useState("");
   const [stage, setStage] = useState<"write" | "confirm" | "done">("write");
   const [busy, start] = useTransition();
@@ -104,6 +108,19 @@ export function Composer() {
   }, [leadId, close]);
 
   const templates = useMemo(() => (data?.templates ?? []).filter((t) => t.language === lang), [data, lang]);
+  const aiDraft = (kind: "reply" | "followup") =>
+    startDraft(async () => {
+      if (!data) return;
+      setDraftError("");
+      const f = new FormData();
+      f.set("lang", lang);
+      f.set("kind", kind);
+      const r = await draftLeadMessageAction(data.lead.id, f);
+      if (r.ok) {
+        setText(r.text);
+        requestAnimationFrame(() => textRef.current?.focus());
+      } else setDraftError(r.error);
+    });
   const pick = (t: Template | null) => {
     setTplId(t?.id ?? null);
     setText(t && data ? renderTemplate(t.body, data.ctx[lang]).text : "");
@@ -170,6 +187,23 @@ export function Composer() {
                     <span className="block text-xs text-muted">Write your own</span>
                   </button>
                 </li>
+                {data.ai && (
+                  <li>
+                    <button
+                      onClick={() => {
+                        setTplId("ai");
+                        setText("");
+                        setDraftError("");
+                      }}
+                      className={`w-full rounded-lg px-2.5 py-2 text-left text-sm ${tplId === "ai" ? "bg-raised shadow-[inset_2px_0_0_rgb(var(--brand))]" : "hover:bg-raised/60"}`}
+                    >
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <Icon name="sparkle" size={14} className="text-accent" /> AI draft
+                      </span>
+                      <span className="block text-xs text-muted">From the conversation so far</span>
+                    </button>
+                  </li>
+                )}
                 {templates.map((t) => (
                   <li key={t.id}>
                     <button
@@ -185,6 +219,26 @@ export function Composer() {
               </ul>
             </div>
             <div className="flex min-h-0 flex-col gap-3 p-4">
+              {tplId === "ai" && (
+                <div className="grid gap-2 rounded-xl border border-brand/30 bg-brand/5 p-3">
+                  <div className="flex flex-wrap gap-2">
+                    <button className="btn btn-secondary btn-sm" disabled={drafting} onClick={() => aiDraft("reply")}>
+                      <Icon name="reply" size={14} /> Draft a reply
+                    </button>
+                    <button className="btn btn-secondary btn-sm" disabled={drafting} onClick={() => aiDraft("followup")}>
+                      <Icon name="clock" size={14} /> Draft a follow-up
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted" role={drafting ? "status" : undefined}>
+                    {drafting ? "Claude is writing…" : "Claude reads this lead's recent messages (no phone numbers or emails) and writes in your brand voice. Read it and fix anything before sending."}
+                  </p>
+                  {draftError && (
+                    <p role="alert" className="text-xs text-danger">
+                      {draftError}
+                    </p>
+                  )}
+                </div>
+              )}
               <label className="field flex-1">
                 Message
                 <textarea
@@ -257,7 +311,7 @@ export function Composer() {
                 disabled={busy}
                 onClick={() =>
                   start(async () => {
-                    const r = await logSentMessageAction({ leadId: data.lead.id, templateId: tplId, body: text.trim() });
+                    const r = await logSentMessageAction({ leadId: data.lead.id, templateId: typeof tplId === "number" ? tplId : null, body: text.trim() });
                     if (!r.ok) return setError(r.error ?? "Could not log it");
                     setStage("done");
                     router.refresh();

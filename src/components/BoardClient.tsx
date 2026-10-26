@@ -58,6 +58,7 @@ export function BoardClient(props: {
   canWrite: boolean;
   isOwner: boolean;
   canOverride: boolean;
+  prices?: Record<string, number>;
 }) {
   const router = useRouter();
   const [cards, setCards] = useState(props.cards);
@@ -124,7 +125,7 @@ export function BoardClient(props: {
           {error}
         </p>
       )}
-      <div className={`-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-6 sm:-mx-6 sm:px-6 ${busy ? "opacity-80" : ""}`}>
+      <div className={`-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-6 sm:-mx-8 sm:px-8 lg:-mx-10 lg:px-10 ${busy ? "opacity-80" : ""}`}>
         {props.stages.map((st) => {
           const col = visible.filter((c) => c.stage === st.key);
           const total = totals[st.key] ?? col.length;
@@ -264,6 +265,7 @@ export function BoardClient(props: {
           lead={{ id: pending.card.id, fullName: pending.card.fullName, tierInterest: pending.card.tierInterest, hasNextStep: true, offerAmountEgp: pending.card.offerAmountEgp }}
           cohorts={props.cohorts}
           isOwner={props.isOwner}
+          prices={props.prices}
           onCancel={() => setPending(null)}
           onDone={() => {
             applyMove(pending.card, pending.to.key);

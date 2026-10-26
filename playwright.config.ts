@@ -31,6 +31,7 @@ export default defineConfig({
       AUTH_SECRET: "e2e-secret-".padEnd(48, "x"),
       SEED_PASSWORD: "e2e-password-1",
       SEED_DEMO: "true",
+      AI_FAKE: "e2e",
       COOKIE_SECURE: "false",
     },
   },

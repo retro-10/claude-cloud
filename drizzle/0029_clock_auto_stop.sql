@@ -1,0 +1,1 @@
+ALTER TABLE "time_entries" ADD COLUMN "auto_stopped" boolean DEFAULT false NOT NULL;

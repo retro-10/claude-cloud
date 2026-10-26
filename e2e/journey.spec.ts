@@ -58,7 +58,7 @@ test("owner takes a lead from first message to enrolment and sees it on the dash
   await expect(page.locator("[role=dialog]", { hasText: "Enrol student" })).toBeVisible();
   await page.locator("[role=dialog] select").first().selectOption({ index: 0 });
   await page.locator("[role=dialog] select").nth(1).selectOption("freelance_ready");
-  await expect(page.getByRole("textbox", { name: "Price (EGP)" })).toHaveValue("15000");
+  await expect(page.getByRole("textbox", { name: "Price (EGP)" })).toHaveValue("9000"); // Freelance Ready at the rebuild price (Settings > Finance & pay rules)
   // exit criterion for Enrolled: no payment reference, no enrolment
   await page.click("[role=dialog] button:text-is('Enrol')");
   await expect(page.locator("[role=dialog] [role=alert]")).toContainText("Payment received with a reference");
@@ -70,14 +70,14 @@ test("owner takes a lead from first message to enrolment and sees it on the dash
   // 6. the payment is in the books: the candidate is paid in full, and the ledger holds the reference
   await page.goto("/finance/candidates");
   await ready(page);
-  await expect(page.locator("tr", { hasText: "ياسمين فؤاد" })).toContainText("15,000 EGP");
+  await expect(page.locator("tr", { hasText: "ياسمين فؤاد" })).toContainText("9,000 EGP");
   await page.goto("/finance/ledger?q=%D9%8A%D8%A7%D8%B3%D9%85%D9%8A%D9%86");
   await ready(page);
   await expect(page.locator("tbody tr").first()).toContainText("ref IP-778899");
 
   // 7. the dashboard moved by exactly this lead
   expect(await stat(page, "Leads")).toBe("Leads 21");
-  expect(await stat(page, "Revenue")).toContain("75,000 EGP"); // 60,000 + 15,000
+  expect(await stat(page, "Revenue")).toContain("69,000 EGP"); // 60,000 + 9,000
   await page.goto("/dashboard?all=1");
   await ready(page);
   await expect(page.locator("section[aria-label='Funnel'] li", { hasText: "Enrolled" })).toContainText("6");
@@ -132,6 +132,8 @@ test("release 1.1: command palette, template message with confirm, exit criteria
     if (!(await page.locator("[role=dialog][aria-label='Command palette']").isVisible())) await page.keyboard.press("Control+k");
     await expect(page.locator("[role=dialog][aria-label='Command palette']")).toBeVisible({ timeout: 1000 });
   }).toPass();
+  // the box is focused a frame after the dialog shows: wait for it, or the first keys are lost
+  await expect(page.locator("[role=dialog][aria-label='Command palette'] input").first()).toBeFocused();
   await page.keyboard.type("0108 000 0016");
   await expect(page.locator("[role=option]", { hasText: "Demo Lead 16" })).toBeVisible();
   await page.keyboard.press("Enter");

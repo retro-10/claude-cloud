@@ -18,6 +18,7 @@ export function StageStepper(props: {
   canWrite: boolean;
   isOwner: boolean;
   canOverride: boolean;
+  prices?: Record<string, number>;
 }) {
   const router = useRouter();
   const [to, setTo] = useState<StageLite | null>(null);
@@ -85,7 +86,7 @@ export function StageStepper(props: {
       {to && to.kind !== "won" && (
         <MoveDialog lead={props.lead} to={to} lostReasons={props.lostReasons} canOverride={props.canOverride} onCancel={() => setTo(null)} onDone={done} />
       )}
-      {to?.kind === "won" && <EnrolDialog lead={props.lead} cohorts={props.cohorts} isOwner={props.isOwner} onCancel={() => setTo(null)} onDone={done} />}
+      {to?.kind === "won" && <EnrolDialog lead={props.lead} cohorts={props.cohorts} isOwner={props.isOwner} prices={props.prices} onCancel={() => setTo(null)} onDone={done} />}
     </div>
   );
 }

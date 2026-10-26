@@ -11,3 +11,8 @@ export const TIER_LABEL: Record<string, string> = {
   freelance_ready: "Freelance Ready",
   production_partner: "Production Partner",
 };
+
+/** The prices an owner set in Settings, as tier -> EGP (falls back to the list above for a missing tier). */
+export function priceMap(prices: { key: string; price: number }[]): Record<string, number> {
+  return { ...LIST_PRICE_EGP, ...Object.fromEntries(prices.map((p) => [p.key, p.price])) };
+}

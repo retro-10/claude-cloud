@@ -4,6 +4,9 @@ Self-hosted, lead-and-sales CRM for OrlaDent Camp course sales (Egypt, EGP, Cair
 always know who to contact today, and see where the funnel leaks. Next.js 15 + PostgreSQL 16, one
 `docker compose up`.
 
+It is also the company's **HQ**: spaces for each area of the business, lists of tasks with List, Board,
+Calendar and Table views, subtasks, a personal Home, an Inbox and docs (see the user guide).
+
 * How to use it day to day: [`USER_GUIDE.md`](USER_GUIDE.md)
 * Why it is built the way it is (and what was and was not verified): [`DECISIONS.md`](DECISIONS.md)
 * Open questions for the owner: [`QUESTIONS.md`](QUESTIONS.md)
@@ -42,11 +45,13 @@ See `.env.example`, which explains every value. The important ones:
 | Variable | Meaning |
 | --- | --- |
 | `POSTGRES_PASSWORD`, `DATABASE_URL` | Database password, and the URL the app uses (same password) |
-| `AUTH_SECRET` | 32+ random characters that sign session cookies. Changing it signs everyone out |
+| `AUTH_SECRET` | 32+ random characters that sign session cookies and seal two-factor secrets. Changing it signs everyone out and requires every two-factor to be reset (Settings > Users) |
 | `SEED_PASSWORD` | Initial password of the four seeded accounts |
 | `SEED_DEMO` | `true`: add demo leads on first start into an empty database. Default `false` (real use) |
 | `COOKIE_SECURE` | `true` when served over HTTPS (production compose forces it) |
 | `DOMAIN` | Production only: the domain Caddy gets a certificate for |
+| `INBOUND_LEADS_TOKEN` | Optional. 24+ random characters; switches on `POST /api/inbound/leads` for Meta lead ads through Zapier or Make (User guide > Growth) |
+| `ANTHROPIC_API_KEY` | Optional. Lets the AI assistant run (Ask OrlaDent, drafts, consult briefs); an owner must still switch it on in Settings > AI assistant. `AI_MODEL` overrides the model (default `claude-opus-5-5`). See User guide > The AI assistant |
 | `NOTION_TOKEN` | Optional. Switches on the two-way Notion sync (Batches, Candidates, Ledger, Sessions, Proof bank, Team, CRM Leads). Setup: User guide > Notion |
 | `NOTION_*_DB`, `NOTION_SYNC_LEADS`, `NOTION_SYNC_INTERVAL_SEC`, `APP_URL` | Optional Notion settings, explained in `.env.example` |
 

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { leads, messageTemplates } from "@/db/schema";
+import { aiOffered } from "@/lib/ai/core";
 import { can } from "@/lib/rbac";
 import { getCurrentUser } from "@/lib/server-auth";
 import { templateContext } from "@/lib/templates";
@@ -34,6 +35,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
       templates: templates.map((t) => ({ id: t.id, name: t.name, category: t.category, language: t.language, body: t.body })),
       ctx: { ar, en },
       canWrite: can(user.role, "lead:write"),
+      ai: can(user.role, "lead:write") && !lead.doNotContact && (await aiOffered(db, user.role)),
     },
     { headers: { "Cache-Control": "no-store" } },
   );

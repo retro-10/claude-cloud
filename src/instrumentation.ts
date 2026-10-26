@@ -11,7 +11,12 @@ export async function register() {
     if (process.env.DATABASE_URL && process.env.NEXT_PHASE !== "phase-production-build") {
       const { db } = await import("./db");
       const { runScheduledRules } = await import("./lib/workflows");
-      const tick = () => runScheduledRules(db).catch(() => 0);
+      // the same tick stops clocks left running from an earlier day (at the midnight after they started)
+      const { stopForgottenClocks } = await import("./lib/calendar");
+      const tick = () => {
+        void runScheduledRules(db).catch(() => 0);
+        void stopForgottenClocks(db).catch(() => 0);
+      };
       setTimeout(tick, 30_000);
       setInterval(tick, 5 * 60_000).unref?.();
 

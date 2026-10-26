@@ -20,20 +20,26 @@ export type Status = (typeof ledgerEntries.$inferSelect)["status"];
 export type Entry = typeof ledgerEntries.$inferSelect;
 
 export const SECTIONS: Record<Section, { label: string; statuses: Status[]; categories: string[] }> = {
-  income: { label: "Income", statuses: ["received", "expected", "cancelled"], categories: ["Candidate payment", "OrlaDent client work", "Refund"] },
+  income: { label: "Income", statuses: ["received", "expected", "cancelled"], categories: ["Candidate payment", "OrlaDent client work", "Refund", "Legacy repayment"] },
   fixed_costs: { label: "Fixed costs", statuses: ["paid", "owed", "cancelled"], categories: ["Salaries", "Subscriptions"] },
   variable_costs: {
     label: "Variable costs",
     statuses: ["paid", "owed", "cancelled"],
-    categories: ["Freelancers & sales", "Video production", "Content creator", "Equipment"],
+    categories: ["Freelancers & sales", "Video production", "Content creator", "Equipment", "Ads & promotion", "Referral rewards", "Production designers"],
   },
-  partner_withdrawals: { label: "Partner withdrawals", statuses: ["paid", "owed", "cancelled"], categories: ["Partner withdrawal"] },
+  partner_withdrawals: { label: "Partner withdrawals", statuses: ["paid", "owed", "cancelled"], categories: ["Partner withdrawal", "Partner base pay", "Partner KPI pay", "Profit distribution", "Legacy settlement"] },
 };
 export const STATUS_LABEL: Record<Status, string> = { received: "Received", expected: "Expected", paid: "Paid", owed: "Owed", cancelled: "Cancelled" };
 export const PAYMENT_PLAN_LABEL = { one_time: "One-time", installments: "Installments", free_seat: "Free seat" } as const;
 export const STUDENT_STATUS_LABEL = { active: "Active", graduated: "Graduated", dropped: "Dropped" } as const;
 
 export type Split = Settings["financeSplit"];
+
+/** Camp is the training business; Core is the design house. Each has its own P&L and its own old split. */
+export const STREAMS = { camp: "Camp", core: "Core (design house)" } as const;
+export type Stream = keyof typeof STREAMS;
+const CORE_CATEGORIES = ["OrlaDent client work", "Production designers"];
+export const streamFor = (category: string, invoiceOrCase?: boolean): Stream => (invoiceOrCase || CORE_CATEGORIES.includes(category) ? "core" : "camp");
 
 // ---------------- writing ----------------
 
@@ -52,6 +58,10 @@ export type EntryInput = {
   enrolmentId?: number | null;
   cohortId?: number | null;
   teamMemberId?: number | null;
+  campaignId?: number | null; // undefined = leave as is (forms and the Notion sync that do not know campaigns)
+  invoiceId?: number | null; // client work income for a production invoice (undefined = leave as is)
+  caseId?: number | null; // a designer's pay for a production case (undefined = leave as is)
+  stream?: Stream; // camp | core (undefined = keep it; a new row takes it from its category)
 };
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -66,6 +76,8 @@ export function entryProblem(e: EntryInput, split: Split): string | null {
   if (!e.category.trim() || e.category.length > 80) return "Choose a category";
   if (e.section === "partner_withdrawals" && !split.partners.some((p) => p.name === e.partner)) return "Choose which partner withdrew";
   if (e.enrolmentId && e.section !== "income") return "Only income can be linked to a candidate";
+  if (e.campaignId && e.section !== "fixed_costs" && e.section !== "variable_costs") return "Only a cost can be tagged to a campaign";
+  if (e.stream !== undefined && !(e.stream in STREAMS)) return "Choose Camp or Core";
   return null;
 }
 
@@ -94,6 +106,10 @@ export async function saveEntry(db: Db, id: number | null, e: EntryInput, userId
     enrolmentId: e.enrolmentId ?? null,
     cohortId,
     teamMemberId: e.section === "income" ? null : (e.teamMemberId ?? null),
+    ...(e.campaignId !== undefined ? { campaignId: e.campaignId } : {}),
+    ...(e.invoiceId !== undefined ? { invoiceId: e.invoiceId } : {}),
+    ...(e.caseId !== undefined ? { caseId: e.caseId } : {}),
+    ...(e.stream !== undefined ? { stream: e.stream } : {}),
     updatedAt: new Date(),
   };
   return db.transaction(async (tx) => {
@@ -102,7 +118,8 @@ export async function saveEntry(db: Db, id: number | null, e: EntryInput, userId
       const r = await tx.update(ledgerEntries).set(values).where(and(eq(ledgerEntries.id, id), isNull(ledgerEntries.deletedAt))).returning({ id: ledgerEntries.id });
       if (!r.length) return { ok: false as const, error: "Entry not found" };
     } else {
-      const [r] = await tx.insert(ledgerEntries).values({ ...values, createdBy: userId }).returning({ id: ledgerEntries.id });
+      const stream = e.stream ?? streamFor(values.category, !!(e.invoiceId || e.caseId));
+      const [r] = await tx.insert(ledgerEntries).values({ ...values, stream, createdBy: userId }).returning({ id: ledgerEntries.id });
       rowId = r.id;
     }
     // amounts only in the diff: no names or references in the audit log
@@ -160,15 +177,26 @@ export async function recordPayment(
 
 // ---------------- reading: candidates ----------------
 
-/** What a candidate owes: free seat = 0, otherwise the agreed price minus the discount. */
-export const dueSql = sql<number>`(case when ${enrolments.paymentPlan} = 'free_seat' then 0 else greatest(${enrolments.amountEgp} - ${enrolments.discountEgp}, 0) end)`;
+/**
+ * What a candidate owes (for the enrolments row or alias `e`): free seat = 0, otherwise the agreed price minus the
+ * discount. A dropped student owes no more than they kept paid (net of refunds): their balance stops and revenue
+ * counts only the money they left with us.
+ */
+export function dueFor(e: string): SQL<number> {
+  const price = `greatest(${e}.amount_egp - ${e}.discount_egp, 0)`;
+  const paid = `coalesce((select sum(case when x.category = 'Refund' then -x.amount_egp else x.amount_egp end) from ledger_entries x
+    where x.enrolment_id = ${e}.id and x.deleted_at is null and x.section = 'income' and x.status = 'received'), 0)`;
+  return sql.raw(`(case when ${e}.payment_plan = 'free_seat' then 0 when ${e}.status = 'dropped' then least(${price}, greatest(${paid}, 0)) else ${price} end)`) as SQL<number>;
+}
+export const dueSql = dueFor(`"enrolments"`);
 const paidSql = sql<number>`coalesce((select sum(case when x.category = 'Refund' then -x.amount_egp else x.amount_egp end) from ledger_entries x
   where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'received'), 0)::int`;
-const expectedSql = sql<number>`coalesce((select sum(x.amount_egp) from ledger_entries x
-  where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'expected'), 0)::int`;
+// a dropped student is expected to pay nothing more
+const expectedSql = sql<number>`(case when ${enrolments.status} = 'dropped' then 0 else coalesce((select sum(x.amount_egp) from ledger_entries x
+  where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'expected'), 0) end)::int`;
 // an Expected payment without a date is still owed but has no due date (it never shows as overdue)
-const nextDueSql = sql<string | null>`(select min(x.date) from ledger_entries x
-  where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'expected')`;
+const nextDueSql = sql<string | null>`(case when ${enrolments.status} = 'dropped' then null else (select min(x.date) from ledger_entries x
+  where x.enrolment_id = ${enrolments.id} and x.deleted_at is null and x.section = 'income' and x.status = 'expected') end)`;
 
 export type CandidateRow = {
   enrolmentId: number;
@@ -354,7 +382,7 @@ export async function financeBoard(db: Db, month = thisMonth()): Promise<Board> 
       .from(ledgerEntries)
       .leftJoin(enrolments, eq(enrolments.id, ledgerEntries.enrolmentId))
       .leftJoin(leads, eq(leads.id, enrolments.leadId))
-      .where(and(isNull(ledgerEntries.deletedAt), sql`${ledgerEntries.status} in ('expected', 'owed')`))
+      .where(and(isNull(ledgerEntries.deletedAt), sql`${ledgerEntries.status} in ('expected', 'owed')`, sql`${enrolments.status} is distinct from 'dropped'`))
       .orderBy(sql`${effectiveDate} asc`)
       .limit(100),
     db
@@ -452,8 +480,25 @@ export async function updateCandidate(
     if (p[k] !== undefined) (set as Record<string, unknown>)[k] = p[k];
   }
   if (p.notes !== undefined) set.notes = clean(p.notes);
-  const rows = await db.update(enrolments).set(set).where(eq(enrolments.id, enrolmentId)).returning({ id: enrolments.id });
-  if (!rows.length) return { ok: false, error: "Candidate not found" };
-  await audit(db, { userId, entity: "enrolment", entityId: enrolmentId, action: "update", diff: { fields: Object.keys(set).filter((k) => k !== "updatedAt") } });
-  return { ok: true };
+  return db.transaction(async (tx) => {
+    const rows = await tx.update(enrolments).set(set).where(eq(enrolments.id, enrolmentId)).returning({ id: enrolments.id });
+    if (!rows.length) return { ok: false, error: "Candidate not found" } as const;
+    // a dropped student pays nothing more: their open instalments are cancelled (money already received stays)
+    const cancelled =
+      p.status === "dropped"
+        ? await tx
+            .update(ledgerEntries)
+            .set({ status: "cancelled", updatedAt: new Date() })
+            .where(and(eq(ledgerEntries.enrolmentId, enrolmentId), isNull(ledgerEntries.deletedAt), eq(ledgerEntries.section, "income"), eq(ledgerEntries.status, "expected")))
+            .returning({ id: ledgerEntries.id })
+        : [];
+    await audit(tx, {
+      userId,
+      entity: "enrolment",
+      entityId: enrolmentId,
+      action: "update",
+      diff: { fields: Object.keys(set).filter((k) => k !== "updatedAt"), ...(cancelled.length ? { cancelledInstalments: cancelled.length } : {}) },
+    });
+    return { ok: true } as const;
+  });
 }

@@ -25,16 +25,17 @@ import {
   type Result,
 } from "@/lib/settings";
 import { requireCan, requireUser } from "@/lib/server-auth";
+import { resetTwoFactor } from "@/lib/two-factor";
 import { eq } from "drizzle-orm";
 import { workflowRules, type RuleAction } from "@/db/schema";
 import { getSettings, saveSettings, type Route } from "@/lib/app-settings";
 import { CHECK_KEYS, type CheckKey } from "@/lib/exit-criteria";
 import { saveMessageTemplate, setTemplateActive } from "@/lib/message-templates";
 import { createStage, setCriterion } from "@/lib/settings";
-import { deleteRule, saveRule, setRuleEnabled, type RuleInput } from "@/lib/workflows";
+import { deleteRule, parseRuleJson, saveRule, setRuleEnabled, type RuleInput } from "@/lib/workflows";
 
 const id = z.coerce.number().int().positive();
-const role = z.enum(["owner", "sales", "viewer", "finance"]);
+const role = z.enum(["owner", "sales", "viewer", "finance", "instructor", "designer"]);
 const list = z.enum(["sources", "lostReasons", "objections"]);
 
 // Every mutation here returns to the page it came from with either a notice or an error.
@@ -65,6 +66,18 @@ export async function resetPasswordAction(form: FormData) {
   const p = z.object({ id, password: z.string().max(200) }).safeParse(Object.fromEntries(form));
   if (!p.success) bad("/settings/users");
   done("/settings/users", await resetPassword(db, p.data!.id, p.data!.password, me.id));
+}
+
+// Lost phone: clears someone's two-factor so they can sign in with the password and set it up again.
+// Not for yourself: turning your own off needs a current code (My account).
+export async function resetTwoFactorAction(form: FormData) {
+  const me = await requireCan("users:manage");
+  const p = z.object({ id }).safeParse(Object.fromEntries(form));
+  if (!p.success) bad("/settings/users");
+  if (p.data!.id === me.id) redirect(`/settings/users?error=${encodeURIComponent("Turn your own two-factor off in My account")}`);
+  await resetTwoFactor(db, p.data!.id, me.id);
+  revalidatePath("/settings/users");
+  redirect(`/settings/users?notice=${encodeURIComponent("Two-factor reset: they sign in with their password and set it up again")}`);
 }
 
 // ---- pipeline stages ----
@@ -216,6 +229,8 @@ export async function setCriterionAction(form: FormData) {
 }
 
 function ruleFromForm(form: FormData): RuleInput {
+  // the rule editor sends the whole rule as JSON; the older single-action fields still work
+  if (form.get("rule") !== null) return parseRuleJson(form.get("rule")) ?? { name: "", trigger: "", conditions: {}, actions: [] };
   const conditions: Record<string, string> = {};
   for (const k of ["to_stage", "result", "outcome", "segment", "source", "tier", "overdue_hours"]) {
     const v = String(form.get(`c_${k}`) ?? "").trim();
@@ -244,6 +259,8 @@ export async function editRuleAction(form: FormData) {
   const ruleId = id.parse(form.get("id"));
   const [cur] = await db.select().from(workflowRules).where(eq(workflowRules.id, ruleId));
   if (!cur) bad("/settings/workflows");
+  // a rule you made can be changed completely; a built-in keeps its trigger and the kinds of its actions
+  if (!cur!.builtin && form.get("rule") !== null) done("/settings/workflows", await saveRule(db, ruleId, ruleFromForm(form), me.id));
   const actions = cur!.actions.map((a, i): RuleAction => {
     const note = String(form.get(`note_${i}`) ?? "").trim();
     const mins = form.get(`minutes_${i}`);
