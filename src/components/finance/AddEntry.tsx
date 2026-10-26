@@ -6,10 +6,10 @@ import { Icon } from "../ui/Icon";
 
 type Section = "income" | "fixed_costs" | "variable_costs" | "partner_withdrawals";
 const SECTIONS: Record<Section, { label: string; statuses: [string, string][]; categories: string[] }> = {
-  income: { label: "Income", statuses: [["received", "Received"], ["expected", "Expected"]], categories: ["Candidate payment", "OrlaDent client work", "Refund"] },
+  income: { label: "Income", statuses: [["received", "Received"], ["expected", "Expected"]], categories: ["Candidate payment", "OrlaDent client work", "Refund", "Legacy repayment"] },
   fixed_costs: { label: "Fixed cost", statuses: [["paid", "Paid"], ["owed", "Owed"]], categories: ["Salaries", "Subscriptions"] },
   variable_costs: { label: "Variable cost", statuses: [["paid", "Paid"], ["owed", "Owed"]], categories: ["Freelancers & sales", "Video production", "Content creator", "Equipment", "Ads & promotion", "Referral rewards"] },
-  partner_withdrawals: { label: "Partner withdrawal", statuses: [["paid", "Paid"], ["owed", "Owed"]], categories: ["Partner withdrawal"] },
+  partner_withdrawals: { label: "Partner withdrawal", statuses: [["paid", "Paid"], ["owed", "Owed"]], categories: ["Partner withdrawal", "Partner base pay", "Partner KPI pay", "Profit distribution", "Legacy settlement"] },
 };
 
 export type EntryDraft = {
@@ -28,6 +28,7 @@ export type EntryDraft = {
   enrolmentId?: number | null;
   teamMemberId?: number | null;
   cohortId?: number | null;
+  stream?: "camp" | "core";
 };
 
 /** Add or edit one ledger row in a dialog. The form posts to the server action; nothing is saved client-side. */
@@ -127,6 +128,13 @@ export function AddEntry({
                     </option>
                   ))}
                   <option value="cancelled">Cancelled</option>
+                </select>
+              </label>
+              <label className="field">
+                Company
+                <select name="stream" defaultValue={initial?.stream ?? (["OrlaDent client work", "Production designers"].includes(category) ? "core" : "camp")} key={`stream-${category}`} className="input">
+                  <option value="camp">Camp</option>
+                  <option value="core">Core (design house)</option>
                 </select>
               </label>
               <label className="field">

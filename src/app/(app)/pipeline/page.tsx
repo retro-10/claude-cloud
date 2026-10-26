@@ -4,7 +4,9 @@ import { cohorts, enrolments, lostReasons, stages } from "@/db/schema";
 import Link from "next/link";
 import { BoardClient } from "@/components/BoardClient";
 import { Icon, PageHeader } from "@/components/ui";
+import { getSettings } from "@/lib/app-settings";
 import { getBoard } from "@/lib/pipeline";
+import { priceMap } from "@/lib/pricing";
 import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 
@@ -12,7 +14,7 @@ export const metadata = { title: "Pipeline" };
 
 export default async function PipelinePage() {
   const user = await requirePageCan("lead:read");
-  const [board, stageList, reasons, cohortRows] = await Promise.all([
+  const [board, stageList, reasons, cohortRows, settings] = await Promise.all([
     getBoard(db),
     db.select().from(stages).orderBy(asc(stages.position)),
     db.select().from(lostReasons).orderBy(asc(lostReasons.id)),
@@ -25,6 +27,7 @@ export default async function PipelinePage() {
       })
       .from(cohorts)
       .orderBy(asc(cohorts.id)),
+    getSettings(db),
   ]);
 
   const open = stageList.filter((s) => s.kind === "open").map((s) => s.key);
@@ -66,6 +69,7 @@ export default async function PipelinePage() {
         canWrite={can(user.role, "lead:write")}
         isOwner={user.role === "owner"}
         canOverride={can(user.role, "stage:override")}
+        prices={priceMap(settings.prices)}
       />
     </div>
   );

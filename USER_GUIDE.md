@@ -461,13 +461,67 @@ the Notion Proof & Testimonial Bank. An item says **Ready** only when its consen
 candidate's content consent is on file; use only those in content, word for word, and never as a promise of
 income. Filter by consent, type or batch.
 
+## The rebuild: cycle close, legacy ledger and partner pay (owner and finance)
+
+The partners' rebuild plan is built in. Its rules come from the Cycle Close workbook (import below) or are set by
+hand in **Settings > Finance & pay rules**, and every one is editable there.
+
+**1. Import the Cycle Close workbook** (Finance > Import workbook). Choose the `.xlsx`, press **Preview** and check
+the totals: the app recomputes the cash today and at the close and compares them with the workbook's own *Cycle
+Position* sheet (green = they match). Then choose:
+
+* **Replace the old cycle's ledger**: archives every ledger row dated up to the close first, so the workbook's
+  corrected numbers are the only ones (archived rows stay in the database and the audit log);
+* **Take the rules**: the old Camp and Core splits, the new shares, the fixed costs, the pay pools and the
+  partners' multipliers (owners only);
+* **Take the functions table**: who is accountable (A) and supporting (S) for each function (owners only).
+
+Give the **cycle close date** too (the workbook states it only in its notes).
+
+The workbook has no dates, so rows get the date you pick (on or before the close) and are marked approximate. Each
+row's section and category are guessed from its text (salaries and subscriptions are fixed costs, the rest
+variable); change any row afterwards in the Ledger. Importing the same file twice adds nothing.
+
+**2. Cycle & legacy** (Finance > Cycle & legacy). The old cycle under the old split: Camp income by the Camp split,
+Core (design house) income by the Core split, Capital pays every cost. **Today** counts only money that moved; **At
+the close** adds Expected income and Owed bills. Capital's shortfall is spread over the partners at their old Camp
+percentages scaled to 100% (Capital's own share left out). From the day after the close date, an owner presses **Close
+the cycle**: each partner's balance after settlement opens the **legacy ledger**, kept apart from the new cycle.
+Record legacy **payments** (the company paying a partner it owes, or a partner repaying; booked in the ledger) and
+**adjustments** the partners agree (no money moves) there.
+
+**3. Partner pay, every month** (Finance > Partner pay). A guided page for the monthly partner review:
+
+1. **Money in and out**: collected income and costs paid in the month (check the ledger first).
+2. **Partner review**: score each partner 0 to 100% against the outcome numbers in their role.
+3. **The waterfall**: costs first, then the cash reserve (months of fixed costs), then base pay (X/2) once income
+   has unlocked a tier for the months set, then KPI pay (score × 2X, only from cash left), the kept share, the rest
+   shared equally. Pay due to a partner who owes the legacy ledger is withheld toward it.
+4. **Approve** (owners, once the month is over): each partner's pay is booked in the ledger as **Owed**; finance
+   marks it Paid when the money moves. Nothing is paid automatically. **Undo approval** works while none of it is
+   Paid.
+
+The side panels show each tier's trigger (income needed), the pool and the seats it takes, and each partner's
+salary X per tier: the pool split by accountable load (Team > Functions & owners), times each partner's multiplier.
+
+**Team > Functions & owners**: the function lines, one accountable partner each, the load per partner, the
+role and outcome numbers, and the decision rights. Owners edit lines there and the rest in Settings.
+
+The **Command centre** reminds owners to close the cycle once its date has passed, and to run last month's partner
+review.
+
+**Prices** (Settings > Finance & pay rules): each Camp tier's price, number of payments and whether it is still on
+sale. They pre-fill the enrolment form and the offer and pricing tools. Every ledger row also says which company it
+belongs to, **Camp** or **Core (design house)**.
+
 ## Finance (owner and finance)
 
 **Finance** in the sidebar is the camp's books, following the rules on the Notion *Finances* page:
 
 * **Net income** = money received (candidate payments and OrlaDent client work) − refunds.
-* It is split **Badr 30% · Sayyed 20% · Retro 15% · Mo 15% · Capital 20%** (owners change this in
-  Settings > Finance split; it must add up to 100).
+* It is split **Badr 30% · Sayyed 20% · Retro 15% · Mo 15% · Capital 20%** (the old cycle's Camp split; owners
+  change it in Settings > Finance & pay rules; it must add up to 100). After the cycle close, partner money follows
+  the rebuild rules above.
 * **Costs** (fixed and variable, once paid) come out of **Capital**. "Capital left" = Capital's share − costs.
 * A **partner withdrawal** is an advance on that partner's share. Each partner card shows this month's share,
   what they have withdrawn and the **balance** they can still take (all shares to date − all withdrawals).

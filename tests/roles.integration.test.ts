@@ -157,6 +157,7 @@ d("role rules on the server", () => {
       ...(await import("@/app/(app)/team/actions")),
       ...(await import("@/app/(app)/hq/actions")),
       ...(await import("@/app/(app)/calendar/actions")),
+      ...(await import("@/app/(app)/finance/rebuild/actions")),
     };
   });
   afterAll(async () => {
@@ -333,6 +334,13 @@ d("role rules on the server", () => {
     }],
     ["saveHoursAction (own hours)", ROLES, () => strict(() => A.saveHoursAction(fd({ start: `2026-0${1 + (++n % 9)}-0${1 + (n % 9)}T08:00`, end: `2026-0${1 + (n % 9)}-0${1 + (n % 9)}T08:30`, note: "", back: "/calendar" })))],
     ["saveEventAction (own calendar)", ROLES, () => strict(() => A.saveEventAction(fd({ title: `Event ${++n}`, kind: "meeting", start: "2030-01-01T10:00", end: "2030-01-01T11:00", note: "", back: "/calendar" })))],
+    // the rebuild's rules, the partner review and pay approval are owners' (partners'); money movements owner and finance
+    ["savePricesAction", ["owner"], () => strict(() => A.savePricesAction(fd({ foundation_label: "Foundation", foundation_price: 7500, foundation_payments: 1, freelance_ready_label: "Freelance Ready", freelance_ready_price: 9000, freelance_ready_payments: 2, freelance_ready_offered: "on", production_partner_label: "Production Partner", production_partner_price: 30000, production_partner_payments: 1, production_partner_offered: "on" })))],
+    ["saveDecisionRightsAction", ["owner"], () => strict(() => A.saveDecisionRightsAction(fd({ decision: "Spend up to 5,000 EGP", who: "Budget owner" })))],
+    ["saveFunctionAction", ["owner"], () => strict(() => A.saveFunctionAction(fd({ name: `Function ${++n}`, appliesTo: "both", weight: 1, accountable: "Badr", description: "", staff: "" })))],
+    ["savePartnerReviewAction", ["owner"], () => strict(() => A.savePartnerReviewAction(fd({ month: "2030-01", partner: "Badr", score: 80, notes: "" })))],
+    ["recordLegacyAction (an agreed adjustment)", ["owner", "finance"], () => A.recordLegacyAction(fd({ partner: "Badr", kind: "adjustment", amount: "100", note: "", date: "" }))],
+    ["previewWorkbookAction (no file: explained, but reachable)", ["owner", "finance"], () => A.previewWorkbookAction(fd({}))],
     ["inboxClearAllAction (your own inbox)", ROLES, () => A.inboxClearAllAction(fd({ back: "/inbox" }))],
     ["changePasswordAction (wrong current: refused, but reachable)", ROLES, () => A.changePasswordAction(fd({ current: "wrong", next: "a long new password", confirm: "a long new password" }))],
   ];

@@ -1,8 +1,9 @@
 import { desc, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { notionSyncRuns, weeklyReviews } from "@/db/schema";
+import { cycleCloses, notionSyncRuns, payRuns, weeklyReviews } from "@/db/schema";
 import { getSettings } from "./app-settings";
 import { egp } from "./cohort-format";
+import { shiftMonth } from "./finance";
 import { budgetVsActual } from "./money";
 import { audit } from "./audit";
 import { navCounts } from "./nav-counts";
@@ -163,6 +164,20 @@ export async function alerts(
   for (const t of progress.rows) {
     if ((t.status === "behind" || t.status === "at_risk") && (!t.money || money))
       add({ key: `target_${t.metric}`, severity: t.status === "behind" ? "warn" : "info", title: `${t.label} ${t.status === "behind" ? "behind" : "at risk"} for ${progress.period}`, detail: `${t.actual} of ${t.target}; about ${t.expected} expected by now`, count: 1, href: "/command#targets" });
+  }
+  // the rebuild's monthly rhythm: close the old cycle once its date has passed, then a partner review every month
+  if (owner && settings.financeModel.closeDate) {
+    const close = settings.financeModel.closeDate;
+    const today = cairoYmd(now);
+    const prev = cairoYmd(now).slice(0, 7) === close.slice(0, 7) ? null : shiftMonth(today.slice(0, 7), -1);
+    const [closed, [run]] = await Promise.all([
+      db.select({ id: cycleCloses.id }).from(cycleCloses).where(eq(cycleCloses.closeDate, close)).limit(1),
+      prev && prev >= close.slice(0, 7) ? db.select({ id: payRuns.id }).from(payRuns).where(eq(payRuns.month, prev)) : Promise.resolve([{ id: 0 }]),
+    ]);
+    if (today > close && !closed.length)
+      add({ key: "cycle_close", severity: "warn", title: "Close the old cycle", detail: `The cycle ended ${close}: settle it and open the legacy ledger`, count: 1, href: "/finance/cycle" });
+    if (closed.length && !run && prev)
+      add({ key: "partner_review", severity: "info", title: `Partner review for ${prev}`, detail: "Score the partners and approve the month's pay", count: 1, href: `/finance/pay?month=${prev}` });
   }
   if (owner && lastRun && lastRun.errors.length)
     add({ key: "notion", severity: "info", title: "Notion sync reported problems", detail: `${plural(lastRun.errors.length, "problem")} in the last run`, count: lastRun.errors.length, href: "/settings/integrations" });

@@ -20,20 +20,26 @@ export type Status = (typeof ledgerEntries.$inferSelect)["status"];
 export type Entry = typeof ledgerEntries.$inferSelect;
 
 export const SECTIONS: Record<Section, { label: string; statuses: Status[]; categories: string[] }> = {
-  income: { label: "Income", statuses: ["received", "expected", "cancelled"], categories: ["Candidate payment", "OrlaDent client work", "Refund"] },
+  income: { label: "Income", statuses: ["received", "expected", "cancelled"], categories: ["Candidate payment", "OrlaDent client work", "Refund", "Legacy repayment"] },
   fixed_costs: { label: "Fixed costs", statuses: ["paid", "owed", "cancelled"], categories: ["Salaries", "Subscriptions"] },
   variable_costs: {
     label: "Variable costs",
     statuses: ["paid", "owed", "cancelled"],
     categories: ["Freelancers & sales", "Video production", "Content creator", "Equipment", "Ads & promotion", "Referral rewards", "Production designers"],
   },
-  partner_withdrawals: { label: "Partner withdrawals", statuses: ["paid", "owed", "cancelled"], categories: ["Partner withdrawal"] },
+  partner_withdrawals: { label: "Partner withdrawals", statuses: ["paid", "owed", "cancelled"], categories: ["Partner withdrawal", "Partner base pay", "Partner KPI pay", "Profit distribution", "Legacy settlement"] },
 };
 export const STATUS_LABEL: Record<Status, string> = { received: "Received", expected: "Expected", paid: "Paid", owed: "Owed", cancelled: "Cancelled" };
 export const PAYMENT_PLAN_LABEL = { one_time: "One-time", installments: "Installments", free_seat: "Free seat" } as const;
 export const STUDENT_STATUS_LABEL = { active: "Active", graduated: "Graduated", dropped: "Dropped" } as const;
 
 export type Split = Settings["financeSplit"];
+
+/** Camp is the training business; Core is the design house. Each has its own P&L and its own old split. */
+export const STREAMS = { camp: "Camp", core: "Core (design house)" } as const;
+export type Stream = keyof typeof STREAMS;
+const CORE_CATEGORIES = ["OrlaDent client work", "Production designers"];
+export const streamFor = (category: string, invoiceOrCase?: boolean): Stream => (invoiceOrCase || CORE_CATEGORIES.includes(category) ? "core" : "camp");
 
 // ---------------- writing ----------------
 
@@ -55,6 +61,7 @@ export type EntryInput = {
   campaignId?: number | null; // undefined = leave as is (forms and the Notion sync that do not know campaigns)
   invoiceId?: number | null; // client work income for a production invoice (undefined = leave as is)
   caseId?: number | null; // a designer's pay for a production case (undefined = leave as is)
+  stream?: Stream; // camp | core (undefined = keep it; a new row takes it from its category)
 };
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -70,6 +77,7 @@ export function entryProblem(e: EntryInput, split: Split): string | null {
   if (e.section === "partner_withdrawals" && !split.partners.some((p) => p.name === e.partner)) return "Choose which partner withdrew";
   if (e.enrolmentId && e.section !== "income") return "Only income can be linked to a candidate";
   if (e.campaignId && e.section !== "fixed_costs" && e.section !== "variable_costs") return "Only a cost can be tagged to a campaign";
+  if (e.stream !== undefined && !(e.stream in STREAMS)) return "Choose Camp or Core";
   return null;
 }
 
@@ -101,6 +109,7 @@ export async function saveEntry(db: Db, id: number | null, e: EntryInput, userId
     ...(e.campaignId !== undefined ? { campaignId: e.campaignId } : {}),
     ...(e.invoiceId !== undefined ? { invoiceId: e.invoiceId } : {}),
     ...(e.caseId !== undefined ? { caseId: e.caseId } : {}),
+    ...(e.stream !== undefined ? { stream: e.stream } : {}),
     updatedAt: new Date(),
   };
   return db.transaction(async (tx) => {
@@ -109,7 +118,8 @@ export async function saveEntry(db: Db, id: number | null, e: EntryInput, userId
       const r = await tx.update(ledgerEntries).set(values).where(and(eq(ledgerEntries.id, id), isNull(ledgerEntries.deletedAt))).returning({ id: ledgerEntries.id });
       if (!r.length) return { ok: false as const, error: "Entry not found" };
     } else {
-      const [r] = await tx.insert(ledgerEntries).values({ ...values, createdBy: userId }).returning({ id: ledgerEntries.id });
+      const stream = e.stream ?? streamFor(values.category, !!(e.invoiceId || e.caseId));
+      const [r] = await tx.insert(ledgerEntries).values({ ...values, stream, createdBy: userId }).returning({ id: ledgerEntries.id });
       rowId = r.id;
     }
     // amounts only in the diff: no names or references in the audit log

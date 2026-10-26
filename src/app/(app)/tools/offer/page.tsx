@@ -5,7 +5,8 @@ import { leads } from "@/db/schema";
 import { Flash } from "@/components/Flash";
 import { OfferBuilder } from "@/components/tools/OfferBuilder";
 import { Icon, PageHeader } from "@/components/ui";
-import { LIST_PRICE_EGP, TIER_LABEL } from "@/lib/pricing";
+import { getSettings } from "@/lib/app-settings";
+import { LIST_PRICE_EGP, TIER_LABEL, priceMap } from "@/lib/pricing";
 import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 import { cairoYmd } from "@/lib/time";
@@ -49,7 +50,7 @@ export default async function OfferPage(props: { searchParams: Promise<{ lead?: 
         }
       />
       <Flash error={sp.error} />
-      <OfferBuilder lead={lead} prices={LIST_PRICE_EGP} labels={TIER_LABEL} today={cairoYmd(new Date())} canSave={can(user.role, "lead:write")} />
+      <OfferBuilder lead={lead} prices={priceMap((await getSettings(db)).prices) as typeof LIST_PRICE_EGP} labels={TIER_LABEL} today={cairoYmd(new Date())} canSave={can(user.role, "lead:write")} />
     </>
   );
 }

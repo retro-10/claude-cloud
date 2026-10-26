@@ -47,7 +47,7 @@ test("command centre, targets, a task from creation to done, the offer builder a
   await page.getByLabel("Instalments", { exact: true }).check();
   await page.getByLabel("Deposit now (EGP)").fill("4000");
   await expect(page.locator("table")).toContainText("Instalment 2 of 2");
-  await expect(page.locator("textarea")).toHaveValue(/Price: 14,000 EGP/);
+  await expect(page.locator("textarea")).toHaveValue(/Price: 8,000 EGP/); // 9,000 less the 1,000 discount
   await page.locator("button", { hasText: /Save offer on/ }).click();
   await page.waitForURL(`**${leadHref}?notice=*`);
   await expect(page.locator("[role=status]", { hasText: "Offer saved" })).toBeVisible();

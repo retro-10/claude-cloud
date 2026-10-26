@@ -633,3 +633,56 @@ Verified: unit and integration tests (one running clock, minutes, manual-hour ru
 midnight, events and permissions, presence), the role matrix (every role can clock and plan its own), the guards,
 and a browser journey (clock in from the top bar, events seen by another person, edit, clock out with a note,
 manual hours refused and accepted) scanned for WCAG 2.1 AA in both themes.
+
+## The rebuild: cycle close, legacy ledger, partner pay
+
+* **Source.** The partners' rebuild plan and their Cycle Close workbook, which the owners named as the finance
+  source. **This repository is public, so none of the partners' figures, names of staff or private terms are in
+  it**: the code ships neutral defaults (no close date, no fixed costs, no pay tiers, equal new shares, empty
+  decision rights), and the real rules arrive only through Settings > Finance & pay rules or the workbook import,
+  into the database. Every rule is editable there (`financeModel`, `prices`, `decisionRights` settings, validated
+  on save).
+* **The workbook is imported, not copied into the code.** A small built-in `.xlsx` reader (zip + XML, no new
+  dependency; file and part sizes capped) takes the stored cell values, including the values Excel last
+  calculated for formulas. The import is previewed first and checked against the workbook's own Cycle Position
+  cash figures (on the partners' real workbook both matched exactly). Rows are tagged
+  `workbook:<file hash>:<row>`, so a second import of the same file adds nothing. The workbook gives no dates and
+  states the close date only in prose, so the import asks for both. Tests use a synthetic workbook
+  (`tests/fixtures/cycle-close.xlsx`: the real layout, invented amounts, names and assignments) whose expected
+  results were worked out separately with the workbook's own formulas.
+* **Two companies.** Ledger rows carry a `stream`: Camp or Core (design house). Existing client-work and designer
+  rows were moved to Core by the migration. Each stream has its own old split; the new cycle shares are the same
+  for both.
+* **The old cycle** is computed live from the ledger up to the close date: shares per stream, Capital pays all
+  costs, partners' withdrawals off their shares; Capital's shortfall spread at the old Camp percentages scaled to
+  100%. On the partners' real workbook the app's settlement matched theirs to the pound; the synthetic test checks
+  the same arithmetic.
+* **Closing** is a deliberate owner action from the day after the close date, once per date. It keeps a snapshot
+  and opens the legacy ledger (one row per partner, rounded to the pound as the plan does). The legacy ledger is a
+  list of signed movements (opening, payment, withholding, adjustment); a payment also books the cash in the
+  ledger (category Legacy settlement / Legacy repayment), which the new cycle's income and costs ignore.
+* **Pay** follows the plan exactly: tier triggers (fixed costs + pool) × 1.25 rounded to 5,000, two months running;
+  X split by accountable load (from the functions matrix) × multiplier, rounded to 100 with the balancing partner
+  taking the difference; base X/2 limited to the cash after costs and the reserve top-up; KPI score × 2X
+  limited to what is left; 20% retained; the rest by the new shares; pay withheld toward a negative legacy balance.
+  The workbook's example month reproduces. Costs are the month's actual paid costs;
+  the model's fixed-cost figure drives the reserve and the triggers.
+* **Approval books, never pays.** Approving a month writes each partner's base, KPI and distribution as Owed rows
+  (partner withdrawals, categories Partner base pay / Partner KPI pay / Profit distribution) and the withholding
+  into the legacy ledger; undo is allowed while nothing is Paid. Owners approve (the plan: CEO releases pay).
+* **Permissions.** Rules, closing, functions, scores and approval: owners (`settings:write`). Importing the ledger
+  and recording legacy payments: owners and finance (`payment:write`); finance cannot replace the rules or the
+  functions. Reading: owners and finance (`finance:read`); the functions page: everyone who reads leads.
+* **Prices** moved from a constant into settings (the public prices: Freelance Ready 9,000 EGP in 2 payments on
+  sale; Foundation no longer on sale). The batch planner's placeholder price is now the seat price.
+* **Not built from the plan**: vesting and grants (legal terms, not bookkeeping), the roadmap gates, the partner
+  agreements (drafts for a lawyer). See QUESTIONS.
+* **Layout fix found on the way.** Absolutely positioned children of a sideways scroller (screen-reader-only text)
+  were placed against the page and widened it; every `overflow-x-auto` box is now their positioning context, and
+  the shrink rule applies to grid items only (on flex items it let a button's form wrapper shrink below the
+  button). No page scrolls sideways at 1024, 1280 or 1440 px.
+
+Verified: types, lint, unit and integration tests (the workbook import against its own figures, the settlement to
+the pound, salaries, triggers, the waterfall example, approval and undo, legacy movements), the role matrix with
+every new action, the guards, and a browser journey (import with preview, settlement, a rule changed, functions,
+the partner review) scanned for WCAG 2.1 AA in both themes.

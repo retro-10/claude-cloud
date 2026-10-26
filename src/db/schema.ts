@@ -495,6 +495,7 @@ export const ledgerEntries = pgTable(
     campaignId: integer("campaign_id").references(() => campaigns.id), // a marketing cost: which campaign it paid for
     invoiceId: integer("invoice_id").references(() => invoices.id), // client work income: the production invoice it is for
     caseId: integer("case_id").references(() => productionCases.id), // a designer's pay for a production case
+    stream: text("stream").notNull().default("camp"), // camp (training) | core (the design house): each has its own P&L and old split
     createdBy: integer("created_by").references(() => users.id),
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
@@ -502,6 +503,77 @@ export const ledgerEntries = pgTable(
   },
   (t) => [index("ledger_date_idx").on(t.date), index("ledger_enrolment_idx").on(t.enrolmentId)],
 );
+
+// ---------------- The rebuild: cycle close, legacy balances, functions, partner pay ----------------
+
+// A finished cycle: the settlement as it stood when it was closed (shares, withdrawals, the Capital shortfall).
+export const cycleCloses = pgTable("cycle_closes", {
+  id: serial("id").primaryKey(),
+  closeDate: text("close_date").notNull(), // YYYY-MM-DD (Cairo): money up to this day belongs to the old cycle
+  snapshot: jsonb("snapshot").notNull(),
+  closedBy: integer("closed_by").references(() => users.id),
+  closedAt: createdAt(),
+});
+
+// The legacy ledger: old-cycle balances, kept apart from the new cycle's profit and settled later.
+// amount_egp is the change to the partner's balance: + owed to the partner, - owed by the partner.
+export const legacyMovements = pgTable(
+  "legacy_movements",
+  {
+    id: serial("id").primaryKey(),
+    partner: text("partner").notNull(),
+    kind: text("kind").notNull(), // opening | payment | withholding | adjustment
+    amountEgp: integer("amount_egp").notNull(),
+    month: text("month"), // YYYY-MM, for withholdings from a pay run
+    note: text("note"),
+    cycleCloseId: integer("cycle_close_id").references(() => cycleCloses.id),
+    ledgerEntryId: integer("ledger_entry_id").references(() => ledgerEntries.id), // the cash movement, for payments
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index("legacy_partner_idx").on(t.partner)],
+);
+
+// What the business needs done, and who answers for it: one accountable partner, any supporting partners.
+// The accountable load (weighted) sets each partner's share of the salary pool.
+export const businessFunctions = pgTable("business_functions", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  appliesTo: text("applies_to").notNull().default("both"), // both | core | camp
+  weight: real("weight").notNull().default(1), // 0.5 for a market lane where a function is split
+  description: text("description"),
+  accountable: text("accountable"), // partner name
+  supporting: text("supporting").array().notNull().default(sql`'{}'::text[]`),
+  staff: text("staff"),
+  position: integer("position").notNull().default(0),
+  updatedBy: integer("updated_by").references(() => users.id),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+  deletedAt: ts("deleted_at"),
+});
+
+// The monthly partner review: each partner's KPI score (0 to 100) against their outcome numbers.
+export const partnerReviews = pgTable(
+  "partner_reviews",
+  {
+    id: serial("id").primaryKey(),
+    month: text("month").notNull(), // YYYY-MM
+    partner: text("partner").notNull(),
+    kpiScore: integer("kpi_score").notNull(),
+    notes: text("notes"),
+    updatedBy: integer("updated_by").references(() => users.id),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("partner_reviews_month_partner_uq").on(t.month, t.partner)],
+);
+
+// A month's pay run: the waterfall as approved, and the pay rows it booked (as Owed, never paid automatically).
+export const payRuns = pgTable("pay_runs", {
+  id: serial("id").primaryKey(),
+  month: text("month").notNull().unique(),
+  snapshot: jsonb("snapshot").notNull(),
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedAt: createdAt(),
+});
 
 // The Notion Team database, synced both ways: who a cost was paid to. Pay, equity and compensation notes
 // stay in Notion only (the sync never reads or writes those columns).

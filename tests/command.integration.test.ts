@@ -151,7 +151,7 @@ d("Command centre", () => {
 
   it("the batch planner starts from placeholders when history is thin, and lists open batches with seats taken", async () => {
     const d = await plannerDefaults(db, now);
-    expect(d).toMatchObject({ fromData: false, leadToConsult: 0.2, consultToEnrol: 0.4, avgPriceEgp: 11250 });
+    expect(d).toMatchObject({ fromData: false, leadToConsult: 0.2, consultToEnrol: 0.4, avgPriceEgp: 9000 });
     expect(d.batches).toMatchObject([{ name: "Batch 9", seatCap: 30, enrolled: 0 }]);
   });
 });

@@ -11,6 +11,9 @@ const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/finance/budget", label: "Budget", icon: "target" },
   { href: "/finance/forecast", label: "Cash forecast", icon: "trend" },
   { href: "/finance/economics", label: "Unit economics", icon: "gauge" },
+  { href: "/finance/cycle", label: "Cycle & legacy", icon: "history" },
+  { href: "/finance/pay", label: "Partner pay", icon: "user" },
+  { href: "/finance/import", label: "Import workbook", icon: "upload" },
 ];
 
 export function FinanceNav() {

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { LIST_PRICE_EGP } from "./pricing";
+import { getSettings } from "./app-settings";
 import { cairoYmd } from "./time";
 
 export type PlannerBatch = { id: number; name: string; seatCap: number; enrolled: number; closeYmd: string | null };
@@ -35,7 +35,8 @@ export async function plannerDefaults(db: Db, now = new Date()): Promise<Planner
   ]);
   const leads = Number(r.leads), consulted = Number(r.consulted), enrolled = Number(r.enrolled);
   const fromData = leads >= MIN_SAMPLE && consulted > 0 && enrolled > 0;
-  const listAvg = Math.round((LIST_PRICE_EGP.foundation + LIST_PRICE_EGP.freelance_ready) / 2);
+  // with no history yet: the full-price seat from the finance rules (Settings > Finance & pay rules)
+  const listAvg = (await getSettings(db)).financeModel.seatPrice;
   return {
     leadToConsult: fromData ? consulted / leads : 0.2,
     consultToEnrol: fromData ? enrolled / consulted : 0.4,

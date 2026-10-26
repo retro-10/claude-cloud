@@ -157,3 +157,18 @@ Each has a safe default already applied. Answer any and it will be changed.
 71. ~~Privacy of events~~ **Answered: titles stay visible**, leave included.
 72. ~~Payroll~~ **Answered: yes.** Owners and finance download a month as CSV: a total per person, or every
     stretch (Team calendar > Hours for payroll).
+
+## The rebuild (from the plan's open items)
+
+73. **Legacy settlement schedule.** Balances owed to partners at the close are not paid then. When and how should
+    they be paid? (Payments are recorded on Finance > Cycle & legacy whenever they happen.)
+74. **Withholding.** Pay due to a partner who owes the legacy ledger is withheld in full until it is cleared. Should
+    only part of each month's pay be withheld (for example half)?
+75. **Data checks the plan lists.** Seats sold at a retired tier's price, and two students' balances still to
+    confirm. Once known, add the Expected rows in the ledger before the close.
+76. **Fixed costs.** The working figure takes a variable salary at the midpoint of its range. Should the reserve and
+    the triggers use the high case instead?
+77. **Who approves pay.** Owners approve a month's pay in the app (the plan says the CEO releases it). Should only
+    the CEO be able to approve?
+78. **Vesting and grants.** Not tracked in the app. Should the cap table and vesting schedule be added once the
+    shareholder agreement is signed?

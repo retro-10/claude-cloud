@@ -209,6 +209,7 @@ export default async function LedgerPage(props: {
                                 enrolmentId: e.enrolmentId,
                                 teamMemberId: e.teamMemberId,
                                 cohortId: e.enrolmentId ? null : e.cohortId,
+                                stream: e.stream === "core" ? "core" : "camp",
                               }}
                             />
                             <form action={deleteEntryAction}>

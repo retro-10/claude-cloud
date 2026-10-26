@@ -58,6 +58,7 @@ export function BoardClient(props: {
   canWrite: boolean;
   isOwner: boolean;
   canOverride: boolean;
+  prices?: Record<string, number>;
 }) {
   const router = useRouter();
   const [cards, setCards] = useState(props.cards);
@@ -264,6 +265,7 @@ export function BoardClient(props: {
           lead={{ id: pending.card.id, fullName: pending.card.fullName, tierInterest: pending.card.tierInterest, hasNextStep: true, offerAmountEgp: pending.card.offerAmountEgp }}
           cohorts={props.cohorts}
           isOwner={props.isOwner}
+          prices={props.prices}
           onCancel={() => setPending(null)}
           onDone={() => {
             applyMove(pending.card, pending.to.key);

@@ -13,7 +13,7 @@ const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/settings/templates", label: "Message templates", icon: "template" },
   { href: "/settings/lists", label: "Sources & reasons", icon: "list" },
   { href: "/settings/cadences", label: "Cadences", icon: "calendar" },
-  { href: "/settings/finance", label: "Finance split", icon: "trend" },
+  { href: "/settings/finance", label: "Finance & pay rules", icon: "trend" },
   { href: "/settings/team", label: "Team", icon: "user" },
   { href: "/settings/ai", label: "AI assistant", icon: "sparkle" },
   { href: "/settings/integrations", label: "Integrations", icon: "layers" },

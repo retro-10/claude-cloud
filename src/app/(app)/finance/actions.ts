@@ -45,6 +45,7 @@ const entrySchema = z.object({
   enrolmentId: optId,
   teamMemberId: optId,
   cohortId: optId,
+  stream: z.enum(["camp", "core"]).optional(),
 });
 
 export async function saveEntryAction(form: FormData) {

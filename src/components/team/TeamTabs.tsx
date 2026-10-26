@@ -7,6 +7,7 @@ export function TeamTabs({ current }: { current: string }) {
       current={current}
       items={[
         { href: "/team", label: "Responsibilities" },
+        { href: "/team/functions", label: "Functions & owners" },
         { href: "/team/sops", label: "Playbooks" },
         { href: "/team/runs", label: "Checklists" },
         { href: "/team/meetings", label: "Meetings" },

@@ -12,6 +12,8 @@ const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 test.use({ contextOptions: { reducedMotion: "reduce" } });
 
 async function scan(page: Page, label: string) {
+  // after a client-side navigation the page title is set a moment after the URL changes: scan the settled page
+  await page.waitForFunction(() => document.title.trim().length > 0);
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   const summary = violations.map((v) => `${v.id} (${v.impact}): ${v.help}\n   ${v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join("\n   ")}`);
   expect(summary, `${label}\n${summary.join("\n")}`).toEqual([]);

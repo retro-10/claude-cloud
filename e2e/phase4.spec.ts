@@ -6,6 +6,8 @@ import { PASSWORD, ready, signIn } from "./helpers";
 test.use({ contextOptions: { reducedMotion: "reduce" } });
 
 async function scan(page: Page, label: string) {
+  // after a client-side navigation the page title is set a moment after the URL changes: scan the settled page
+  await page.waitForFunction(() => document.title.trim().length > 0);
   for (const t of ["dark", "light"]) {
     await page.evaluate((x) => (document.documentElement.dataset.theme = x), t);
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));

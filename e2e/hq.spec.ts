@@ -7,6 +7,8 @@ import { ready, signIn } from "./helpers";
 test.use({ contextOptions: { reducedMotion: "reduce" } });
 
 async function scan(page: Page, label: string) {
+  // after a client-side navigation the page title is set a moment after the URL changes: scan the settled page
+  await page.waitForFunction(() => document.title.trim().length > 0);
   for (const t of ["dark", "light"]) {
     await page.evaluate((x) => (document.documentElement.dataset.theme = x), t);
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -162,7 +164,7 @@ test("the shell never scrolls sideways at laptop widths", async ({ page }) => {
   await signIn(page, "retro@orladent.local");
   for (const width of [1024, 1280]) {
     await page.setViewportSize({ width, height: 800 });
-    for (const path of ["/leads", "/growth/campaigns", "/growth/content", "/settings/ai", "/finance/ledger", "/hq"]) {
+    for (const path of ["/leads", "/growth/campaigns", "/growth/content", "/settings/ai", "/finance/ledger", "/hq", "/finance/cycle", "/finance/pay", "/settings/finance", "/team/functions", "/calendar"]) {
       await page.goto(path);
       await ready(page);
       await noSidewaysScroll(page, `${path} at ${width}px`);

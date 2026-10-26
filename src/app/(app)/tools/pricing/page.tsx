@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { PricingTool } from "@/components/tools/PricingTool";
 import { PageHeader } from "@/components/ui";
 import { listCohorts } from "@/lib/cohorts";
-import { LIST_PRICE_EGP } from "@/lib/pricing";
+import { getSettings } from "@/lib/app-settings";
 import { requirePageCan } from "@/lib/server-auth";
 
 export const metadata = { title: "Pricing scenarios · Tools" };
@@ -14,7 +14,10 @@ export default async function PricingPage(props: { searchParams: Promise<{ batch
   await requirePageCan("finance:read");
   const batches = await listCohorts(db);
   const batch = batches.find((b) => b.id === Number(sp.batch)) ?? null;
-  let start = { listPriceEgp: LIST_PRICE_EGP.foundation, discountPct: 0, seatCap: 40, fillPct: 75, freeSeats: 0, fixedCostsEgp: 0, variablePerStudentEgp: 0 };
+  // the main seat on sale now (Settings > Prices): the first tier still offered
+  const { prices } = await getSettings(db);
+  const listPrice = (prices.find((p) => p.offered) ?? prices[0]).price;
+  let start = { listPriceEgp: listPrice, discountPct: 0, seatCap: 40, fillPct: 75, freeSeats: 0, fixedCostsEgp: 0, variablePerStudentEgp: 0 };
   if (batch) {
     const [r] = await db.execute<{ students: number; free: number; list: number | null; discount: number | null; costs: number }>(sql`
       select count(*) filter (where e.status <> 'dropped')::int as students,
@@ -24,7 +27,7 @@ export default async function PricingPage(props: { searchParams: Promise<{ batch
         (select coalesce(sum(amount_egp), 0) from ledger_entries where deleted_at is null and cohort_id = ${batch.id} and section in ('fixed_costs', 'variable_costs') and status in ('paid', 'owed'))::int as costs
       from enrolments e where e.cohort_id = ${batch.id}`);
     start = {
-      listPriceEgp: r.list ?? LIST_PRICE_EGP.foundation,
+      listPriceEgp: r.list ?? listPrice,
       discountPct: r.discount ?? 0,
       seatCap: batch.seatCap,
       fillPct: batch.seatCap ? Math.min(100, Math.round((Number(r.students) / batch.seatCap) * 100)) : 0,

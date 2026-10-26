@@ -176,14 +176,15 @@ export function MoveDialog(props: {
   );
 }
 
-export function EnrolDialog(props: { lead: LeadLite; cohorts: CohortLite[]; isOwner: boolean; onCancel: () => void; onDone: () => void }) {
+export function EnrolDialog(props: { lead: LeadLite; cohorts: CohortLite[]; isOwner: boolean; prices?: Record<string, number>; onCancel: () => void; onDone: () => void }) {
+  const price = (t: string) => props.prices?.[t] ?? LIST_PRICE_EGP[t as keyof typeof LIST_PRICE_EGP];
   const start0 = (TIERS as readonly string[]).includes(props.lead.offerTier ?? "")
     ? (props.lead.offerTier as (typeof TIERS)[number])
     : (TIERS as readonly string[]).includes(props.lead.tierInterest)
       ? (props.lead.tierInterest as (typeof TIERS)[number])
       : "foundation";
   const [tier, setTier] = useState<(typeof TIERS)[number]>(start0);
-  const [amount, setAmount] = useState(String(props.lead.offerAmountEgp ?? LIST_PRICE_EGP[start0]));
+  const [amount, setAmount] = useState(String(props.lead.offerAmountEgp ?? price(start0)));
   const [discount, setDiscount] = useState("0");
   const [plan, setPlan] = useState<"one_time" | "installments" | "free_seat">("one_time");
   const [paidNow, setPaidNow] = useState("");
@@ -255,7 +256,7 @@ export function EnrolDialog(props: { lead: LeadLite; cohorts: CohortLite[]; isOw
             onChange={(e) => {
               const t = e.target.value as (typeof TIERS)[number];
               setTier(t);
-              setAmount(String(LIST_PRICE_EGP[t]));
+              setAmount(String(price(t)));
             }}
           >
             {TIERS.map((t) => (

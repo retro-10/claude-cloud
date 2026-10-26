@@ -6,6 +6,8 @@ import { ready, signIn } from "./helpers";
 test.use({ contextOptions: { reducedMotion: "reduce" } });
 
 async function scan(page: Page, label: string) {
+  // after a client-side navigation the page title is set a moment after the URL changes: scan the settled page
+  await page.waitForFunction(() => document.title.trim().length > 0);
   for (const t of ["dark", "light"]) {
     await page.evaluate((x) => (document.documentElement.dataset.theme = x), t);
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -60,6 +62,9 @@ test("a term end to end: class and attendance, an assignment reviewed, graduatio
   await page.locator("main a", { hasText: "Demo Cohort A" }).first().click();
   await page.locator("a", { hasText: "Graduation" }).click();
   await page.waitForURL("**/graduation");
+  // a client-side navigation: the page title is set once the new page has rendered; scan the settled page
+  await expect(page.locator("h1").first()).toBeVisible();
+  await expect(page).toHaveTitle(/Graduation/i);
   await scan(page, "graduation page");
   const grad = page.locator("main li").filter({ has: page.locator(`a[href='${studentHref}']`) });
   await grad.locator("button", { hasText: "Graduate and issue the certificate" }).click();

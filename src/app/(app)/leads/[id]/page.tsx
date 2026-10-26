@@ -29,6 +29,7 @@ import { Flash } from "@/components/Flash";
 import { LeadForm } from "@/components/LeadForm";
 import { Avatar, Card, EmptyState, Icon, type IconName } from "@/components/ui";
 import { getSettings } from "@/lib/app-settings";
+import { priceMap } from "@/lib/pricing";
 import { CONSENT_METHODS, currentConsent } from "@/lib/consent";
 import { listCandidates } from "@/lib/finance";
 import { CHECKS, evaluate, requiredChecks } from "@/lib/exit-criteria";
@@ -280,6 +281,7 @@ export default async function LeadPage(props: { params: Promise<{ id: string }>;
             }}
             lostReasons={reasons}
             cohorts={cohortRows}
+            prices={priceMap(settings.prices)}
             canWrite={canWrite}
             isOwner={user.role === "owner"}
             canOverride={can(user.role, "stage:override")}

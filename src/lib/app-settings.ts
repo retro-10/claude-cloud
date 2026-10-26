@@ -2,6 +2,17 @@ import { eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { appSettings } from "@/db/schema";
 import { audit } from "./audit";
+import {
+  DEFAULT_DECISION_RIGHTS,
+  DEFAULT_FINANCE_MODEL,
+  DEFAULT_PRICES,
+  validateDecisionRights,
+  validateFinanceModel,
+  validatePrices,
+  type DecisionRight,
+  type FinanceModel,
+  type TierPrice,
+} from "./finance-model";
 
 /**
  * Thresholds and switches the owner edits in Settings. Defaults are the values given in the feature
@@ -24,6 +35,9 @@ export type Settings = {
   financeSplit: { partners: { name: string; pct: number }[]; capitalPct: number }; // how net income is split
   invoiceDetails: InvoiceDetails; // who invoices and receipts are from, and how to pay
   ai: AiSettings; // the AI assistant: on or off, what it may read, the brand voice, a daily limit
+  financeModel: FinanceModel; // the rebuild's money rules: cycle close, new shares, reserve, pay tiers, partner roles
+  prices: TierPrice[]; // Camp tier prices and whether each is still offered
+  decisionRights: DecisionRight[]; // who decides what
 };
 export type AiSettings = {
   enabled: boolean;
@@ -73,6 +87,9 @@ export const DEFAULTS: Settings = {
       "Warm, direct and professional, like a senior dental technician who teaches. Short sentences. Egyptian audience: write in English unless the person wrote in Arabic, then reply in Egyptian Arabic. No hype, no invented results, no pressure, no deadlines or discounts that were not given.",
     dailyLimit: 100,
   },
+  financeModel: DEFAULT_FINANCE_MODEL,
+  prices: DEFAULT_PRICES,
+  decisionRights: DEFAULT_DECISION_RIGHTS,
 };
 
 type Key = keyof Settings;
@@ -126,6 +143,9 @@ const VALIDATE: { [K in Key]: (v: unknown) => Settings[K] | undefined } = {
     if (!Number.isInteger(a.dailyLimit) || a.dailyLimit < 1 || a.dailyLimit > 2000) return undefined;
     return { enabled: a.enabled, readLeads: a.readLeads, readMoney: a.readMoney, readStudents: a.readStudents, readProduction: a.readProduction, brandVoice: a.brandVoice.trim(), dailyLimit: a.dailyLimit };
   }) as never,
+  financeModel: validateFinanceModel as never,
+  prices: validatePrices as never,
+  decisionRights: validateDecisionRights as never,
   routes: ((v: unknown) =>
     Array.isArray(v) &&
     v.every((r) => r && (r.field === "source" || r.field === "segment") && typeof r.value === "string" && Number.isInteger(r.userId))

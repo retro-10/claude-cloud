@@ -79,11 +79,18 @@
       radial-gradient(800px 420px at -10% 110%, rgb(var(--glow) / 0.035), transparent 60%);
     background-attachment: fixed;
   }
-  /* Grid and flex items default to min-width:auto, so one wide table pushes the whole page sideways and drags
-     the fixed sidebar and top bar off-screen. Inside the page area, let them shrink so the tables' own scrollers work. */
-  #main .grid > *,
-  #main .flex > * {
+  /* Grid items default to min-width:auto, so one wide table pushes the whole page sideways and drags the fixed
+     sidebar and top bar off-screen. Inside the page area, let them shrink so the tables' own scrollers work.
+     (Not flex items: a button's form wrapper would then shrink below the button.) */
+  #main .grid > * {
     min-width: 0;
+  }
+  /* A sideways scroller is the positioning context of what it holds: screen-reader-only text and other absolute
+     children would otherwise be placed against the page and widen it past the window. Utilities (absolute,
+     fixed, sticky) still win, as they come later. */
+  .overflow-x-auto,
+  .overflow-auto {
+    position: relative;
   }
   [data-theme="light"] body {
     background-image: radial-gradient(1100px 520px at 85% -8%, rgb(var(--glow) / 0.1), transparent 60%);
