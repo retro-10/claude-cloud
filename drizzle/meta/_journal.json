@@ -225,6 +225,13 @@
       "when": 1793192299330,
       "tag": "0031_attachments_drive",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793206909327,
+      "tag": "0032_team_chat",
+      "breakpoints": true
     }
   ]
 }

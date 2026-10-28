@@ -3,14 +3,14 @@ import { Icon } from "../ui/Icon";
 import { Fragment } from "react";
 
 // A small Markdown renderer for docs: headings, paragraphs, bullet and numbered lists, checklists, quotes, code,
-// rules, **bold**, *italic*, `code` and [links](...). It builds React elements, never raw HTML, so a doc cannot
+// rules, **bold**, *italic*, `code`, [links](...) and bare https:// addresses. It builds React elements, never raw HTML, so a doc cannot
 // inject markup or scripts. Links only go to http(s), mailto or a path inside the app.
 
 const SAFE_HREF = /^(https?:\/\/|mailto:|\/(?![/\\]))/i;
 
 function inline(text: string, key = "i"): React.ReactNode[] {
   const out: React.ReactNode[] = [];
-  const re = /(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g;
+  const re = /(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`|\[[^\]]+\]\([^)\s]+\)|https?:\/\/[^\s<>()]*[^\s<>().,;:!?'"])/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let n = 0;
@@ -20,6 +20,12 @@ function inline(text: string, key = "i"): React.ReactNode[] {
     const k = `${key}-${n++}`;
     if (t.startsWith("**")) out.push(<strong key={k}>{inline(t.slice(2, -2), k)}</strong>);
     else if (t.startsWith("`")) out.push(<code key={k} className="rounded bg-raised px-1.5 py-0.5 font-mono text-[0.9em]">{t.slice(1, -1)}</code>);
+    else if (/^https?:/.test(t))
+      out.push(
+        <a key={k} href={t} target="_blank" rel="noopener noreferrer" className="break-all text-accent underline underline-offset-2">
+          {t}
+        </a>,
+      );
     else if (t.startsWith("[")) {
       const [, label, href] = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(t)!;
       if (!SAFE_HREF.test(href)) out.push(label);
@@ -102,6 +108,31 @@ export function parseBlocks(src: string): Block[] {
     out.push({ kind: "p", text: body.join(" ") });
   }
   return out;
+}
+
+/** Chat messages: line breaks kept as typed, ``` fences as code, and the inline formatting of docs. */
+export function ChatText({ source }: { source: string }) {
+  const parts = source.split(/^```[^\n]*\n?/m);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 ? (
+          <pre key={i} className="my-1 overflow-x-auto rounded-lg border border-line bg-raised px-3 py-2 font-mono text-[13px] leading-5">
+            {part.replace(/\n$/, "")}
+          </pre>
+        ) : (
+          part.split("\n").map((line, j, all) =>
+            !line && (j === 0 || j === all.length - 1) ? null : (
+              <Fragment key={`${i}-${j}`}>
+                {inline(line, `${i}-${j}`)}
+                {j < all.length - 1 && <br />}
+              </Fragment>
+            ),
+          )
+        ),
+      )}
+    </>
+  );
 }
 
 export function Markdown({ source }: { source: string }) {

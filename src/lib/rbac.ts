@@ -20,6 +20,7 @@ export type Action =
   | "ops:manage" // responsibilities, the SOP library, meetings and decisions (owner); running a checklist is task:write
   | "stage:override" // move a lead although the stage's exit criteria are not met (with a reason)
   | "calendar:write" // clock in and out, and plan your own calendar (everyone); owners also fix anyone's
+  | "chat:write" // team chat: channels and direct messages (everyone)
   | "ai:use" // Ask OrlaDent and AI drafts, when an owner has switched the assistant on (not designers)
   | "finance:read"; // revenue anywhere (dashboard, batches, a lead's payments) and the Finance board: owner and finance only
 
@@ -46,16 +47,17 @@ const MATRIX: Record<Role, ReadonlySet<Action>> = {
     "ops:manage",
     "ai:use",
     "calendar:write",
+    "chat:write",
   ]),
-  sales: new Set<Action>(["lead:read", "lead:write", "task:write", "file:write", "growth:write", "ai:use", "calendar:write"]),
-  viewer: new Set<Action>(["lead:read", "ai:use", "calendar:write"]),
+  sales: new Set<Action>(["lead:read", "lead:write", "task:write", "file:write", "growth:write", "ai:use", "calendar:write", "chat:write"]),
+  viewer: new Set<Action>(["lead:read", "ai:use", "calendar:write", "chat:write"]),
   // Finance: sees everything, records/edits payments and exports revenue. No lead, settings or user edits.
-  finance: new Set<Action>(["lead:read", "payment:write", "revenue:export", "finance:read", "task:write", "file:write", "production:read", "ai:use", "calendar:write"]),
+  finance: new Set<Action>(["lead:read", "payment:write", "revenue:export", "finance:read", "task:write", "file:write", "production:read", "ai:use", "calendar:write", "chat:write"]),
   // Instructor: teaches and reviews. Reads students' lead pages, runs classes, attendance, reviews and graduation; no money.
-  instructor: new Set<Action>(["lead:read", "task:write", "file:write", "programme:write", "ai:use", "calendar:write"]),
+  instructor: new Set<Action>(["lead:read", "task:write", "file:write", "programme:write", "ai:use", "calendar:write", "chat:write"]),
   // Designer: often a Production Partner graduate. Only the production studio, and only the cases assigned to them:
   // no leads, no students, no money other than their own pay per case.
-  designer: new Set<Action>(["production:read", "production:work", "calendar:write"]),
+  designer: new Set<Action>(["production:read", "production:work", "calendar:write", "chat:write"]),
 };
 
 export function can(role: Role, action: Action): boolean {

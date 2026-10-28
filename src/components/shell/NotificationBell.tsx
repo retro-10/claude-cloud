@@ -6,7 +6,7 @@ import { markNotificationsReadAction } from "@/app/(app)/leads/actions";
 import { Popover } from "../crm/Popover";
 import { Icon } from "../ui/Icon";
 
-export type BellItem = { id: number; title: string; leadId: number | null; at: string; unread: boolean };
+export type BellItem = { id: number; title: string; href: string | null; at: string; unread: boolean };
 
 const ago = (iso: string) => {
   const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
@@ -48,7 +48,7 @@ export function NotificationBell({ items, unread }: { items: BellItem[]; unread:
             {items.map((n) => (
               <li key={n.id}>
                 <Link
-                  href={n.leadId ? `/leads/${n.leadId}` : "/"}
+                  href={n.href ?? "/"}
                   className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-sm hover:bg-raised"
                 >
                   <span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.unread ? "bg-brand" : "bg-line"}`} />

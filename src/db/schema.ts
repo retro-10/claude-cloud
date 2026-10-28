@@ -432,6 +432,7 @@ export const notifications = pgTable(
     kind: text("kind").notNull(),
     title: text("title").notNull(),
     leadId: integer("lead_id").references(() => leads.id),
+    link: text("link"), // a page inside the app to open (a chat conversation); a lead's page when leadId is set
     createdAt: createdAt(),
     readAt: ts("read_at"),
   },
@@ -1371,4 +1372,58 @@ export const aiUsage = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("ai_usage_user_day_idx").on(t.userId, t.createdAt)],
+);
+
+// Team chat. A conversation is a channel (open to every staff member: browse and join; "everyone" channels such as
+// #general include all of them without joining) or a direct message between two or more people (dmKey = their
+// sorted ids, so the same group always reopens the same conversation). Members keep their own read position.
+export const chatChannels = pgTable(
+  "chat_channels",
+  {
+    id: serial("id").primaryKey(),
+    kind: text("kind").notNull(), // channel | dm
+    name: text("name"), // channels only: lowercase, letters, digits and dashes
+    topic: text("topic"),
+    everyone: boolean("everyone").notNull().default(false),
+    dmKey: text("dm_key"),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    archivedAt: ts("archived_at"),
+  },
+  (t) => [uniqueIndex("chat_channels_name_uq").on(t.name), uniqueIndex("chat_channels_dm_uq").on(t.dmKey)],
+);
+
+export const chatMembers = pgTable(
+  "chat_members",
+  {
+    channelId: integer("channel_id")
+      .notNull()
+      .references(() => chatChannels.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    lastReadId: integer("last_read_id").notNull().default(0), // the newest message this person has seen
+    joinedAt: ts("joined_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.channelId, t.userId] }), index("chat_members_user_idx").on(t.userId)],
+);
+
+// updatedAt moves on every insert, edit and delete: the open chat polls for rows changed since its last look.
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: serial("id").primaryKey(),
+    channelId: integer("channel_id")
+      .notNull()
+      .references(() => chatChannels.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+    editedAt: ts("edited_at"),
+    deletedAt: ts("deleted_at"),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("chat_messages_channel_idx").on(t.channelId, t.id), index("chat_messages_updated_idx").on(t.channelId, t.updatedAt)],
 );
