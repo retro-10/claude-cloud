@@ -292,12 +292,18 @@ function Composer(props: {
   const [busy, setBusy] = useState(false);
   const [pick, setPick] = useState(0);
   const box = useRef<HTMLTextAreaElement>(null);
+  const caretTo = useRef<number | null>(null); // where the cursor goes after a mention is filled in
 
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+    // placed before the browser handles the next key, so fast typing after a mention lands after it
+    if (caretTo.current !== null) {
+      el.setSelectionRange(caretTo.current, caretTo.current);
+      caretTo.current = null;
+    }
   }, [value]);
   useEffect(() => {
     if (props.initial !== undefined) box.current?.focus();
@@ -314,14 +320,10 @@ function Composer(props: {
     if (!token) return;
     const start = caret - token[2].length - 1;
     const handle = p.name.trim().split(/\s+/)[0];
-    const next = `${value.slice(0, start)}@${handle} ${value.slice(caret)}`;
-    setValue(next);
+    caretTo.current = start + handle.length + 2;
+    setValue(`${value.slice(0, start)}@${handle} ${value.slice(caret)}`);
     setPick(0);
-    requestAnimationFrame(() => {
-      const pos = start + handle.length + 2;
-      box.current?.setSelectionRange(pos, pos);
-      box.current?.focus();
-    });
+    box.current?.focus();
   };
 
   const submit = async () => {
