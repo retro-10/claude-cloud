@@ -132,6 +132,13 @@ dental files (STL, PLY, OBJ, DICOM). Share videos by link in a note instead. Pho
 everything else downloads. Every download is recorded in the audit log. The person who added a file, or an
 owner, can delete it; deleting removes the file itself.
 
+**Google Drive.** An owner can keep files in Google Drive instead of the database: **Settings > Integrations >
+Connect Google Drive**, then pick the Google account. The app saves new files in an "OrlaDent OS files" folder
+there and sees nothing else in that Drive. Files are still opened from the CRM (with the same permission checks
+and download log); nobody needs access to the folder. Files added before connecting move across by themselves.
+Deleted files go to Drive's bin, where an owner can restore them for 30 days. If Drive cannot be reached, a new
+upload is kept in the database and moved later.
+
 Patient cases: only upload what the patient agreed to, and prefer files without names or faces.
 
 ## Tools

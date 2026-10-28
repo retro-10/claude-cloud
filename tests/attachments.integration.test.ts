@@ -74,7 +74,7 @@ d("files on leads and batches", () => {
     expect(await deleteAttachment(db, plan.id, { id: owner, isOwner: true })).toEqual({ ok: true });
     expect(await getAttachment(db, crown.id)).toBeNull();
     const [row] = await db.select().from(s.attachments).where(eq(s.attachments.id, crown.id));
-    expect(row.data.length).toBe(0);
+    expect(row.data).toBeNull();
     expect(await listAttachments(db, { cohortId })).toHaveLength(0);
   });
 

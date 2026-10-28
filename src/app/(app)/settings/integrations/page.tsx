@@ -6,7 +6,10 @@ import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { demoCounts } from "@/lib/demo-cleanup";
-import { removeDemoAction, syncNotionAction } from "./actions";
+import { fileStoreCounts, formatBytes } from "@/lib/attachments";
+import { driveFolderUrl, driveStatus } from "@/lib/drive";
+import { disconnectDriveAction, moveFilesToDriveAction, removeDemoAction, syncNotionAction } from "./actions";
+import { callbackUrl } from "./drive/shared";
 
 export const metadata = { title: "Integrations · Settings" };
 
@@ -16,7 +19,7 @@ export default async function Integrations(props: { searchParams: Promise<{ noti
   const sp = await props.searchParams;
   await requirePageCan("settings:write");
   const cfg = notionConfig();
-  const [st, demo] = await Promise.all([syncStatus(db), demoCounts(db)]);
+  const [st, demo, drive, files, redirectUri] = await Promise.all([syncStatus(db), demoCounts(db), driveStatus(db), fileStoreCounts(db), callbackUrl()]);
   const last = st.runs[0];
   const leadsDb = cfg?.leadsDb ?? st.leadsDb;
   const dbs = cfg
@@ -97,6 +100,69 @@ export default async function Integrations(props: { searchParams: Promise<{ noti
               )}
             </div>
           </>
+        )}
+      </Card>
+
+      <Card
+        title="Google Drive"
+        icon="upload"
+        className="mb-5 max-w-3xl"
+        actions={
+          drive.mode === "ready-to-connect" ? (
+            <a href="/settings/integrations/drive/connect" className="btn btn-primary btn-sm">
+              Connect Google Drive
+            </a>
+          ) : drive.mode === "oauth" ? (
+            <form action={disconnectDriveAction}>
+              <ConfirmButton
+                message="Disconnect Google Drive? New files will be kept in the database, and files already in Drive can be opened again only after reconnecting the same account."
+                className="btn btn-ghost btn-sm"
+              >
+                Disconnect
+              </ConfirmButton>
+            </form>
+          ) : undefined
+        }
+      >
+        {drive.mode === "off" ? (
+          <EmptyState icon="upload" title="Files are kept in the database">
+            To keep files in Google Drive instead, create an OAuth client in Google Cloud (see the User guide), set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on the server and
+            restart; a Connect button then appears here.
+          </EmptyState>
+        ) : drive.mode === "ready-to-connect" ? (
+          <p className="text-sm text-muted">
+            Connect the Google account whose Drive should keep the files. The app creates a folder there and sees nothing else in that Drive. The OAuth client must list this
+            redirect address: <code className="break-all">{redirectUri}</code>
+          </p>
+        ) : (
+          <div className="space-y-2 text-sm">
+            <p>
+              {drive.mode === "service" ? "Signed in as the service account " : "Connected to "}
+              <span className="font-medium">{drive.email ?? "a Google account"}</span>.{" "}
+              {drive.folderId ? (
+                <a href={driveFolderUrl(drive.folderId)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent">
+                  Open the folder <Icon name="arrowUpRight" size={12} />
+                </a>
+              ) : (
+                <span className="text-muted">The folder is created with the first file.</span>
+              )}
+            </p>
+            <p className="text-muted">
+              New files are saved in Drive and opened through the app, which checks who may see them. Files are never shared from Drive.
+            </p>
+          </div>
+        )}
+        {(files.inDrive > 0 || files.inDatabase > 0) && (
+          <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-line pt-4 text-sm">
+            <span className="flex-1">
+              {files.inDrive} file(s) in Google Drive · {files.inDatabase} in the database ({formatBytes(files.databaseBytes)})
+            </span>
+            {(drive.mode === "oauth" || drive.mode === "service") && files.inDatabase > 0 && (
+              <form action={moveFilesToDriveAction}>
+                <button className="btn btn-sm">Move them to Drive now</button>
+              </form>
+            )}
+          </div>
         )}
       </Card>
 

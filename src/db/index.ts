@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import type postgres from "postgres";
+import { connect } from "./connection";
 import * as schema from "./schema";
 
 const globalForDb = globalThis as unknown as { pgClient?: ReturnType<typeof postgres> };
@@ -9,7 +10,7 @@ export function createClient(url = process.env.DATABASE_URL) {
   // client connects lazily, so a placeholder is safe there. At runtime a missing URL is fatal.
   if (!url && process.env.NEXT_PHASE === "phase-production-build") url = "postgres://build:build@localhost:5432/build";
   if (!url) throw new Error("DATABASE_URL is not set");
-  return postgres(url, { max: 10 });
+  return connect(url);
 }
 
 // Reuse one connection pool across hot reloads in dev.

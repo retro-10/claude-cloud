@@ -72,26 +72,27 @@ export function otpauthUri(secretB32: string, account: string, issuer = "OrlaDen
   return `otpauth://totp/${label}?secret=${secretB32}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=${STEP_SECONDS}`;
 }
 
-// ---------------- the secret at rest: AES-256-GCM with a key derived from AUTH_SECRET ----------------
+// ---------------- secrets at rest: AES-256-GCM with a key derived from AUTH_SECRET ----------------
+// `purpose` gives each kind of secret its own key (TOTP seeds; the Google Drive refresh token).
 
-function key() {
+function key(purpose: string) {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error("AUTH_SECRET must be set to at least 32 characters");
-  return createHash("sha256").update(`totp-at-rest:${secret}`).digest();
+  return createHash("sha256").update(`${purpose}:${secret}`).digest();
 }
 
-export function sealSecret(plain: string): string {
+export function sealSecret(plain: string, purpose = "totp-at-rest"): string {
   const iv = randomBytes(12);
-  const c = createCipheriv("aes-256-gcm", key(), iv);
+  const c = createCipheriv("aes-256-gcm", key(purpose), iv);
   const body = Buffer.concat([c.update(plain, "utf8"), c.final()]);
   return `v1.${iv.toString("base64url")}.${body.toString("base64url")}.${c.getAuthTag().toString("base64url")}`;
 }
 
-export function openSecret(sealed: string): string | null {
+export function openSecret(sealed: string, purpose = "totp-at-rest"): string | null {
   const [v, iv, body, tag] = sealed.split(".");
   if (v !== "v1" || !iv || !body || !tag) return null;
   try {
-    const d = createDecipheriv("aes-256-gcm", key(), Buffer.from(iv, "base64url"));
+    const d = createDecipheriv("aes-256-gcm", key(purpose), Buffer.from(iv, "base64url"));
     d.setAuthTag(Buffer.from(tag, "base64url"));
     return Buffer.concat([d.update(Buffer.from(body, "base64url")), d.final()]).toString("utf8");
   } catch {

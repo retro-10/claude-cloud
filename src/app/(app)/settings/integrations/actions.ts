@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { audit } from "@/lib/audit";
+import { moveFilesToDrive } from "@/lib/attachments";
 import { removeDemoData } from "@/lib/demo-cleanup";
+import { disconnectDrive } from "@/lib/drive";
 import { archiveNotionPages, syncNow } from "@/lib/notion/sync";
 import { requireCan } from "@/lib/server-auth";
 
@@ -30,4 +32,21 @@ export async function removeDemoAction() {
   const msg = `Demo data removed (${r.leads} demo leads${n.archived ? `, ${n.archived} Notion pages archived` : ""})`;
   if (n.failed) redirect(`/settings/integrations?error=${encodeURIComponent(`${msg}. ${n.failed} Notion page(s) could not be archived; delete them in Notion by hand.`)}`);
   redirect(`/settings/integrations?notice=${encodeURIComponent(msg)}`);
+}
+
+// Moves up to 50 files kept in the database across to Google Drive now (the 5-minute tick moves the rest).
+export async function moveFilesToDriveAction() {
+  const user = await requireCan("settings:write");
+  const r = await moveFilesToDrive(db, 50);
+  await audit(db, { userId: user.id, entity: "google_drive", action: "move_files", diff: r });
+  revalidatePath("/settings/integrations");
+  if (r.error) redirect(`/settings/integrations?error=${encodeURIComponent(`${r.moved} file(s) moved. ${r.error}`)}`);
+  redirect(`/settings/integrations?notice=${encodeURIComponent(r.moved ? `${r.moved} file(s) moved to Google Drive` : "No files left to move")}`);
+}
+
+export async function disconnectDriveAction() {
+  const user = await requireCan("settings:write");
+  await disconnectDrive(db, user.id);
+  revalidatePath("/settings/integrations");
+  redirect(`/settings/integrations?notice=${encodeURIComponent("Google Drive disconnected. New files are kept in the database.")}`);
 }

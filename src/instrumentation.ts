@@ -9,13 +9,24 @@ export async function register() {
     // Workflow rules with a time trigger (follow-up overdue, response time breached) are swept every
     // 5 minutes. Skipped during the build and when no database is configured.
     if (process.env.DATABASE_URL && process.env.NEXT_PHASE !== "phase-production-build") {
+      // Hosts that run `npm start` with no shell and no Docker entrypoint (Hostinger's Node.js apps) set
+      // MIGRATE_ON_START=true: migrations and reference data are applied here, before the first request.
+      if (process.env.MIGRATE_ON_START === "true") {
+        const { runMigrations } = await import("./db/migrate");
+        const { seedReference } = await import("./db/seed");
+        await runMigrations();
+        await seedReference();
+      }
       const { db } = await import("./db");
       const { runScheduledRules } = await import("./lib/workflows");
       // the same tick stops clocks left running from an earlier day (at the midnight after they started)
       const { stopForgottenClocks } = await import("./lib/calendar");
+      const { moveFilesToDrive } = await import("./lib/attachments");
       const tick = () => {
         void runScheduledRules(db).catch(() => 0);
         void stopForgottenClocks(db).catch(() => 0);
+        // and, with Google Drive connected, moves files still stored in the database there (a few per tick)
+        void moveFilesToDrive(db).catch(() => 0);
       };
       setTimeout(tick, 30_000);
       setInterval(tick, 5 * 60_000).unref?.();
