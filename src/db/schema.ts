@@ -827,8 +827,9 @@ export const weeklyReviews = pgTable("weekly_reviews", {
   createdAt: createdAt(),
 });
 
-// Files on a lead (student) or a batch: certificates, receipts, case files, contracts. Kept in Postgres so the
-// nightly pg_dump backs them up with everything else; 8 MB each. Lists never select `data`.
+// Files on a lead (student) or a batch: certificates, receipts, case files, contracts; 8 MB each. With Google Drive
+// connected the bytes live there (`driveFileId`) and `data` is null; otherwise they are kept in Postgres so the
+// nightly pg_dump backs them up with everything else. Lists never select `data`.
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
 export const attachments = pgTable(
   "attachments",
@@ -838,7 +839,8 @@ export const attachments = pgTable(
     contentType: text("content_type").notNull(),
     size: integer("size").notNull(),
     sha256: text("sha256").notNull(),
-    data: bytea("data").notNull(),
+    data: bytea("data"),
+    driveFileId: text("drive_file_id"),
     note: text("note"),
     leadId: integer("lead_id").references(() => leads.id),
     cohortId: integer("cohort_id").references(() => cohorts.id),

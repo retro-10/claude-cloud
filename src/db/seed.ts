@@ -1,8 +1,8 @@
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { addDaysYmd, cairoYmd } from "../lib/time";
+import { connect } from "./connection";
 import { insertDemo } from "./demo-data";
 import * as s from "./schema";
 import {
@@ -23,7 +23,7 @@ import {
 export async function seedReference(url = process.env.DATABASE_URL, password = process.env.SEED_PASSWORD) {
   if (!url) throw new Error("DATABASE_URL is not set");
   if (!password) throw new Error("SEED_PASSWORD is not set");
-  const client = postgres(url, { max: 1 });
+  const client = connect(url, 1);
   const db = drizzle(client);
   try {
     await db.insert(s.stages).values([...STAGES]).onConflictDoNothing();
@@ -77,7 +77,7 @@ if (process.argv[1]?.endsWith("seed.ts")) {
 // Dates are shifted so the data always ends about "now": it starts on the Monday five weeks ago.
 export async function seedDemoIfEmpty(url = process.env.DATABASE_URL, now = new Date()) {
   if (!url) throw new Error("DATABASE_URL is not set");
-  const client = postgres(url, { max: 1 });
+  const client = connect(url, 1);
   const db = drizzle(client, { schema: s });
   try {
     const existing = await db.select({ id: s.leads.id }).from(s.leads).limit(1);

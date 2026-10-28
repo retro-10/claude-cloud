@@ -121,6 +121,44 @@ The scripts run inside the `db` container of `docker compose` by default. To run
 database (no Docker), set `BACKUP_MODE=direct DATABASE_URL=postgres://…` and have the PostgreSQL client tools
 installed. Both modes share the same code.
 
+## Deploy without a server: Hostinger + Supabase + Google Drive
+
+No VPS and no Docker: the app runs as a Node.js web app (Hostinger Business or Cloud plans, or any Node host),
+the database is Supabase's Postgres, and uploaded files go to Google Drive.
+
+1. **Supabase.** Create a project (region close to Cairo, for example Frankfurt). In **Connect**, copy the
+   **Session pooler** connection string (port 5432, IPv4) and put your database password in it. Optional but
+   recommended: in **Project Settings > Data API**, switch the Data API off; the app does not use it. On every
+   start the app also turns on row level security for every table, so the API could not read them anyway.
+2. **Google Drive** (optional; without it files stay in the database). In Google Cloud Console create a project,
+   enable the **Google Drive API**, set up the OAuth consent screen (External, then **Publish app**: the app asks
+   only for `drive.file`, which needs no Google review, and a published app's sign-in does not expire after 7
+   days), and create an **OAuth client ID** of type *Web application* with the redirect URI
+   `https://<your subdomain>/settings/integrations/drive/callback`.
+3. **Hostinger.** In hPanel: **Websites > Add website > Node.js web app**, connect GitHub and pick this
+   repository and `main`. Build command `npm run build`, start command `npm start`, Node 20 or newer. Add the
+   environment variables:
+   `DATABASE_URL` (step 1), `AUTH_SECRET` (`openssl rand -base64 48`), `SEED_PASSWORD`, `COOKIE_SECURE=true`,
+   `MIGRATE_ON_START=true`, `APP_URL=https://<your subdomain>`, and from step 2 `GOOGLE_CLIENT_ID` and
+   `GOOGLE_CLIENT_SECRET`. Attach your subdomain to the app; Hostinger issues the certificate.
+4. Open the site, sign in, set your own password (step 3 of the VPS guide below). Then **Settings >
+   Integrations > Connect Google Drive** and pick the account that should keep the files. The app creates an
+   "OrlaDent OS files" folder there and can see nothing else in that Drive. Files already in the database move to
+   Drive by themselves, a few every 5 minutes, or at once with **Move them to Drive now**.
+5. Updates: push to `main`; Hostinger rebuilds and restarts, and migrations apply on start.
+
+What changes compared with the VPS setup:
+
+* **Backups.** `scripts/backup.sh` is written for Docker. Supabase backs the database up daily (keep in mind the
+  free plan's limits); for your own copy run `BACKUP_MODE=direct DATABASE_URL=… scripts/backup.sh` from any
+  computer with the PostgreSQL client tools. Files in Drive are covered by Drive (deleted files go to Drive's bin).
+* **Background jobs** (rules that run on a timer, stopping forgotten clocks at midnight, the Notion sync, moving
+  files to Drive) run inside the app every 5 minutes. They run only while the app is up; if your host puts idle
+  apps to sleep, they catch up when it wakes.
+* **Files** are read through the app, which checks permissions and logs every download. They are never shared
+  from Drive. Disconnecting Drive keeps the files there, but the app can open them again only after the same
+  account is reconnected.
+
 ## Deploy to a VPS (HTTPS)
 
 You need a server with Docker, a domain whose DNS points at it, and ports 80 and 443 open.
