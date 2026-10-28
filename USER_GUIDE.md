@@ -18,6 +18,29 @@ when the buyer moved, and log everything** so the numbers are true.
   hours overdue, nobody has answered an unassigned lead.
 * Sun/moon icon: light or dark theme (remembered per browser).
 
+## Team chat (everyone)
+
+**Chat** in the sidebar (or `G J`) is where the team talks: every role, designers included. The number beside it
+is what you have not read yet.
+
+* **Channels** (`#general`, `#launch-plan` …) are open to the whole team. Everyone is in `#general`. Make a new
+  one with **New message or channel > New channel**; find and join the others under **Browse channels**. You can
+  read a channel before joining; posting in it joins you. Leave one from its header. The person who made a
+  channel, or an owner, can rename it, change its topic, or archive it (the history stays readable).
+* **Direct messages** are between you and one or more people (up to 8 others). Only the people in a direct
+  message can read it; owners cannot. Picking the same people again reopens the same conversation.
+* **Writing**: Enter sends, Shift+Enter starts a new line. `**bold**`, `*italic*`, `` `code` `` and links work.
+  Type `@` and a name to mention someone (`@Mona`): they get a notification on the bell and in the Inbox. In a
+  direct message the others get one "new message" notification until they open it, not one per message.
+* **Edit or delete** your own messages from the buttons that appear when you point at one. Owners can delete
+  anyone's message (that is written to the audit log). A deleted message leaves a "This message was deleted"
+  line.
+* New messages arrive on their own every few seconds while the conversation is open; there is no need to
+  reload. Opening a conversation marks it read and clears its chat notifications.
+
+Keep patient details and money decisions where they belong (the lead's page, Finance): chat is for talking, and
+it is not where the record lives.
+
 ## Team calendar (everyone)
 
 **Team calendar** (sidebar, under HQ; `g` then `y`) is for every role, designers included.
@@ -616,7 +639,8 @@ leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `ME
 | **instructor** | read leads; run the programme: classes and attendance, assignments and reviews, graduation, alumni, portal invites; add tasks and files. No revenue, no lead editing, no settings |
 | **designer** | only the production studio, and only the cases assigned to them: start, add the design files, send to QC; their own pay per case. No leads, students, prices or settings |
 
-Ask OrlaDent: everyone except designers, each seeing only what their role sees.
+Ask OrlaDent: everyone except designers, each seeing only what their role sees. Team chat and the team
+calendar: everyone.
 
 Tasks and files: owner, sales and finance add and finish them; viewers only look. Growth (campaigns, forms,
 masterclasses, content, referral links): owners and sales. Campaign costs and referral rewards: owners and

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/db";
 import { Flash } from "@/components/Flash";
 import { Card, EmptyState, Icon, PageHeader, Tabs } from "@/components/ui";
-import { inbox, recentNotifications } from "@/lib/notifications";
+import { inbox, notificationHref, recentNotifications } from "@/lib/notifications";
 import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 import { inboxClearAllAction, inboxReadAction } from "../hq/actions";
@@ -53,8 +53,8 @@ export default async function InboxPage(props: { searchParams: Promise<{ tab?: s
               <li key={n.id} className="group flex items-center gap-4 px-5 py-3.5 hover:bg-raised/40">
                 <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${tab === "new" ? "bg-brand" : "bg-faint"}`} />
                 <div className="min-w-0 flex-1">
-                  {n.leadId ? (
-                    <Link href={`/leads/${n.leadId}`} className="block truncate text-sm font-medium hover:text-accent">
+                  {notificationHref(n) ? (
+                    <Link href={notificationHref(n)!} className="block truncate text-sm font-medium hover:text-accent">
                       {n.title}
                     </Link>
                   ) : (

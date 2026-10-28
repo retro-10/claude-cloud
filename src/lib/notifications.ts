@@ -2,6 +2,9 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { notifications } from "@/db/schema";
 
+/** Where a notification opens: its own link (a chat conversation), else the lead it is about. */
+export const notificationHref = (n: { link: string | null; leadId: number | null }) => n.link ?? (n.leadId ? `/leads/${n.leadId}` : null);
+
 export async function recentNotifications(db: Db, userId: number, limit = 12) {
   const [items, [{ unread }]] = await Promise.all([
     db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt), desc(notifications.id)).limit(limit),
