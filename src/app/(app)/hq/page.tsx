@@ -28,7 +28,7 @@ function where(t: TaskRow) {
 // HQ home: my work across the company, the spaces, the newest docs and what landed in my inbox.
 export default async function HqHome(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   const now = new Date();
   const [mine, done, spaces, docs, unread] = await Promise.all([
     listTasks(db, { assigneeId: user.id, status: "open" }, now, 300),

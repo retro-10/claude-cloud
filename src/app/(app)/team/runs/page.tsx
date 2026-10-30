@@ -45,7 +45,7 @@ function RunList({ rows, empty }: { rows: RunRow[]; empty: string }) {
 // Playbooks being run now, and the ones finished.
 export default async function RunsPage(props: { searchParams: Promise<{ notice?: string; error?: string; mine?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   const mine = sp.mine === "1";
   const rows = await listRuns(db, mine ? { assigneeId: user.id } : {});
   const open = rows.filter((r) => !r.completedAt);

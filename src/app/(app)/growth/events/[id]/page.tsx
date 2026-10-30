@@ -22,7 +22,7 @@ const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "â€
 
 export default async function EventPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const [params, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("growth:read");
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) notFound();
   const [[c], all, people, forms, cadences, base] = await Promise.all([
@@ -35,8 +35,11 @@ export default async function EventPage(props: { params: Promise<{ id: string }>
   ]);
   const e = all.find((x) => x.id === id);
   if (!c || !e) notFound();
-  const write = can(user.role, "growth:write");
-  const ai = write && (await aiOffered(db, user.role));
+  // registrants are leads: people without lead access (marketing) run the event but see only the counts
+  const leadsOk = can(user.role, "lead:read");
+  const write = can(user.role, "growth:write") && can(user.role, "lead:write");
+  const plan = can(user.role, "growth:write");
+  const ai = plan && (await aiOffered(db, user.role));
   const when = c.eventAt ? formatCairo(c.eventAt) : "the date we sent you";
   const defaultMessage = `Hi {name}, a quick reminder: the OrlaDent Camp masterclass "${c.label}" is on ${when} (Cairo time). See you there!`;
 
@@ -67,12 +70,18 @@ export default async function EventPage(props: { params: Promise<{ id: string }>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <Card title={`Registrants (${people.length})`} icon="leads">
-          <Registrants
-            campaignId={c.id}
-            canWrite={write}
-            defaultMessage={defaultMessage}
-            rows={people.map((p) => ({ id: p.id, fullName: p.fullName, phone: p.phone, doNotContact: p.doNotContact, attended: p.attended, reminded: !!p.remindedAt, consultedAfter: p.consultedAfter, enrolled: p.enrolled }))}
-          />
+          {leadsOk ? (
+            <Registrants
+              campaignId={c.id}
+              canWrite={write}
+              defaultMessage={defaultMessage}
+              rows={people.map((p) => ({ id: p.id, fullName: p.fullName, phone: p.phone, doNotContact: p.doNotContact, attended: p.attended, reminded: !!p.remindedAt, consultedAfter: p.consultedAfter, enrolled: p.enrolled }))}
+            />
+          ) : (
+            <p className="text-sm text-muted">
+              {people.length} registered, {people.filter((p) => p.attended).length} attended. Names and numbers are visible to sales and owners.
+            </p>
+          )}
         </Card>
         <div className="flex flex-col gap-6">
           {ai && (

@@ -1,6 +1,8 @@
-export type Role = "owner" | "sales" | "viewer" | "finance" | "instructor" | "designer";
+export type Role = "owner" | "sales" | "viewer" | "finance" | "instructor" | "designer" | "marketing";
 
 export type Action =
+  | "hq:read" // HQ home, inbox, docs, spaces, tasks, team & ops: everyone except designers
+  | "growth:read" // campaigns, content, forms, masterclasses, referrals (lead names inside them need lead:read)
   | "lead:read"
   | "lead:write" // create/edit leads, activities, follow-ups, consults, enrolments
   | "lead:delete"
@@ -21,11 +23,14 @@ export type Action =
   | "stage:override" // move a lead although the stage's exit criteria are not met (with a reason)
   | "calendar:write" // clock in and out, and plan your own calendar (everyone); owners also fix anyone's
   | "chat:write" // team chat: channels and direct messages (everyone)
+  | "approval:submit" // ask for an approval (expense, purchase, leave …) and follow it; deciding depends on the routing rules
   | "ai:use" // Ask OrlaDent and AI drafts, when an owner has switched the assistant on (not designers)
   | "finance:read"; // revenue anywhere (dashboard, batches, a lead's payments) and the Finance board: owner and finance only
 
 const MATRIX: Record<Role, ReadonlySet<Action>> = {
   owner: new Set<Action>([
+    "hq:read",
+    "growth:read",
     "lead:read",
     "lead:write",
     "lead:delete",
@@ -48,16 +53,20 @@ const MATRIX: Record<Role, ReadonlySet<Action>> = {
     "ai:use",
     "calendar:write",
     "chat:write",
+    "approval:submit",
   ]),
-  sales: new Set<Action>(["lead:read", "lead:write", "task:write", "file:write", "growth:write", "ai:use", "calendar:write", "chat:write"]),
-  viewer: new Set<Action>(["lead:read", "ai:use", "calendar:write", "chat:write"]),
+  sales: new Set<Action>(["hq:read", "growth:read", "lead:read", "lead:write", "task:write", "file:write", "growth:write", "ai:use", "calendar:write", "chat:write", "approval:submit"]),
+  viewer: new Set<Action>(["hq:read", "growth:read", "lead:read", "ai:use", "calendar:write", "chat:write", "approval:submit"]),
   // Finance: sees everything, records/edits payments and exports revenue. No lead, settings or user edits.
-  finance: new Set<Action>(["lead:read", "payment:write", "revenue:export", "finance:read", "task:write", "file:write", "production:read", "ai:use", "calendar:write", "chat:write"]),
+  finance: new Set<Action>(["hq:read", "growth:read", "lead:read", "payment:write", "revenue:export", "finance:read", "task:write", "file:write", "production:read", "ai:use", "calendar:write", "chat:write", "approval:submit"]),
   // Instructor: teaches and reviews. Reads students' lead pages, runs classes, attendance, reviews and graduation; no money.
-  instructor: new Set<Action>(["lead:read", "task:write", "file:write", "programme:write", "ai:use", "calendar:write", "chat:write"]),
+  instructor: new Set<Action>(["hq:read", "growth:read", "lead:read", "task:write", "file:write", "programme:write", "ai:use", "calendar:write", "chat:write", "approval:submit"]),
   // Designer: often a Production Partner graduate. Only the production studio, and only the cases assigned to them:
   // no leads, no students, no money other than their own pay per case.
-  designer: new Set<Action>(["production:read", "production:work", "calendar:write", "chat:write"]),
+  designer: new Set<Action>(["production:read", "production:work", "calendar:write", "chat:write", "approval:submit"]),
+  // Marketing: plans campaigns, content and masterclasses, and works in HQ. No lead records (names, phones): growth
+  // pages show them only to people with lead:read, and the AI assistant reads leads only for those roles.
+  marketing: new Set<Action>(["hq:read", "growth:read", "growth:write", "task:write", "ai:use", "calendar:write", "chat:write", "approval:submit"]),
 };
 
 export function can(role: Role, action: Action): boolean {

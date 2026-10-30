@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { leads } from "@/db/schema";
 import { addRegistrant, eventLeadIds, followUpAfterEvent, markReminded, setAttendance } from "@/lib/events";
 import { normalizePhone } from "@/lib/phone";
+import { can } from "@/lib/rbac";
 import { requireCan } from "@/lib/server-auth";
 
 const id = z.coerce.number().int().positive();
@@ -16,6 +17,7 @@ const back = (campaignId: number, msg: { notice?: string; error?: string }) =>
 
 export async function addRegistrantAction(form: FormData) {
   const user = await requireCan("growth:write");
+  if (!can(user.role, "lead:write")) throw new Error("Registrants are leads: only people who work with leads can change them");
   const campaignId = id.parse(form.get("campaignId"));
   const phone = normalizePhone(String(form.get("phone") ?? ""));
   if (!phone) back(campaignId, { error: "Type their WhatsApp number" });
@@ -28,6 +30,7 @@ export async function addRegistrantAction(form: FormData) {
 
 export async function markRemindedAction(form: FormData) {
   const user = await requireCan("growth:write");
+  if (!can(user.role, "lead:write")) throw new Error("Registrants are leads: only people who work with leads can change them");
   const campaignId = id.parse(form.get("campaignId"));
   const [leadId] = await eventLeadIds(db, campaignId, [Number(form.get("leadId"))]);
   if (!leadId) back(campaignId, { error: "That person is not registered for this event" });
@@ -39,6 +42,7 @@ export async function markRemindedAction(form: FormData) {
 // One form for the whole list: each row posts att-<leadId> = yes | no | (empty: not marked)
 export async function saveAttendanceAction(form: FormData) {
   const user = await requireCan("growth:write");
+  if (!can(user.role, "lead:write")) throw new Error("Registrants are leads: only people who work with leads can change them");
   const campaignId = id.parse(form.get("campaignId"));
   const posted = [...form.keys()].filter((k) => /^att-\d+$/.test(k)).map((k) => Number(k.slice(4)));
   const ok = new Set(await eventLeadIds(db, campaignId, posted));
@@ -53,6 +57,7 @@ export async function saveAttendanceAction(form: FormData) {
 
 export async function followUpEventAction(form: FormData) {
   const user = await requireCan("growth:write");
+  if (!can(user.role, "lead:write")) throw new Error("Registrants are leads: only people who work with leads can change them");
   const p = z.object({ campaignId: id, templateId: id, who: z.enum(["attended", "no_show"]) }).parse(Object.fromEntries(form));
   const r = await followUpAfterEvent(db, p.campaignId, p.who, p.templateId, user.id);
   revalidatePath(`/growth/events/${p.campaignId}`);

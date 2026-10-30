@@ -35,7 +35,7 @@ function Tree({ rows, all, depth = 0 }: { rows: DocRow[]; all: DocRow[]; depth?:
 // The company's written knowledge: how-tos, briefs, policies. Wiki docs are the trusted version.
 export default async function DocsPage(props: { searchParams: Promise<{ q?: string; space?: string; notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   const q = (sp.q ?? "").slice(0, 100);
   const [spaces, docs] = await Promise.all([listSpaces(db), listDocs(db, { q })]);
   const space = spaces.find((s) => String(s.id) === sp.space);

@@ -7,6 +7,7 @@ import type { GoKey } from "@/components/shell/Shortcuts";
 import { Icon } from "@/components/ui/Icon";
 import { getSetting } from "@/lib/app-settings";
 import { clockState } from "@/lib/calendar";
+import { waitingCount } from "@/lib/approvals";
 import { unreadTotal } from "@/lib/chat";
 import { listSpaces } from "@/lib/hq";
 import { navCounts } from "@/lib/nav-counts";
@@ -20,17 +21,20 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  // Designers have no lead list: their app is the production studio, so skip the lead counts entirely.
+  // Designers have no lead list and no HQ: their app is the production studio. Marketing has HQ and Growth, but no
+  // lead records. Only fetch what the person's sidebar shows.
   const sales = can(user.role, "lead:read");
-  const [src, counts, notes, myTasks, spaces, clock, chatUnread, auxCodes] = await Promise.all([
+  const hq = can(user.role, "hq:read");
+  const [src, counts, notes, myTasks, spaces, clock, chatUnread, auxCodes, approvalsWaiting] = await Promise.all([
     sales ? db.select().from(sources).orderBy(asc(sources.id)) : [],
     sales ? navCounts(db) : null,
     recentNotifications(db, user.id),
-    sales ? taskCounts(db, user.id) : null,
-    sales ? listSpaces(db) : [],
+    hq ? taskCounts(db, user.id) : null,
+    hq ? listSpaces(db) : [],
     clockState(db, user.id),
     unreadTotal(db, user.id),
     getSetting(db, "auxCodes"),
+    waitingCount(db, user.id),
   ]);
   // people who see the money get a standing reminder until two-factor is on
   const nudge2fa = user.passwordChanged && !user.twoFactor && can(user.role, "finance:read");
@@ -38,41 +42,53 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const studio: NavItem = { href: "/production", label: "Production", icon: "layers", section: "Studio", keys: "G R" };
   const calendar: NavItem = { href: "/calendar", label: "Team calendar", icon: "calendar", section: "HQ", keys: "G Y" };
   const chat: NavItem = { href: "/chat", label: "Chat", icon: "chat", section: "HQ", count: chatUnread, keys: "G J" };
-  const nav: NavItem[] = !counts || !myTasks
-    ? [studio, { ...chat, section: "Studio" }, { ...calendar, section: "Studio" }]
+  const approvals: NavItem = { href: "/approvals", label: "Approvals", icon: "check", section: "HQ", count: approvalsWaiting, alert: approvalsWaiting > 0 };
+  const nav: NavItem[] = !hq || !myTasks
+    ? [studio, { ...chat, section: "Studio" }, { ...calendar, section: "Studio" }, { ...approvals, section: "Studio" }]
     : [
         { href: "/hq", label: "Home", icon: "today", section: "HQ", keys: "G H" },
         { href: "/inbox", label: "Inbox", icon: "inbox", section: "HQ", count: notes.unread, keys: "G I" },
         chat,
+        approvals,
         calendar,
         { href: "/docs", label: "Docs", icon: "note", section: "HQ" },
         ...spaces.map((s): NavItem => ({ href: `/spaces/${s.id}`, label: s.name, icon: "layers", color: s.color, section: "Spaces", count: s.open })),
-        { href: "/command", label: "Command centre", icon: "gauge", section: "OrlaDent OS", keys: "G O" },
+        sales && { href: "/command", label: "Command centre", icon: "gauge", section: "OrlaDent OS", keys: "G O" },
         can(user.role, "ai:use") && { href: "/ask", label: "Ask OrlaDent", icon: "chat", section: "OrlaDent OS", keys: "G A" },
-        { href: "/tools", label: "Tools", icon: "sparkle", section: "OrlaDent OS" },
+        sales && { href: "/tools", label: "Tools", icon: "sparkle", section: "OrlaDent OS" },
         { href: "/team", label: "Team & ops", icon: "user", section: "OrlaDent OS" },
-        { href: "/", label: "Today", icon: "today", section: "Work", count: counts.today, alert: counts.overdue > 0, keys: "G T", exact: true },
-        { href: "/leads", label: "Leads", icon: "leads", section: "Work", keys: "G L" },
-        { href: "/pipeline", label: "Pipeline", icon: "pipeline", section: "Work", keys: "G P" },
+        counts && { href: "/", label: "Today", icon: "today", section: "Work", count: counts.today, alert: counts.overdue > 0, keys: "G T", exact: true },
+        sales && { href: "/leads", label: "Leads", icon: "leads", section: "Work", keys: "G L" },
+        sales && { href: "/pipeline", label: "Pipeline", icon: "pipeline", section: "Work", keys: "G P" },
         { href: "/tasks", label: "Tasks", icon: "list", section: "Work", count: myTasks.mine, alert: myTasks.mineOverdue > 0, keys: "G K" },
-        { href: "/growth/campaigns", label: "Campaigns", icon: "target", section: "Growth", keys: "G M" },
-        { href: "/growth/content", label: "Content", icon: "sparkle", section: "Growth" },
-        { href: "/growth/events", label: "Masterclasses", icon: "calendar", section: "Growth" },
-        { href: "/growth/forms", label: "Lead forms", icon: "send", section: "Growth" },
-        { href: "/growth/referrals", label: "Referrals", icon: "user", section: "Growth" },
-        { href: "/cohorts", label: "Batches", icon: "cohorts", section: "Programme", keys: "G C" },
-        { href: "/classes", label: "Classes", icon: "calendar", section: "Programme" },
-        { href: "/assignments", label: "Assignments", icon: "list", section: "Programme" },
-        { href: "/alumni", label: "Alumni", icon: "user", section: "Programme" },
-        { href: "/proof", label: "Proof bank", icon: "sparkle", section: "Programme" },
+        ...(can(user.role, "growth:read")
+          ? ([
+              { href: "/growth/campaigns", label: "Campaigns", icon: "target", section: "Growth", keys: "G M" },
+              { href: "/growth/content", label: "Content", icon: "sparkle", section: "Growth" },
+              { href: "/growth/events", label: "Masterclasses", icon: "calendar", section: "Growth" },
+              { href: "/growth/forms", label: "Lead forms", icon: "send", section: "Growth" },
+              { href: "/growth/referrals", label: "Referrals", icon: "user", section: "Growth" },
+            ] satisfies NavItem[])
+          : []),
+        ...(sales
+          ? ([
+              { href: "/cohorts", label: "Batches", icon: "cohorts", section: "Programme", keys: "G C" },
+              { href: "/classes", label: "Classes", icon: "calendar", section: "Programme" },
+              { href: "/assignments", label: "Assignments", icon: "list", section: "Programme" },
+              { href: "/alumni", label: "Alumni", icon: "user", section: "Programme" },
+              { href: "/proof", label: "Proof bank", icon: "sparkle", section: "Programme" },
+            ] satisfies NavItem[])
+          : []),
         can(user.role, "production:read") && studio,
-        { href: "/dashboard", label: "Dashboard", icon: "dashboard", section: "Insight", keys: "G D" },
+        sales && { href: "/dashboard", label: "Dashboard", icon: "dashboard", section: "Insight", keys: "G D" },
         can(user.role, "finance:read") && { href: "/finance", label: "Finance", icon: "trend", section: "Insight", keys: "G F" },
         // smart views with live counts; the ones that are warnings use the attention colour
-        ...VIEW_ORDER.map((k): NavItem => ({
-          href: `/leads?view=${k}`, label: VIEWS[k].label, icon: VIEWS[k].icon, section: "Views",
-          count: counts.views[k], alert: ["no_next_step", "neglected"].includes(k) && counts.views[k] > 0,
-        })),
+        ...(counts
+          ? VIEW_ORDER.map((k): NavItem => ({
+              href: `/leads?view=${k}`, label: VIEWS[k].label, icon: VIEWS[k].icon, section: "Views",
+              count: counts.views[k], alert: ["no_next_step", "neglected"].includes(k) && counts.views[k] > 0,
+            }))
+          : []),
         can(user.role, "settings:write") && { href: "/settings", label: "Settings", icon: "settings", section: "Admin", keys: "G S" },
       ].filter((n): n is NavItem => !!n);
 

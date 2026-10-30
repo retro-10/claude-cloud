@@ -13,7 +13,7 @@ export const metadata = { title: "Playbooks · Team" };
 // The SOP library: how things are done here, step by step; each can be started as a checklist.
 export default async function SopsPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   const manage = can(user.role, "ops:manage");
   const rows = await listSops(db);
   return (

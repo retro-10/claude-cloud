@@ -15,7 +15,7 @@ export const metadata = { title: "Decisions · Team" };
 // Every decision taken, open first (overdue on top); closed ones keep what happened.
 export default async function DecisionsPage(props: { searchParams: Promise<{ notice?: string; error?: string; show?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   const manage = can(user.role, "ops:manage");
   const show = sp.show === "closed" ? "closed" : sp.show === "mine" ? "mine" : "open";
   const [rows, people] = await Promise.all([

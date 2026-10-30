@@ -69,7 +69,7 @@ function RespForm({ r, people }: { r?: Row; people: Person[] }) {
 // Who owns each recurring job, so nothing falls between people (RACI).
 export default async function ResponsibilitiesPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   const manage = can(user.role, "ops:manage");
   const [rows, people] = await Promise.all([listResponsibilities(db), db.select({ id: users.id, name: users.name }).from(users).where(eq(users.active, true)).orderBy(asc(users.name))]);
   const gaps = rows.filter((r) => r.gap).length;

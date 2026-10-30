@@ -119,7 +119,7 @@ export default async function TodayPage(props: { searchParams: Promise<{ mine?: 
   const searchParams = await props.searchParams;
   const user = await requireUser();
   // people without the lead list (designers) start in the production studio
-  if (!can(user.role, "lead:read")) redirect(can(user.role, "production:read") ? "/production" : "/account");
+  if (!can(user.role, "lead:read")) redirect(can(user.role, "hq:read") ? "/hq" : can(user.role, "production:read") ? "/production" : "/account");
   const mine = searchParams.mine === "1";
   // time-based rules (overdue, response-time breaches) also run every few minutes in the background;
   // kicking a sweep here keeps them fresh without making the page wait for it

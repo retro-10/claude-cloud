@@ -19,7 +19,7 @@ import {
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const createdAt = () => ts("created_at").notNull().defaultNow();
 
-export const roleEnum = pgEnum("role", ["owner", "sales", "viewer", "finance", "instructor", "designer"]);
+export const roleEnum = pgEnum("role", ["owner", "sales", "viewer", "finance", "instructor", "designer", "marketing"]);
 export const segmentEnum = pgEnum("segment", ["fresh_graduate", "technician", "dentist", "other"]);
 export const tierEnum = pgEnum("tier", ["foundation", "freelance_ready", "production_partner"]);
 export const tierInterestEnum = pgEnum("tier_interest", [
@@ -1452,4 +1452,50 @@ export const chatMessages = pgTable(
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
   (t) => [index("chat_messages_channel_idx").on(t.channelId, t.id), index("chat_messages_updated_idx").on(t.channelId, t.updatedAt)],
+);
+
+// Approvals: anyone asks (an expense, a purchase, leave, a brand request …), the routing rules in Settings decide who
+// may approve, and any one of them decides. `approverIds` is who could decide when it was asked, so a later rule
+// change does not move a request already waiting. The requester can never decide their own request.
+export const approvalRequests = pgTable(
+  "approval_requests",
+  {
+    id: serial("id").primaryKey(),
+    type: text("type").notNull(), // expense | purchase | leave | brand | other
+    title: text("title").notNull(),
+    details: text("details"),
+    amountEgp: integer("amount_egp"),
+    category: text("category"),
+    campaignId: integer("campaign_id").references(() => campaigns.id),
+    startsOn: text("starts_on"), // leave: first and last day, YYYY-MM-DD (Cairo)
+    endsOn: text("ends_on"),
+    requesterId: integer("requester_id")
+      .notNull()
+      .references(() => users.id),
+    approverIds: integer("approver_ids").array().notNull(),
+    status: text("status").notNull().default("pending"), // pending | needs_info | approved | rejected | cancelled
+    decidedBy: integer("decided_by").references(() => users.id),
+    decidedAt: ts("decided_at"),
+    calendarEventId: integer("calendar_event_id").references(() => calendarEvents.id), // approved leave
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("approval_requests_status_idx").on(t.status, t.createdAt), index("approval_requests_requester_idx").on(t.requesterId)],
+);
+
+// Everything that happened to a request, in order. Rows are only ever added: a database trigger refuses updates and
+// deletes, so the record stays what it said at the time.
+export const approvalEvents = pgTable(
+  "approval_events",
+  {
+    id: serial("id").primaryKey(),
+    requestId: integer("request_id")
+      .notNull()
+      .references(() => approvalRequests.id),
+    userId: integer("user_id").references(() => users.id),
+    action: text("action").notNull(), // submit | approve | reject | needs_info | reply | cancel
+    note: text("note"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("approval_events_request_idx").on(t.requestId, t.id)],
 );
