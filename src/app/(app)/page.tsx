@@ -7,6 +7,7 @@ import { LiveWait } from "@/components/crm/LiveWait";
 import { Avatar, EmptyState, Icon, type IconName } from "@/components/ui";
 import { aiOffered } from "@/lib/ai/core";
 import { can } from "@/lib/rbac";
+import { stepTimer } from "@/lib/timing";
 import { requireUser } from "@/lib/server-auth";
 import { TZ, formatCairo } from "@/lib/time";
 import { getToday, type TodayFollowUp } from "@/lib/today";
@@ -116,8 +117,11 @@ function greeting(now: Date) {
 }
 
 export default async function TodayPage(props: { searchParams: Promise<{ mine?: string }> }) {
+  const step = stepTimer("today");
+  step("start");
   const searchParams = await props.searchParams;
   const user = await requireUser();
+  step("user");
   // people without the lead list (designers) start in the production studio
   if (!can(user.role, "lead:read")) redirect(can(user.role, "hq:read") ? "/hq" : can(user.role, "production:read") ? "/production" : "/account");
   const mine = searchParams.mine === "1";
@@ -125,8 +129,10 @@ export default async function TodayPage(props: { searchParams: Promise<{ mine?: 
   // kicking a sweep here keeps them fresh without making the page wait for it
   void runScheduledRules(db).catch(() => 0);
   const t = await getToday(db, { ownerId: mine ? user.id : undefined });
+  step("getToday");
   const canWrite = can(user.role, "lead:write");
   const aiOn = canWrite && (await aiOffered(db, user.role));
+  step("aiOffered");
   const now = new Date();
   const s = t.settings;
   const todo = t.totals.queue + t.totals.overdue + t.totals.dueToday;
