@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   customType,
   index,
@@ -786,6 +787,7 @@ export const docs = pgTable(
     updatedBy: integer("updated_by").references(() => users.id),
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
+    brand: boolean("brand").notNull().default(false), // part of the brand guidelines (shown in the brand hub)
     archivedAt: ts("archived_at"),
   },
   (t) => [index("docs_space_idx").on(t.spaceId), index("docs_parent_idx").on(t.parentId)],
@@ -875,11 +877,12 @@ export const attachments = pgTable(
     leadId: integer("lead_id").references(() => leads.id),
     cohortId: integer("cohort_id").references(() => cohorts.id),
     caseId: integer("case_id").references(() => productionCases.id), // a production case's design files
+    assetId: integer("asset_id").references((): AnyPgColumn => brandAssets.id), // a brand asset's file
     uploadedBy: integer("uploaded_by").references(() => users.id),
     createdAt: createdAt(),
     deletedAt: ts("deleted_at"),
   },
-  (t) => [index("attachments_lead_idx").on(t.leadId), index("attachments_cohort_idx").on(t.cohortId), index("attachments_case_idx").on(t.caseId)],
+  (t) => [index("attachments_lead_idx").on(t.leadId), index("attachments_cohort_idx").on(t.cohortId), index("attachments_case_idx").on(t.caseId), index("attachments_asset_idx").on(t.assetId)],
 );
 
 // Public sign-up forms (/f/<slug>): a masterclass registration, an "apply" page, a link in bio. Each submission
@@ -1501,4 +1504,71 @@ export const approvalEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("approval_events_request_idx").on(t.requestId, t.id)],
+);
+
+// Announcements: an owner posts to everyone or to some roles; pinned ones stay on top; "must read" ones are
+// acknowledged by each person, tracked, and reminded daily until they are. A receipt is made for each person in the
+// audience when it is published, so later role changes do not change who was asked.
+export const announcements = pgTable("announcements", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  body: text("body").notNull().default(""),
+  audience: text("audience").array().notNull().default(sql`'{}'::text[]`), // roles; empty = everyone
+  pinned: boolean("pinned").notNull().default(false),
+  mustAck: boolean("must_ack").notNull().default(false),
+  authorId: integer("author_id").references(() => users.id),
+  publishedAt: ts("published_at").notNull().defaultNow(),
+  archivedAt: ts("archived_at"),
+});
+
+export const announcementReceipts = pgTable(
+  "announcement_receipts",
+  {
+    announcementId: integer("announcement_id")
+      .notNull()
+      .references(() => announcements.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    readAt: ts("read_at"),
+    acknowledgedAt: ts("acknowledged_at"),
+    remindedAt: ts("reminded_at"),
+  },
+  (t) => [primaryKey({ columns: [t.announcementId, t.userId] }), index("announcement_receipts_user_idx").on(t.userId)],
+);
+
+// The brand asset library (logos, photos, videos, templates, fonts, brand documents). An asset is a file (in the file
+// store) or a link (for large videos). A new version is a new row pointing at the one it replaces, which is retired:
+// it drops out of the library everywhere but its history stays.
+export const brandAssets = pgTable(
+  "brand_assets",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    type: text("type").notNull(), // logo | photo | video | template | font | brand_doc | other
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    usageNotes: text("usage_notes"),
+    version: text("version"),
+    url: text("url"), // a link instead of a file (e.g. a video on Drive)
+    status: text("status").notNull().default("active"), // active | retired
+    replacesId: integer("replaces_id").references((): AnyPgColumn => brandAssets.id),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    retiredAt: ts("retired_at"),
+    retiredBy: integer("retired_by").references(() => users.id),
+  },
+  (t) => [index("brand_assets_status_idx").on(t.status, t.type)],
+);
+
+export const brandAssetDownloads = pgTable(
+  "brand_asset_downloads",
+  {
+    id: serial("id").primaryKey(),
+    assetId: integer("asset_id")
+      .notNull()
+      .references(() => brandAssets.id),
+    userId: integer("user_id").references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index("brand_asset_downloads_asset_idx").on(t.assetId)],
 );

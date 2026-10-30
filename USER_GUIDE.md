@@ -24,6 +24,26 @@ when the buyer moved, and log everything** so the numbers are true.
   hours overdue, nobody has answered an unassigned lead.
 * Sun/moon icon: light or dark theme (remembered per browser).
 
+## Announcements and people (everyone)
+
+* **Announcements** (sidebar, with the number you have not opened): news and policies from the owners, to everyone
+  or to some teams only. Pinned ones stay on top. A **must read** one shows a banner on HQ Home until you open it and
+  press **I have read it**; until then you get a reminder once a day, for two weeks. Owners post them (**New
+  announcement**: title, message, who it is for, must read, pin) and see who opened and who acknowledged each one.
+* **People**: everyone on the team, their role, their email, and whether they are working, away (prayer, lunch …),
+  busy or off right now. The chat button opens a direct message.
+
+## Brand hub (everyone; owners and marketing manage it)
+
+* **Guidelines**: pages about the logo, colours, type and voice. They are ordinary docs with **Brand guideline**
+  ticked (owners and marketing can tick it; *New guideline page* in the hub starts one ticked).
+* **Asset library**: approved logos, photos, videos, templates, fonts and brand documents. Filter by kind, tag or
+  text; **Download** saves the file (every download is counted, and managers see who took it). Large videos can be a
+  link instead of a file.
+* **Versions**: *Upload a new version* on an asset retires the old one: it leaves the library everywhere, and its page
+  points to the current version, so nobody keeps using an old logo. Retired assets can be put back.
+* Need something designed? **Ask the brand team** opens a brand request in Approvals.
+
 ## Approvals (everyone)
 
 **Approvals** in the sidebar is one queue for every yes the company needs.

@@ -23,6 +23,10 @@ export type Action =
   | "stage:override" // move a lead although the stage's exit criteria are not met (with a reason)
   | "calendar:write" // clock in and out, and plan your own calendar (everyone); owners also fix anyone's
   | "chat:write" // team chat: channels and direct messages (everyone)
+  | "comms:read" // announcements and the team directory (everyone)
+  | "comms:post" // post, pin and archive announcements (owner)
+  | "brand:read" // the brand hub: guidelines and the asset library (everyone)
+  | "brand:manage" // add assets, new versions, retire them, edit brand guideline pages (owner, marketing)
   | "approval:submit" // ask for an approval (expense, purchase, leave …) and follow it; deciding depends on the routing rules
   | "ai:use" // Ask OrlaDent and AI drafts, when an owner has switched the assistant on (not designers)
   | "finance:read"; // revenue anywhere (dashboard, batches, a lead's payments) and the Finance board: owner and finance only
@@ -54,19 +58,23 @@ const MATRIX: Record<Role, ReadonlySet<Action>> = {
     "calendar:write",
     "chat:write",
     "approval:submit",
+    "comms:read",
+    "comms:post",
+    "brand:read",
+    "brand:manage",
   ]),
-  sales: new Set<Action>(["hq:read", "growth:read", "lead:read", "lead:write", "task:write", "file:write", "growth:write", "ai:use", "calendar:write", "chat:write", "approval:submit"]),
-  viewer: new Set<Action>(["hq:read", "growth:read", "lead:read", "ai:use", "calendar:write", "chat:write", "approval:submit"]),
+  sales: new Set<Action>(["hq:read", "growth:read", "lead:read", "lead:write", "task:write", "file:write", "growth:write", "ai:use", "calendar:write", "chat:write", "approval:submit", "comms:read", "brand:read"]),
+  viewer: new Set<Action>(["hq:read", "growth:read", "lead:read", "ai:use", "calendar:write", "chat:write", "approval:submit", "comms:read", "brand:read"]),
   // Finance: sees everything, records/edits payments and exports revenue. No lead, settings or user edits.
-  finance: new Set<Action>(["hq:read", "growth:read", "lead:read", "payment:write", "revenue:export", "finance:read", "task:write", "file:write", "production:read", "ai:use", "calendar:write", "chat:write", "approval:submit"]),
+  finance: new Set<Action>(["hq:read", "growth:read", "lead:read", "payment:write", "revenue:export", "finance:read", "task:write", "file:write", "production:read", "ai:use", "calendar:write", "chat:write", "approval:submit", "comms:read", "brand:read"]),
   // Instructor: teaches and reviews. Reads students' lead pages, runs classes, attendance, reviews and graduation; no money.
-  instructor: new Set<Action>(["hq:read", "growth:read", "lead:read", "task:write", "file:write", "programme:write", "ai:use", "calendar:write", "chat:write", "approval:submit"]),
+  instructor: new Set<Action>(["hq:read", "growth:read", "lead:read", "task:write", "file:write", "programme:write", "ai:use", "calendar:write", "chat:write", "approval:submit", "comms:read", "brand:read"]),
   // Designer: often a Production Partner graduate. Only the production studio, and only the cases assigned to them:
   // no leads, no students, no money other than their own pay per case.
-  designer: new Set<Action>(["production:read", "production:work", "calendar:write", "chat:write", "approval:submit"]),
+  designer: new Set<Action>(["production:read", "production:work", "calendar:write", "chat:write", "approval:submit", "comms:read", "brand:read"]),
   // Marketing: plans campaigns, content and masterclasses, and works in HQ. No lead records (names, phones): growth
   // pages show them only to people with lead:read, and the AI assistant reads leads only for those roles.
-  marketing: new Set<Action>(["hq:read", "growth:read", "growth:write", "task:write", "ai:use", "calendar:write", "chat:write", "approval:submit"]),
+  marketing: new Set<Action>(["hq:read", "growth:read", "growth:write", "task:write", "ai:use", "calendar:write", "chat:write", "approval:submit", "comms:read", "brand:read", "brand:manage"]),
 };
 
 export function can(role: Role, action: Action): boolean {

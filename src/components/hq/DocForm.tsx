@@ -3,8 +3,10 @@ import { saveDocAction } from "@/app/(app)/hq/actions";
 type Opt = { id: number; name: string };
 
 /** Write or edit a doc. The body is Markdown: # headings, - lists, - [ ] checklists, **bold**, [links](https://…). */
-export function DocForm({ doc, spaces, parents, back, spaceId, parentId }: {
-  doc?: { id: number; title: string; body: string; spaceId: number | null; parentId: number | null; wiki: boolean };
+export function DocForm({ doc, spaces, parents, back, spaceId, parentId, canBrand = false, brand = false }: {
+  doc?: { id: number; title: string; body: string; spaceId: number | null; parentId: number | null; wiki: boolean; brand?: boolean };
+  canBrand?: boolean; // may mark the page as a brand guideline
+  brand?: boolean; // a new page starts as a brand guideline (from the brand hub)
   spaces: Opt[];
   parents: Opt[];
   back: string;
@@ -55,6 +57,11 @@ export function DocForm({ doc, spaces, parents, back, spaceId, parentId }: {
         <label className="flex items-center gap-2 self-end pb-2.5 text-sm text-muted">
           <input type="checkbox" name="wiki" defaultChecked={doc?.wiki} className="check" /> Wiki: the version to trust
         </label>
+        {canBrand && (
+          <label className="flex items-center gap-2 self-end pb-2.5 text-sm text-muted">
+            <input type="checkbox" name="brand" defaultChecked={doc?.brand ?? brand} className="check" /> Brand guideline (shown in the brand hub)
+          </label>
+        )}
       </div>
       <label className="field">
         <span className="flex items-center justify-between">
