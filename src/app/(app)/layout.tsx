@@ -17,15 +17,11 @@ import { VIEWS, VIEW_ORDER } from "@/lib/views";
 import { can } from "@/lib/rbac";
 import { requireUser } from "@/lib/server-auth";
 import { taskCounts } from "@/lib/tasks";
-import { stepTimer } from "@/lib/timing";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const step = stepTimer("layout");
-  step("start");
   const user = await requireUser();
-  step("user");
   // Designers have no lead list and no HQ: their app is the production studio. Marketing has HQ and Growth, but no
   // lead records. Only fetch what the person's sidebar shows.
   const sales = can(user.role, "lead:read");
@@ -41,19 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getSetting(db, "auxCodes"),
     waitingCount(db, user.id),
     unreadCounts(db, user.id),
-  ].map((p, i) => Promise.resolve(p).then((v) => (step(`query ${i} done`), v)))) as [
-    (typeof sources.$inferSelect)[],
-    Awaited<ReturnType<typeof navCounts>> | null,
-    Awaited<ReturnType<typeof recentNotifications>>,
-    Awaited<ReturnType<typeof taskCounts>> | null,
-    Awaited<ReturnType<typeof listSpaces>>,
-    Awaited<ReturnType<typeof clockState>>,
-    Awaited<ReturnType<typeof unreadTotal>>,
-    Awaited<ReturnType<typeof getSetting<"auxCodes">>>,
-    Awaited<ReturnType<typeof waitingCount>>,
-    Awaited<ReturnType<typeof unreadCounts>>,
-  ];
-  step("all queries");
+  ]);
   // people who see the money get a standing reminder until two-factor is on
   const nudge2fa = user.passwordChanged && !user.twoFactor && can(user.role, "finance:read");
 

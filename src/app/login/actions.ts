@@ -12,7 +12,6 @@ import { passwordVersion } from "@/lib/password-version";
 import { clearHits, isLimited, recordHit } from "@/lib/rate-limit";
 import { PENDING_2FA_COOKIE, SESSION_COOKIE, cookieOptions, pendingCookieOptions, signPending2fa, signSession, verifyPending2fa } from "@/lib/session";
 import { twoFactorStatus, verifySecondFactor } from "@/lib/two-factor";
-import { stepTimer } from "@/lib/timing";
 
 const schema = z.object({ email: z.string().email().max(200), password: z.string().min(1).max(200) });
 
@@ -23,8 +22,6 @@ const MAX_PER_IP = Number(process.env.LOGIN_MAX_FAILED_PER_IP ?? 20);
 export type LoginState = { error?: string };
 
 export async function login(_prev: LoginState, form: FormData): Promise<LoginState> {
-  const step = stepTimer("login");
-  step("start");
   const parsed = schema.safeParse({ email: form.get("email"), password: form.get("password") });
   if (!parsed.success) return { error: "Enter a valid email and password." };
 
@@ -40,7 +37,6 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   }
 
   const user = await authenticate(db, email, parsed.data.password);
-  step(user ? "password ok" : "password wrong");
   if (!user) {
     recordHit(acct, WINDOW);
     recordHit(ipKey, WINDOW);
@@ -51,17 +47,13 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
 
   const { pv, ...sessionUser } = user;
   // two-factor on: the password alone gives only a 5-minute pass to the code page, never a session
-  const tf = await twoFactorStatus(db, user.id);
-  step("2fa status");
-  if (tf.enabled) {
+  if ((await twoFactorStatus(db, user.id)).enabled) {
     (await cookies()).set(PENDING_2FA_COOKIE, await signPending2fa(user.id, pv), pendingCookieOptions());
     await audit(db, { userId: user.id, entity: "auth", entityId: user.id, action: "login_password_ok" });
     redirect("/login/verify");
   }
   (await cookies()).set(SESSION_COOKIE, await signSession(sessionUser, pv), cookieOptions());
-  step("cookie set");
   await audit(db, { userId: user.id, entity: "auth", entityId: user.id, action: "login" });
-  step("audit written, redirecting");
   redirect("/");
 }
 
