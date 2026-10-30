@@ -3,10 +3,8 @@ import postgres from "postgres";
 // One place that turns DATABASE_URL into postgres.js options, for the app, the migrator and the seed. The same code
 // runs against the Docker database and a hosted one (Supabase):
 // - Supabase only accepts TLS, so its hosts get ssl "require" (an explicit ?sslmode= in the URL still wins);
-// - Supabase's transaction pooler (port 6543): prepared statements were off there by default. postgres.js then sends a
-//   query with parameters in two round trips (describe, wait, then execute), and the pooler can leave the first one
-//   unanswered: the page hangs until the function timeout (seen on Vercel). DATABASE_PREPARE=true keeps them on, so
-//   every query goes in one round trip; each connection also sends one query at a time;
+// - Supabase's transaction pooler (port 6543) cannot keep prepared statements between queries, so they are off there;
+// - SUPABASE_POOL_MODE=session (see sessionPoolerUrl) moves the app to the session pooler instead;
 // - DATABASE_POOL_MAX caps the pool, to stay under a hosted plan's connection limit. Keep it above 1: on Vercel a pool
 //   of one connection left signed-in pages hanging until the function timeout.
 export function connectionOptions(url: string, max = Number(process.env.DATABASE_POOL_MAX) || 10): postgres.Options<Record<string, never>> {
@@ -29,9 +27,32 @@ export function connectionOptions(url: string, max = Number(process.env.DATABASE
     // app does not hold its pooler connections open
     ...(process.env.VERCEL ? { idle_timeout: 20 } : {}),
     ...(hosted && !sslmode ? { ssl: "require" as const } : {}),
-    ...((port === "6543" && process.env.DATABASE_PREPARE !== "true") || process.env.DATABASE_PREPARE === "false" ? { prepare: false } : {}),
-    ...(port === "6543" ? ({ max_pipeline: 1 } as postgres.Options<Record<string, never>>) : {}),
+    ...(port === "6543" || process.env.DATABASE_PREPARE === "false" ? { prepare: false } : {}),
   };
 }
 
-export const connect = (url: string, max?: number) => postgres(url, connectionOptions(url, max));
+/**
+ * SUPABASE_POOL_MODE=session moves a Supabase transaction-pooler URL (port 6543) to the session pooler on the same host
+ * (port 5432, same credentials). With prepared statements off, postgres.js sends a query with parameters in two round
+ * trips (describe and flush, then execute), and the transaction pooler can leave the first unanswered: on Vercel the
+ * signed-in pages hung until the function timeout. The session pooler is a real session and answers it. It allows a
+ * fixed number of clients across all function instances (15 on the free plan), so keep DATABASE_POOL_MAX small (2).
+ */
+export function sessionPoolerUrl(url: string) {
+  if (process.env.SUPABASE_POOL_MODE !== "session") return url;
+  try {
+    const u = new URL(url);
+    if (u.port === "6543" && /\.pooler\.supabase\.com$/.test(u.hostname)) {
+      u.port = "5432";
+      return u.toString();
+    }
+  } catch {
+    // postgres.js reports a malformed URL itself
+  }
+  return url;
+}
+
+export const connect = (url: string, max?: number) => {
+  const target = sessionPoolerUrl(url);
+  return postgres(target, connectionOptions(target, max));
+};
