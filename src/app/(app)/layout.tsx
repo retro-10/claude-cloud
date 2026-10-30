@@ -48,8 +48,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const announcementsNav: NavItem = { href: "/announcements", label: "Announcements", icon: "send", section: "HQ", count: news.unread, alert: news.toAck > 0 };
   const people: NavItem = { href: "/people", label: "People", icon: "user", section: "HQ" };
   const brand: NavItem = { href: "/brand", label: "Brand hub", icon: "sparkle", section: "HQ" };
+  const portal: NavItem = { href: "/me", label: "My portal", icon: "shield", section: "HQ" };
   const nav: NavItem[] = !hq || !myTasks
-    ? [studio, ...[chat, announcementsNav, calendar, approvals, people, brand].map((n) => ({ ...n, section: "Studio" }))]
+    ? [studio, ...[chat, announcementsNav, calendar, approvals, people, brand, portal].map((n) => ({ ...n, section: "Studio" }))]
     : [
         { href: "/hq", label: "Home", icon: "today", section: "HQ", keys: "G H" },
         { href: "/inbox", label: "Inbox", icon: "inbox", section: "HQ", count: notes.unread, keys: "G I" },
@@ -60,6 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { href: "/docs", label: "Docs", icon: "note", section: "HQ" },
         brand,
         people,
+        portal,
         ...spaces.map((s): NavItem => ({ href: `/spaces/${s.id}`, label: s.name, icon: "layers", color: s.color, section: "Spaces", count: s.open })),
         sales && { href: "/command", label: "Command centre", icon: "gauge", section: "OrlaDent OS", keys: "G O" },
         can(user.role, "ai:use") && { href: "/ask", label: "Ask OrlaDent", icon: "chat", section: "OrlaDent OS", keys: "G A" },
@@ -97,6 +99,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               count: counts.views[k], alert: ["no_next_step", "neglected"].includes(k) && counts.views[k] > 0,
             }))
           : []),
+        (can(user.role, "employee:manage") || can(user.role, "employee:pay")) && {
+          href: "/employees",
+          label: can(user.role, "employee:manage") ? "Employees" : "Pay terms",
+          icon: "shield",
+          section: can(user.role, "employee:manage") ? "Admin" : "Insight",
+        },
         can(user.role, "settings:write") && { href: "/settings", label: "Settings", icon: "settings", section: "Admin", keys: "G S" },
       ].filter((n): n is NavItem => !!n);
 

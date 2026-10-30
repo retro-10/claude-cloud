@@ -43,3 +43,9 @@ export async function requirePageCan(action: Action): Promise<CurrentUser> {
   if (!can(user.role, action)) notFound();
   return user;
 }
+
+// The employee portal (own records, others' records, contract files) needs two-factor sign-in. Pages show a screen
+// that says so (TwoFactorGate); actions refuse.
+export function requireTwoFactor(user: CurrentUser) {
+  if (!user.twoFactor) throw new Error("Two-factor sign-in is required for employee records");
+}

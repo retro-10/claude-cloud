@@ -66,6 +66,29 @@ when the buyer moved, and log everything** so the numbers are true.
   and cannot be edited or deleted, not even directly in the database. Owners see every request; finance sees every
   money request; everyone else sees their own and the ones they approve.
 
+## My portal and employee records (everyone; two-factor sign-in required)
+
+**My portal** in the sidebar is your own page: profile, terms, documents, requests, work and pay. It opens only once
+two-factor sign-in is on (My account > Two-factor sign-in); until then it says so.
+
+* **My profile**: name, job title, worker type (employee, partner or contractor), start date, manager. Your
+  **contact details** (phone, personal email, address, emergency contact) are yours to keep up to date. Anything
+  else (title, pay, dates, manager, name) you **ask to change**; the owners are notified and make or decline it.
+* **My terms**: pay terms, pay, schedule, notice period and your current contract.
+* **My documents**: your contract, addenda, letters and policies. Open one to download it and, when asked, tick
+  *I have read this document and accept it*: the app keeps who, when and which version. A new version replaces
+  the old one, which stays listed for the record.
+* **My requests**: your leave and expense requests and your change requests, with their status.
+* **My pay**: your pay rows from the books, once an owner links your record to your team member there.
+
+**Owners** open **Employees** (Admin): everyone's record, terms, contact details and documents; add a document
+(it asks the person to read and accept it), upload a new version, and decide change requests (another owner
+decides changes to your own record). Every record an owner opens is written to the audit log, and so is every
+download. **Finance** opens **Pay terms**: each person's pay terms only, nothing else of their record.
+
+None of this goes to the AI assistant, the exports or Notion. A person whose account is switched off can no longer
+sign in, so they no longer see their portal (see the open questions about leavers).
+
 ## Team chat (everyone)
 
 **Chat** in the sidebar (or `G J`) is where the team talks: every role, designers included. The number beside it
