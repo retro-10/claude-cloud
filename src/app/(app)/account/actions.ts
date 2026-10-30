@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { users } from "@/db/schema";
+import { EMAIL_CHOICES } from "@/lib/email";
 import { requireUser } from "@/lib/server-auth";
 import { beginSetup, confirmSetup, disableTwoFactor, regenerateRecoveryCodes } from "@/lib/two-factor";
 
@@ -40,4 +43,13 @@ export async function disableTwoFactorAction(_prev: TwoFactorState, form: FormDa
   if (!r.ok) return { error: r.error };
   revalidatePath("/", "layout");
   return { done: "Two-factor sign-in is off." };
+}
+
+/** Your own email setting: which notifications also come by email when left unread. */
+export async function saveEmailPrefsAction(form: FormData) {
+  const user = await requireUser();
+  const choice = String(form.get("emailNotifications") ?? "");
+  if (!EMAIL_CHOICES.some((c) => c.key === choice)) redirect("/account?error=" + encodeURIComponent("Pick one of the options"));
+  await db.update(users).set({ emailNotifications: choice }).where(eq(users.id, user.id));
+  redirect("/account?notice=" + encodeURIComponent("Email setting saved"));
 }

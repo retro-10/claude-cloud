@@ -23,6 +23,7 @@ export async function register() {
       const { stopForgottenClocks } = await import("./lib/calendar");
       const { moveFilesToDrive } = await import("./lib/attachments");
       const { backupIfDue } = await import("./lib/backup");
+      const { sendNotificationEmails } = await import("./lib/email");
       const tick = () => {
         void runScheduledRules(db).catch(() => 0);
         void stopForgottenClocks(db).catch(() => 0);
@@ -30,6 +31,8 @@ export async function register() {
         void moveFilesToDrive(db).catch(() => 0);
         // and a database backup to Drive once a day
         void backupIfDue(db).catch(() => 0);
+        // and an email digest of notifications left unread for 10 minutes (when RESEND_API_KEY is set)
+        void sendNotificationEmails(db).catch(() => 0);
       };
       setTimeout(tick, 30_000);
       setInterval(tick, 5 * 60_000).unref?.();

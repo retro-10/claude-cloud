@@ -71,3 +71,118 @@ export async function searchLeads(db: Db, q: string, limit = 8): Promise<SearchH
     .orderBy(sql`(${foldedSql(leads.fullName)} like ${prefix}) desc`, desc(leads.updatedAt))
     .limit(limit);
 }
+
+// ---------------- ⌘K: every kind of record, permission-filtered ----------------
+
+export type AnyHit = { kind: string; id: number; label: string; sub: string; href: string };
+export type SearchScope = {
+  userId: number;
+  leads: boolean; // lead:read
+  hq: boolean; // hq:read: tasks and docs
+  growth: boolean; // growth:read: campaigns and content
+  chat: boolean; // chat:write: channels
+  approvalsAll: boolean; // owners see every request
+  approvalsMoney: boolean; // finance sees every money request
+};
+
+/**
+ * Matches the words typed, or nearly (a typo or a missing letter): pg_trgm's word similarity on the folded text.
+ * Returns the condition and a score to sort by.
+ */
+function fuzzy(col: SQL, q: string) {
+  const t = foldArabic(q.trim());
+  const like = `%${escapeLike(t)}%`;
+  const f = foldedSql(col);
+  return { where: sql`(${f} like ${like} or word_similarity(${t}, ${f}) > 0.45)`, score: sql<number>`greatest(case when ${f} like ${like} then 1 else 0 end, word_similarity(${t}, ${f}))` };
+}
+
+export async function searchEverything(db: Db, scope: SearchScope, q: string, per = 4): Promise<AnyHit[]> {
+  const term = q.trim();
+  if (term.length < 2) return [];
+  const { approvalRequests, chatChannels, cohorts, campaigns, contentItems, docs, tasks } = await import("@/db/schema");
+  const jobs: Promise<AnyHit[]>[] = [];
+  if (scope.leads) {
+    jobs.push(searchLeads(db, term, per).then((h) => h.map((l) => ({ kind: "Leads", id: l.id, label: l.fullName, sub: l.stageLabel, href: `/leads/${l.id}` }))));
+    const m = fuzzy(sql`${cohorts.name}`, term);
+    jobs.push(
+      db
+        .select({ id: cohorts.id, label: cohorts.name, score: m.score })
+        .from(cohorts)
+        .where(m.where)
+        .orderBy(desc(m.score))
+        .limit(per)
+        .then((r) => r.map((x) => ({ kind: "Batches", id: x.id, label: x.label, sub: "Batch", href: `/cohorts/${x.id}` }))),
+    );
+  }
+  if (scope.hq) {
+    const t = fuzzy(sql`${tasks.title}`, term);
+    jobs.push(
+      db
+        .select({ id: tasks.id, label: tasks.title, done: tasks.doneAt, score: t.score })
+        .from(tasks)
+        .where(t.where)
+        .orderBy(sql`${tasks.doneAt} is not null`, desc(t.score))
+        .limit(per)
+        .then((r) => r.map((x) => ({ kind: "Tasks", id: x.id, label: x.label, sub: x.done ? "Done" : "Open", href: `/tasks/${x.id}` }))),
+    );
+    const d = fuzzy(sql`${docs.title} || ' ' || left(${docs.body}, 2000)`, term);
+    jobs.push(
+      db
+        .select({ id: docs.id, label: docs.title, score: d.score })
+        .from(docs)
+        .where(and(isNull(docs.archivedAt), d.where))
+        .orderBy(desc(d.score))
+        .limit(per)
+        .then((r) => r.map((x) => ({ kind: "Docs", id: x.id, label: x.label, sub: "Doc", href: `/docs/${x.id}` }))),
+    );
+  }
+  if (scope.growth) {
+    const c = fuzzy(sql`${campaigns.label}`, term);
+    jobs.push(
+      db
+        .select({ id: campaigns.id, label: campaigns.label, score: c.score })
+        .from(campaigns)
+        .where(c.where)
+        .orderBy(desc(c.score))
+        .limit(per)
+        .then((r) => r.map((x) => ({ kind: "Campaigns", id: x.id, label: x.label, sub: "Campaign", href: `/growth/campaigns/${x.id}` }))),
+    );
+    const p = fuzzy(sql`${contentItems.title}`, term);
+    jobs.push(
+      db
+        .select({ id: contentItems.id, label: contentItems.title, status: contentItems.status, score: p.score })
+        .from(contentItems)
+        .where(p.where)
+        .orderBy(desc(p.score))
+        .limit(per)
+        .then((r) => r.map((x) => ({ kind: "Content", id: x.id, label: x.label, sub: x.status, href: `/growth/content/${x.id}` }))),
+    );
+  }
+  if (scope.chat) {
+    const ch = fuzzy(sql`coalesce(${chatChannels.name}, '') || ' ' || coalesce(${chatChannels.topic}, '')`, term);
+    jobs.push(
+      db
+        .select({ id: chatChannels.id, label: chatChannels.name, score: ch.score })
+        .from(chatChannels)
+        .where(and(eq(chatChannels.kind, "channel"), isNull(chatChannels.archivedAt), ch.where))
+        .orderBy(desc(ch.score))
+        .limit(per)
+        .then((r) => r.map((x) => ({ kind: "Chat", id: x.id, label: `#${x.label}`, sub: "Channel", href: `/chat/${x.id}` }))),
+    );
+  }
+  // approval requests this person may see: their own, the ones they approve, all (owners), money ones (finance)
+  const a = fuzzy(sql`${approvalRequests.title}`, term);
+  const visible = scope.approvalsAll
+    ? sql`true`
+    : sql`(${approvalRequests.requesterId} = ${scope.userId} or ${scope.userId} = any(${approvalRequests.approverIds})${scope.approvalsMoney ? sql` or ${approvalRequests.type} in ('expense', 'purchase')` : sql``})`;
+  jobs.push(
+    db
+      .select({ id: approvalRequests.id, label: approvalRequests.title, status: approvalRequests.status, score: a.score })
+      .from(approvalRequests)
+      .where(and(visible, a.where))
+      .orderBy(desc(a.score))
+      .limit(per)
+      .then((r) => r.map((x) => ({ kind: "Approvals", id: x.id, label: x.label, sub: x.status.replace("_", " "), href: `/approvals/${x.id}` }))),
+  );
+  return (await Promise.all(jobs)).flat();
+}

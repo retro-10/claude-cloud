@@ -71,6 +71,8 @@ export const users = pgTable("users", {
   totpEnabledAt: ts("totp_enabled_at"),
   totpLastStep: integer("totp_last_step"), // the last 30-second step used: a code works once
   recoveryCodes: jsonb("recovery_codes").$type<string[]>().notNull().default([]), // sha256 of each unused code
+  // which notifications also come by email when left unread: important | all | none
+  emailNotifications: text("email_notifications").notNull().default("important"),
 });
 
 export const stages = pgTable("stages", {
@@ -435,6 +437,7 @@ export const notifications = pgTable(
     link: text("link"), // a page inside the app to open (a chat conversation); a lead's page when leadId is set
     createdAt: createdAt(),
     readAt: ts("read_at"),
+    emailedAt: ts("emailed_at"), // included in an email digest (or skipped for email), so it is never sent twice
   },
   (t) => [index("notifications_user_idx").on(t.userId, t.readAt)],
 );

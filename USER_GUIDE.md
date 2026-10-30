@@ -8,9 +8,15 @@ when the buyer moved, and log everything** so the numbers are true.
 * **Sidebar** (left; on a phone, **More** at the bottom): **HQ** first (Home, Inbox, Docs), then your **Spaces**,
   then **Command centre** and **Tools**, Today, Leads, Pipeline, Tasks, Batches, Dashboard, then **Views** with live
   counts (see below), then Settings for owners. Click a section's title to fold it away; the browser remembers.
-* **Ctrl K** (⌘K on a Mac), or the search box at the top of the sidebar, opens the **command palette**: type part
-  of a name or a phone number in any format (`0100 777 66`, `+20 100…`, Arabic spelling variants are matched) to
-  jump to a lead, or type a command ("new lead", "pipeline", "dark theme", "sign out").
+* **Ctrl K** (⌘K on a Mac), or the search box at the top of the sidebar, opens the **command palette**. It finds
+  **records**, not only pages: leads (by name or a phone number in any format, `0100 777 66`, `+20 100…`, Arabic
+  spelling variants matched), tasks, docs (by their text too), batches, campaigns, content, chat channels and
+  approval requests, each only if you are allowed to see it. A typo or a missing letter is forgiven
+  ("mastrclass" finds "Masterclass"). With nothing typed it shows where you went last. It also runs **actions**:
+  New expense, Ask for leave, Ask to buy something, Brand or design request, New message, New doc, New lead, and
+  commands ("pipeline", "dark theme", "sign out").
+* **Email**: anything in your inbox still unread after 10 minutes can also come by email, a few items per email.
+  Choose *Important only* (the default), *Everything* or *None* in **My account**.
 * **Keyboard**: `n` new lead · `/` search on the page · `g` then `y` (Team calendar) / `h` / `i` / `o` / `t` / `l` / `p` / `k` / `c` / `d` / `s`
   goes to HQ Home, Inbox, Command centre, Today, Leads, Pipeline, Tasks, Batches, Dashboard, Settings · `?` shows every shortcut · `Esc`
   closes a dialog.

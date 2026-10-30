@@ -31,5 +31,7 @@ services:
         sync: false
       - key: RESEND_API_KEY
         sync: false
+      - key: EMAIL_FROM
+        value: OrlaDent HQ <hq@orladent.com>
       - key: ANTHROPIC_API_KEY
         sync: false
