@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { connectionOptions } from "@/db/connection";
+import { connectionOptions, sessionPoolerUrl } from "@/db/connection";
 import { runMigrations } from "@/db/migrate";
 import { seedReference } from "@/db/seed";
 import * as s from "@/db/schema";
@@ -23,6 +23,19 @@ describe("database connection options", () => {
     // an explicit sslmode in the URL is left to postgres.js
     expect(connectionOptions("postgresql://postgres:pw@db.abc.supabase.co:5432/postgres?sslmode=verify-full")).not.toHaveProperty("ssl");
     expect(connectionOptions("postgres://x@notsupabase.com.evil:5432/x")).not.toHaveProperty("ssl");
+    // on Vercel, idle connections close so a frozen copy of the app does not hold them
+    const before = process.env.VERCEL;
+    process.env.VERCEL = "1";
+    expect(connectionOptions("postgres://crm:pw@db:5432/crm", 5)).toMatchObject({ idle_timeout: 20 });
+    if (before === undefined) delete process.env.VERCEL;
+    else process.env.VERCEL = before;
+    // SUPABASE_POOL_MODE=session moves the transaction pooler (6543) to the session pooler (5432), same host
+    const tx = "postgresql://postgres.abc:pw@aws-0-eu-west-1.pooler.supabase.com:6543/postgres";
+    expect(sessionPoolerUrl(tx)).toBe(tx);
+    process.env.SUPABASE_POOL_MODE = "session";
+    expect(sessionPoolerUrl(tx)).toBe("postgresql://postgres.abc:pw@aws-0-eu-west-1.pooler.supabase.com:5432/postgres");
+    expect(sessionPoolerUrl("postgres://crm:pw@db:6543/crm")).toBe("postgres://crm:pw@db:6543/crm");
+    delete process.env.SUPABASE_POOL_MODE;
   });
 });
 

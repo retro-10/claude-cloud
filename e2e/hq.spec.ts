@@ -12,6 +12,14 @@ async function scan(page: Page, label: string) {
   for (const t of ["dark", "light"]) {
     await page.evaluate((x) => (document.documentElement.dataset.theme = x), t);
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    // switching views within a space keeps the old title while Next swaps the <title> element: wait until it is back
+    // and has held for a moment
+    await page.waitForFunction(() => {
+      const w = window as unknown as { __title?: string; __titleAt?: number };
+      const title = document.querySelector("head title")?.textContent?.trim() ?? "";
+      if (title !== w.__title) Object.assign(w, { __title: title, __titleAt: Date.now() });
+      return title.length > 0 && Date.now() - (w.__titleAt ?? 0) >= 250;
+    });
     const { violations } = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(violations.map((v) => `${v.id}: ${v.help} (${v.nodes.slice(0, 2).map((n) => n.target.join(" ")).join(", ")})`), `${label} (${t})`).toEqual([]);
   }
