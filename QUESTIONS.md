@@ -172,3 +172,10 @@ Each has a safe default already applied. Answer any and it will be changed.
     the CEO be able to approve?
 78. **Vesting and grants.** Not tracked in the app. Should the cap table and vesting schedule be added once the
     shareholder agreement is signed?
+
+## Away statuses on the clock
+
+79. **Paid or unpaid.** Break, Prayer and Lunch start as *not paid*: their time comes off the hours. Which of them
+    should count as paid work? (Settings > Time & away, one tick per status.)
+80. **Time limits.** Should any status have a limit (for example 15 minutes for prayer), after which it shows red to
+    everyone? None is set until the owners choose.

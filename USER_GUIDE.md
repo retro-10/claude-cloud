@@ -63,10 +63,15 @@ it is not where the record lives.
 * **Forgot to clock out?** A clock still running from an earlier day stops by itself at midnight (Cairo). The
   stretch is marked *stopped at midnight* in **My time**, and your inbox tells you, so you can fix the end time.
   Working past midnight on purpose? Clock in again after midnight.
+* **Stepping away** (break, prayer, lunch): while clocked in, click **Away** beside the clock and pick the status;
+  the clock turns amber and shows how long you have been away, and everyone sees it in **Right now**. Click **Back**
+  when you return. Picking another status switches to it; clocking out ends it. Owners choose the statuses, whether
+  each counts as paid work (time on an unpaid one comes off your hours) and an optional time limit after which it
+  shows red, in **Settings > Time & away**. The statuses start as Break, Prayer and Lunch, all unpaid, no limit.
 * Owners can add, change and remove events on anyone's calendar (pick the person under **Whose calendar**).
 * **Hours for payroll** (owners and finance, at the bottom of the Team tab): pick a month and download a CSV,
-  either **Total per person** (hours, days worked, number of stretches, how many were stopped at midnight) or
-  **Every stretch** (date, start, end, hours, note). Months follow the Cairo calendar; a stretch crossing into the
+  either **Total per person** (hours worked, minutes on the clock, minutes per away status, days worked, number of
+  stretches, how many were stopped at midnight) or **Every stretch** (date, start, end, hours, away minutes, note). Months follow the Cairo calendar; a stretch crossing into the
   next month is split. Each download is recorded in the audit log.
 
 ## HQ: spaces, lists, tasks and docs

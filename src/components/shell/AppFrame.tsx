@@ -7,7 +7,7 @@ import { logout } from "@/app/login/actions";
 import { QuickAdd } from "../QuickAdd";
 import { ThemeToggle } from "../ThemeToggle";
 import { Icon, type IconName } from "../ui/Icon";
-import { ClockButton } from "../calendar/Clock";
+import { ClockButton, type ClockProps } from "../calendar/Clock";
 import { Composer } from "../crm/Composer";
 import { CommandPalette, type PaletteLink } from "./CommandPalette";
 import { NotificationBell, type BellItem } from "./NotificationBell";
@@ -33,7 +33,7 @@ type Props = {
   sources: { id: number; label: string }[];
   goKeys: GoKey[];
   bell: { items: BellItem[]; unread: number };
-  clock: { running: boolean; since: string | null };
+  clock: ClockProps;
   children: React.ReactNode;
 };
 
@@ -291,7 +291,7 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, clock, ch
               <Icon name="command" />
               <span className="hidden text-xs xl:inline">Commands</span>
             </button>
-            <ClockButton running={clock.running} since={clock.since} />
+            <ClockButton {...clock} />
             <NotificationBell items={bell.items} unread={bell.unread} />
             <ThemeToggle />
             {canWrite && <QuickAdd sources={sources} />}

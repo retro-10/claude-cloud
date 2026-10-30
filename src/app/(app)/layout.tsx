@@ -5,6 +5,7 @@ import { sources } from "@/db/schema";
 import { AppFrame, type NavItem } from "@/components/shell/AppFrame";
 import type { GoKey } from "@/components/shell/Shortcuts";
 import { Icon } from "@/components/ui/Icon";
+import { getSetting } from "@/lib/app-settings";
 import { clockState } from "@/lib/calendar";
 import { unreadTotal } from "@/lib/chat";
 import { listSpaces } from "@/lib/hq";
@@ -21,7 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   // Designers have no lead list: their app is the production studio, so skip the lead counts entirely.
   const sales = can(user.role, "lead:read");
-  const [src, counts, notes, myTasks, spaces, clock, chatUnread] = await Promise.all([
+  const [src, counts, notes, myTasks, spaces, clock, chatUnread, auxCodes] = await Promise.all([
     sales ? db.select().from(sources).orderBy(asc(sources.id)) : [],
     sales ? navCounts(db) : null,
     recentNotifications(db, user.id),
@@ -29,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     sales ? listSpaces(db) : [],
     clockState(db, user.id),
     unreadTotal(db, user.id),
+    getSetting(db, "auxCodes"),
   ]);
   // people who see the money get a standing reminder until two-factor is on
   const nudge2fa = user.passwordChanged && !user.twoFactor && can(user.role, "finance:read");
@@ -83,7 +85,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </a>
       <AppFrame user={{ name: user.name, role: user.role }} nav={nav} canWrite={can(user.role, "lead:write")} sources={src}
         goKeys={goKeys}
-        clock={{ running: clock.running, since: clock.since?.toISOString() ?? null }}
+        clock={{
+          running: clock.running,
+          since: clock.since?.toISOString() ?? null,
+          aux: clock.aux && { label: clock.aux.label, since: clock.aux.since.toISOString() },
+          codes: auxCodes.map((c) => ({ key: c.key, label: c.label })),
+        }}
         bell={{ unread: notes.unread, items: notes.items.map((n) => ({ id: n.id, title: n.title, href: notificationHref(n), at: n.createdAt.toISOString(), unread: !n.readAt })) }}
       >
         {!user.passwordChanged && (
