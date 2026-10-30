@@ -18,7 +18,7 @@ export function WorkbookImport({ owner, defaultDate, closeDate }: { owner: boole
   const [preview, setPreview] = useState<WorkbookPreview | null>(null);
   const [error, setError] = useState("");
   const [done, setDone] = useState<{ added: number; archived: number; skipped: number; functions: number } | null>(null);
-  const [opts, setOpts] = useState({ date: defaultDate, closeDate: closeDate ?? "", replaceLedger: true, model: owner, functions: owner });
+  const [opts, setOpts] = useState({ date: defaultDate, closeDate: closeDate ?? "", ledger: true, replaceLedger: true, model: owner, functions: owner });
   const [pending, start] = useTransition();
 
   const form = () => {
@@ -26,7 +26,8 @@ export function WorkbookImport({ owner, defaultDate, closeDate }: { owner: boole
     if (file) f.set("file", file);
     f.set("date", opts.date);
     if (opts.closeDate) f.set("closeDate", opts.closeDate);
-    if (opts.replaceLedger) f.set("replaceLedger", "on");
+    if (opts.ledger) f.set("ledger", "on");
+    if (opts.ledger && opts.replaceLedger) f.set("replaceLedger", "on");
     if (opts.model) f.set("model", "on");
     if (opts.functions) f.set("functions", "on");
     return f;
@@ -206,7 +207,14 @@ export function WorkbookImport({ owner, defaultDate, closeDate }: { owner: boole
               <span className="text-xs font-normal">The workbook has no dates. Rows are marked as approximate; keep it on or before the close date.</span>
             </label>
             <label className="flex items-start gap-2 text-sm">
-              <input type="checkbox" checked={opts.replaceLedger} onChange={(e) => setOpts({ ...opts, replaceLedger: e.target.checked })} className="check mt-0.5" />
+              <input type="checkbox" checked={opts.ledger} onChange={(e) => setOpts({ ...opts, ledger: e.target.checked })} className="check mt-0.5" />
+              <span>
+                <strong className="font-medium">Load the ledger rows.</strong> Untick it when the ledger comes from the Notion sync, to take only the rules and the
+                function table (loading both would count every payment twice).
+              </span>
+            </label>
+            <label className={`flex items-start gap-2 text-sm ${opts.ledger ? "" : "opacity-60"}`}>
+              <input type="checkbox" checked={opts.ledger && opts.replaceLedger} disabled={!opts.ledger} onChange={(e) => setOpts({ ...opts, replaceLedger: e.target.checked })} className="check mt-0.5" />
               <span>
                 <strong className="font-medium">Replace the old cycle&apos;s ledger.</strong> Archives every row dated up to the close date first, so the workbook&apos;s corrected numbers are the only ones. Archived
                 rows stay in the database and the audit log.

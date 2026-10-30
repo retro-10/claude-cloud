@@ -229,6 +229,7 @@ export async function previewWorkbook(db: Db, buf: Buffer): Promise<WorkbookPrev
 export type ImportOptions = {
   date: string; // YYYY-MM-DD: the workbook has no dates; rows get this date, marked approximate
   closeDate: string | null; // the cycle close date (the workbook states it only in its notes); null = keep the current one
+  ledger?: boolean; // load the ledger rows (default); false takes only the rules and functions, when the ledger comes from Notion
   replaceLedger: boolean; // archive the ledger rows dated before the cycle close first (restorable from the database)
   model: boolean;
   functions: boolean;
@@ -245,7 +246,8 @@ export async function importWorkbook(db: Db, buf: Buffer, opts: ImportOptions, u
   const date = cairoLocalToDate(`${opts.date}T12:00`)!;
   return db.transaction(async (tx) => {
     let archived = 0;
-    if (opts.replaceLedger) {
+    const ledger = opts.ledger !== false;
+    if (ledger && opts.replaceLedger) {
       const before = closeDate ? cairoLocalToDate(`${addDaysYmd(closeDate, 1)}T00:00`)! : new Date(8.64e15);
       const rows = await tx
         .update(ledgerEntries)
@@ -258,7 +260,7 @@ export async function importWorkbook(db: Db, buf: Buffer, opts: ImportOptions, u
       (await tx.select({ ref: ledgerEntries.reference }).from(ledgerEntries).where(and(isNull(ledgerEntries.deletedAt), like(ledgerEntries.reference, `workbook:${p.hash}:%`)))).map((r) => r.ref),
     );
     let added = 0;
-    for (const d of p.ledger) {
+    for (const d of ledger ? p.ledger : []) {
       const reference = `workbook:${p.hash}:${d.row}`;
       if (existing.has(reference)) continue;
       await tx.insert(ledgerEntries).values({

@@ -121,6 +121,7 @@ export async function importWorkbookAction(form: FormData): Promise<{ ok: true; 
       {
         date: String(form.get("date") ?? ""),
         closeDate: owner ? String(form.get("closeDate") ?? "") || null : null,
+        ledger: form.get("ledger") === "on",
         replaceLedger: form.get("replaceLedger") === "on",
         model: owner && form.get("model") === "on",
         functions: owner && form.get("functions") === "on",

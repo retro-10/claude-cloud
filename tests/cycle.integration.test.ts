@@ -73,6 +73,8 @@ d("the rebuild: workbook import, old-cycle settlement, close, pay tiers, waterfa
     expect((await getSettings(db)).financeModel.closeDate).toBe("2026-10-30");
     const again = await importWorkbook(db, WORKBOOK, { date: "2026-10-25", closeDate: null, replaceLedger: false, model: false, functions: false }, owner);
     expect(again).toMatchObject({ ok: true, added: 0 });
+    // rules only (the ledger comes from the Notion sync): no row added or archived, even with "replace" set
+    expect(await importWorkbook(db, WORKBOOK, { date: "2026-10-25", closeDate: null, ledger: false, replaceLedger: true, model: true, functions: false }, owner)).toMatchObject({ ok: true, added: 0, archived: 0 });
     const live = await db.select().from(s.ledgerEntries).where(isNull(s.ledgerEntries.deletedAt));
     expect(live).toHaveLength(52);
     expect(live.every((e) => e.dateApproximate)).toBe(true);
