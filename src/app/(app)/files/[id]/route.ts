@@ -5,7 +5,7 @@ import { audit } from "@/lib/audit";
 import { mayView } from "@/lib/approvals";
 import { recordAssetDownload } from "@/lib/brand";
 import { DriveError } from "@/lib/drive";
-import { approvalRequests } from "@/db/schema";
+import { approvalRequests, employeeDocuments } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getCase } from "@/lib/production";
 import { can } from "@/lib/rbac";
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
-  if (!can(user.role, "lead:read") && !can(user.role, "production:read") && !can(user.role, "brand:read") && !can(user.role, "approval:submit")) return new NextResponse("Forbidden", { status: 403 });
+  if (!can(user.role, "lead:read") && !can(user.role, "production:read") && !can(user.role, "brand:read") && !can(user.role, "approval:submit") && !can(user.role, "employee:self")) return new NextResponse("Forbidden", { status: 403 });
   const id = Number((await ctx.params).id);
   if (!Number.isInteger(id) || id <= 0) return new NextResponse("Not found", { status: 404 });
   // permission first (no bytes read), then the file, which may come from Google Drive
@@ -31,6 +31,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     ? can(user.role, "brand:read")
     : link.approvalId
       ? await mayViewRequest(link.approvalId, user)
+      : link.employeeDocumentId
+        ? await mayOpenEmployeeDocument(link.employeeDocumentId, user)
       : link.caseId
       ? can(user.role, "production:read") && !!(await getCase(db, link.caseId, user))
       : can(user.role, "lead:read");
@@ -67,4 +69,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 async function mayViewRequest(id: number, user: { id: number; name: string; role: Parameters<typeof can>[0] }) {
   const [r] = await db.select({ requesterId: approvalRequests.requesterId, approverIds: approvalRequests.approverIds, type: approvalRequests.type }).from(approvalRequests).where(eq(approvalRequests.id, id));
   return !!r && can(user.role, "approval:submit") && mayView(r, { id: user.id, name: user.name, isOwner: can(user.role, "settings:write"), isFinance: can(user.role, "finance:read") });
+}
+
+/** A contract or letter: the person it belongs to, or an owner; both only with two-factor sign-in on. */
+async function mayOpenEmployeeDocument(id: number, user: { id: number; role: Parameters<typeof can>[0]; twoFactor: boolean }) {
+  if (!user.twoFactor) return false;
+  const [d] = await db.select({ userId: employeeDocuments.userId }).from(employeeDocuments).where(eq(employeeDocuments.id, id));
+  return !!d && ((d.userId === user.id && can(user.role, "employee:self")) || can(user.role, "employee:manage"));
 }

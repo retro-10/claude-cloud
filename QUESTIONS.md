@@ -188,3 +188,17 @@ Each has a safe default already applied. Answer any and it will be changed.
 82. **Budget hard stop.** Going over a campaign budget only warns (the approver sees it; the finance header flags
     it). Should a request that would take a campaign over its budget need an owner's approval instead?
 
+## Employee portal
+
+83. **Legal weight of "I have read and accept".** It records who, when and which version. Is that enough for
+    contracts under Egyptian law, or should contracts also be signed on paper or with a signature service? (Not
+    verified; a lawyer should confirm.)
+84. **Identity documents.** The portal can hold a copy (kind: Identity document). Should copies be kept at all, or
+    only a note that the ID was checked?
+85. **Retention.** How long do a leaver's contracts stay, and who may delete them? Nothing is deleted today.
+86. **Leavers.** A switched-off account cannot sign in, so a leaver loses their portal. Should leavers keep
+    read-only access to their own documents for a while?
+87. **Contractors.** Per-case designers get the full portal today. Should contractors see only terms and documents?
+88. **Importing pay and equity from Notion Team.** The Notion import (phase 1) should fill pay terms from the Team
+    pages. Is the equity on those pages to be kept in the app too, and who may see it?
+

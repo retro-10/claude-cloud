@@ -879,6 +879,7 @@ export const attachments = pgTable(
     caseId: integer("case_id").references(() => productionCases.id), // a production case's design files
     assetId: integer("asset_id").references((): AnyPgColumn => brandAssets.id), // a brand asset's file
     approvalId: integer("approval_id").references((): AnyPgColumn => approvalRequests.id), // a request's receipt or quote
+    employeeDocumentId: integer("employee_document_id").references((): AnyPgColumn => employeeDocuments.id), // a contract or letter
     uploadedBy: integer("uploaded_by").references(() => users.id),
     createdAt: createdAt(),
     deletedAt: ts("deleted_at"),
@@ -1573,4 +1574,75 @@ export const brandAssetDownloads = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("brand_asset_downloads_asset_idx").on(t.assetId)],
+);
+
+// ---------------- employee portal ----------------
+// One record per staff user: worker type, dates, manager, contact and pay terms. Kept apart from team_members (which
+// syncs to Notion): contracts and pay never leave the app, and the AI assistant and the exports never read these tables.
+export const workerTypeEnum = pgEnum("worker_type", ["employee", "partner", "contractor"]);
+
+export const employees = pgTable("employees", {
+  userId: integer("user_id")
+    .primaryKey()
+    .references(() => users.id),
+  workerType: workerTypeEnum("worker_type").notNull().default("employee"),
+  jobTitle: text("job_title"),
+  startDate: text("start_date"), // YYYY-MM-DD (Cairo)
+  endDate: text("end_date"),
+  managerId: integer("manager_id").references(() => users.id),
+  // contact: the person edits these themselves
+  phone: text("phone"),
+  personalEmail: text("personal_email"),
+  address: text("address"),
+  emergencyName: text("emergency_name"),
+  emergencyPhone: text("emergency_phone"),
+  // terms: owners edit; finance reads; the person reads their own
+  payTerms: text("pay_terms"),
+  payAmountEgp: integer("pay_amount_egp"),
+  paySchedule: text("pay_schedule"),
+  noticePeriod: text("notice_period"),
+  teamMemberId: integer("team_member_id").references(() => teamMembers.id), // their pay rows in the ledger (My pay)
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+// Contracts, addenda, letters, policies. A new version is a new row pointing at the one it replaces, which is kept.
+export const employeeDocuments = pgTable(
+  "employee_documents",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    category: text("category").notNull(), // contract | addendum | offer_letter | policy | identity | other
+    title: text("title").notNull(),
+    version: integer("version").notNull().default(1),
+    replacesId: integer("replaces_id").references((): AnyPgColumn => employeeDocuments.id),
+    status: text("status").notNull().default("current"), // current | superseded
+    needsAck: boolean("needs_ack").notNull().default(true),
+    acknowledgedAt: ts("acknowledged_at"),
+    uploadedBy: integer("uploaded_by").references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index("employee_documents_user_idx").on(t.userId)],
+);
+
+// A request to change a field the person may not edit themselves (job title, pay, dates …); an owner applies or declines it.
+export const employeeChangeRequests = pgTable(
+  "employee_change_requests",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    field: text("field").notNull(),
+    value: text("value").notNull(),
+    reason: text("reason"),
+    status: text("status").notNull().default("pending"), // pending | applied | declined
+    decidedBy: integer("decided_by").references(() => users.id),
+    decidedAt: ts("decided_at"),
+    note: text("note"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("employee_change_requests_status_idx").on(t.status)],
 );

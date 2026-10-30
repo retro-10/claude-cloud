@@ -281,6 +281,13 @@
       "when": 1793326266137,
       "tag": "0039_approvals_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793328538286,
+      "tag": "0040_employee_portal",
+      "breakpoints": true
     }
   ]
 }
