@@ -23,6 +23,12 @@ describe("database connection options", () => {
     // an explicit sslmode in the URL is left to postgres.js
     expect(connectionOptions("postgresql://postgres:pw@db.abc.supabase.co:5432/postgres?sslmode=verify-full")).not.toHaveProperty("ssl");
     expect(connectionOptions("postgres://x@notsupabase.com.evil:5432/x")).not.toHaveProperty("ssl");
+    // on Vercel, idle connections close so a frozen copy of the app does not hold them
+    const before = process.env.VERCEL;
+    process.env.VERCEL = "1";
+    expect(connectionOptions("postgres://crm:pw@db:5432/crm", 5)).toMatchObject({ idle_timeout: 20 });
+    if (before === undefined) delete process.env.VERCEL;
+    else process.env.VERCEL = before;
   });
 });
 

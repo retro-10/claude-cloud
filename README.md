@@ -137,7 +137,7 @@ the 5-minute background work is called by Supabase's scheduler, and the daily ba
    |---|---|
    | `DATABASE_URL` | the transaction pooler URL (6543) |
    | `MIGRATE_DATABASE_URL` | the session pooler URL (5432) |
-   | `DATABASE_POOL_MAX` | `1` |
+   | `DATABASE_POOL_MAX` | `5` (not 1: with one connection a page's parallel queries can stall) |
    | `AUTH_SECRET` | `openssl rand -base64 48` |
    | `SEED_PASSWORD` | the first password of the seeded accounts |
    | `COOKIE_SECURE` | `true` |
