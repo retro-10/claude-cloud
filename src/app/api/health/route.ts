@@ -18,6 +18,12 @@ export async function GET(req: NextRequest) {
     const t0 = Date.now();
     const timed = (name: string, p: Promise<unknown>) =>
       Promise.race([p.then(() => `${name} ok`, (e: Error) => `${name} error ${e.message.slice(0, 120)}`), new Promise<string>((r) => setTimeout(() => r(`${name} TIMEOUT`), 12_000))]).then((x) => `${x} +${Date.now() - t0}ms`);
+    const settings = await db
+      .execute(sql`select current_user as role, current_setting('statement_timeout') as statement_timeout, current_setting('lock_timeout') as lock_timeout,
+        (select rolconfig from pg_roles where rolname = current_user) as role_config,
+        (select array_agg(coalesce(r.rolname, '*') || ' ' || array_to_string(s.setconfig, ',')) from pg_db_role_setting s left join pg_roles r on r.oid = s.setrole) as db_role_settings`)
+      .catch((e: Error) => e.message);
+    console.log("[timing] settings", JSON.stringify(settings));
     const out = await Promise.all([timed("navCounts", navCounts(db)), timed("listSpaces", listSpaces(db)), timed("getToday", getToday(db))]);
     const activity = await Promise.race([
       db.execute(sql`select pid, state, wait_event_type, wait_event, now() - query_start as age, left(regexp_replace(query, '\s+', ' ', 'g'), 100) as q,
