@@ -69,7 +69,7 @@ d("approvals: ask, route, decide, answer, record", () => {
   });
 
   it("an expense: approvers are told, the queue is by waiting time, one decides, the requester is told", async () => {
-    const a = await submitRequest(db, mona, { type: "expense", title: "Masterclass printing", amountEgp: 1200, category: "Marketing" });
+    const a = await submitRequest(db, mona, { type: "expense", title: "Masterclass printing", amountEgp: 1200, category: "Ads & promotion" });
     const b = await submitRequest(db, omar, { type: "expense", title: "Wacom pen", amountEgp: 900 });
     if (!a.ok || !b.ok) throw new Error("submit");
     expect((await waitingFor(db, mo.id)).map((r) => r.title)).toEqual(["Masterclass printing", "Wacom pen"]);

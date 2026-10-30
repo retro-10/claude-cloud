@@ -63,6 +63,8 @@ export function AddEntry({
     return () => window.removeEventListener("keydown", esc);
   }, [open]);
   const sec = SECTIONS[section];
+  // a row saved with a category off the list (an approved request finance has yet to sort) keeps it as a choice
+  const categories = initial?.category && section === initial.section && !sec.categories.includes(initial.category) ? [initial.category, ...sec.categories] : sec.categories;
 
   return (
     <>
@@ -140,7 +142,7 @@ export function AddEntry({
               <label className="field">
                 Category
                 <select name="category" value={category} onChange={(e) => setCategory(e.target.value)} className="input">
-                  {sec.categories.map((c) => (
+                  {categories.map((c) => (
                     <option key={c} value={c}>
                       {c}
                     </option>

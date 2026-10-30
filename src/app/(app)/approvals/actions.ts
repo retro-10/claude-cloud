@@ -24,7 +24,9 @@ export async function submitApprovalAction(form: FormData) {
   const p = z
     .object({ type: text(20), title: text(200), details: text(4000), amountEgp: optInt, category: text(60), campaignId: optInt, startsOn: text(10), endsOn: text(10) })
     .parse(Object.fromEntries(form));
-  const r = await submitRequest(db, user, { ...p, startsOn: p.startsOn || null, endsOn: p.endsOn || null });
+  const f = form.get("receipt");
+  const receipt = f instanceof File && f.size ? { name: f.name, bytes: Buffer.from(await f.arrayBuffer()) } : null;
+  const r = await submitRequest(db, user, { ...p, startsOn: p.startsOn || null, endsOn: p.endsOn || null }, receipt);
   go(r.ok ? approvalLink(r.id) : `/approvals/new?type=${encodeURIComponent(p.type)}`, r, "Sent for approval");
 }
 

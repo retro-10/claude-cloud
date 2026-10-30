@@ -3,6 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { sources, users } from "@/db/schema";
 import { Flash } from "@/components/Flash";
+import { BudgetBar } from "@/components/finance/BudgetBar";
 import { CampaignForm } from "@/components/growth/CampaignForm";
 import { Card, EmptyState, PageHeader, Stat } from "@/components/ui";
 import { CAMPAIGN_KINDS, CAMPAIGN_STATUS, campaignStats } from "@/lib/campaigns";
@@ -55,6 +56,7 @@ export default async function CampaignsPage(props: { searchParams: Promise<{ not
                   <th scope="col" className="text-right">Leads</th>
                   <th scope="col" className="text-right">Consulted</th>
                   <th scope="col" className="text-right">Enrolled</th>
+                  <th scope="col" className="min-w-[160px]">Budget</th>
                   {money && (
                     <>
                       <th scope="col" className="text-right">Spend</th>
@@ -81,6 +83,9 @@ export default async function CampaignsPage(props: { searchParams: Promise<{ not
                     <td className="num text-right">{fmt(r.leads)}</td>
                     <td className="num text-right">{fmt(r.consulted)}</td>
                     <td className="num text-right">{fmt(r.enrolled)}</td>
+                    <td>
+                      <BudgetBar c={r} compact />
+                    </td>
                     {money && (
                       <>
                         <td className="num text-right">{egp(r.spendEgp)}</td>

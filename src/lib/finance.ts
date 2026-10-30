@@ -427,9 +427,15 @@ export async function financeBoard(db: Db, month = thisMonth()): Promise<Board> 
   };
 }
 
+const inList = (list: string[]) => sql.join(list.map((c) => sql`${c}`), sql`, `);
+/** A live cost whose category is not on its section's list (an approved request finance has yet to sort, say). */
+export const uncategorisedSql = sql`(${ledgerEntries.status} <> 'cancelled' and (
+  (${ledgerEntries.section} = 'fixed_costs' and ${ledgerEntries.category} not in (${inList(SECTIONS.fixed_costs.categories)}))
+  or (${ledgerEntries.section} = 'variable_costs' and ${ledgerEntries.category} not in (${inList(SECTIONS.variable_costs.categories)}))))`;
+
 export async function listEntries(
   db: Db,
-  f: { month?: string; section?: Section; status?: Status; q?: string; enrolmentId?: number } = {},
+  f: { month?: string; section?: Section; status?: Status; q?: string; enrolmentId?: number; uncategorised?: boolean } = {},
   limit = 200,
 ) {
   const where: (SQL | undefined)[] = [isNull(ledgerEntries.deletedAt)];
@@ -440,9 +446,10 @@ export async function listEntries(
   if (f.section && f.section in SECTIONS) where.push(eq(ledgerEntries.section, f.section));
   if (f.status) where.push(eq(ledgerEntries.status, f.status));
   if (f.enrolmentId) where.push(eq(ledgerEntries.enrolmentId, f.enrolmentId));
+  if (f.uncategorised) where.push(uncategorisedSql);
   if (f.q?.trim()) {
     const like = `%${f.q.trim().replace(/[\\%_]/g, (c) => "\\" + c)}%`;
-    where.push(sql`(${ledgerEntries.entry} ilike ${like} or coalesce(${ledgerEntries.fromTo}, '') ilike ${like} or coalesce(${ledgerEntries.notes}, '') ilike ${like})`);
+    where.push(sql`(${ledgerEntries.entry} ilike ${like} or coalesce(${ledgerEntries.fromTo}, '') ilike ${like} or coalesce(${ledgerEntries.notes}, '') ilike ${like} or coalesce(${ledgerEntries.reference}, '') ilike ${like})`);
   }
   return db
     .select({ e: ledgerEntries, candidate: leads.fullName, leadId: leads.id, cohort: cohorts.name, teamMember: teamMembers.name })

@@ -4,10 +4,12 @@ import { listCohorts } from "@/lib/cohorts";
 import { PairColumns, BarList } from "@/components/charts";
 import { Flash } from "@/components/Flash";
 import { AddEntry } from "@/components/finance/AddEntry";
+import { BudgetBar } from "@/components/finance/BudgetBar";
 import { FinanceNav } from "@/components/finance/FinanceNav";
 import { Card, EmptyState, Icon, PageHeader, Stat } from "@/components/ui";
 import { egp } from "@/lib/cohort-format";
 import { SECTIONS, STATUS_LABEL, financeBoard, listCandidates, shiftMonth, thisMonth } from "@/lib/finance";
+import { financeAttention } from "@/lib/finance-overview";
 import { listTeam } from "@/lib/programme";
 import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
@@ -36,7 +38,7 @@ export default async function FinancePage(props: { searchParams: Promise<{ month
   const sp = await props.searchParams;
   const user = await requirePageCan("finance:read");
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(sp.month ?? "") ? sp.month! : thisMonth();
-  const [b, candidates, team, batches] = await Promise.all([financeBoard(db, month), listCandidates(db), listTeam(db), listCohorts(db)]);
+  const [b, candidates, team, batches, att] = await Promise.all([financeBoard(db, month), listCandidates(db), listTeam(db), listCohorts(db), financeAttention(db)]);
   const m = b.month_;
   const prev = b.series[b.series.length - 2] ?? { income: 0, costs: 0, net: 0 };
   const cur = b.series[b.series.length - 1];
@@ -73,6 +75,38 @@ export default async function FinancePage(props: { searchParams: Promise<{ month
       />
       <FinanceNav />
       <Flash error={sp.error} notice={sp.notice} />
+
+      <section aria-labelledby="attention" className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm">
+        <h2 id="attention" className="mr-1 font-medium">
+          Needs attention
+        </h2>
+        {att.waiting.count + att.owedFromRequests.count + att.uncategorised + att.overBudget.length === 0 ? (
+          <span className="text-muted">Nothing: no money requests waiting, nothing to sort.</span>
+        ) : (
+          <>
+            {att.waiting.count > 0 && (
+              <Link href="/approvals?tab=all" className="chip chip-warn">
+                {att.waiting.count} money request{att.waiting.count === 1 ? "" : "s"} waiting · {money(att.waiting.egp)}
+              </Link>
+            )}
+            {att.owedFromRequests.count > 0 && (
+              <Link href={`/finance/ledger?status=owed&q=${encodeURIComponent("Request #")}`} className="chip">
+                {att.owedFromRequests.count} approved to pay · {money(att.owedFromRequests.egp)}
+              </Link>
+            )}
+            {att.uncategorised > 0 && (
+              <Link href="/finance/ledger?uncategorised=1" className="chip chip-warn">
+                {att.uncategorised} cost{att.uncategorised === 1 ? "" : "s"} to categorise
+              </Link>
+            )}
+            {att.overBudget.map((c) => (
+              <Link key={c.id} href={`/growth/campaigns/${c.id}`} className="chip chip-danger">
+                {c.label}: {money(c.overEgp)} over budget
+              </Link>
+            ))}
+          </>
+        )}
+      </section>
 
       {write && (
         <div className="mb-5 flex flex-wrap gap-2">
@@ -236,6 +270,30 @@ export default async function FinancePage(props: { searchParams: Promise<{ month
             </ul>
           )}
         </Card>
+
+        {att.budgets.length > 0 && (
+          <Card
+            title="Campaign budgets"
+            icon="target"
+            className="xl:col-span-3 xl:order-last"
+            actions={
+              <Link href="/growth/campaigns" className="text-xs text-muted hover:text-fg">
+                All campaigns
+              </Link>
+            }
+          >
+            <ul className="grid gap-x-8 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+              {att.budgets.map((c) => (
+                <li key={c.id}>
+                  <Link href={`/growth/campaigns/${c.id}`} className="link mb-1.5 block truncate text-sm font-medium" dir="auto">
+                    {c.label}
+                  </Link>
+                  <BudgetBar c={c} compact />
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         <Card
           title="Candidates"

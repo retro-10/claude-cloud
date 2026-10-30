@@ -5,6 +5,8 @@ import { Flash } from "@/components/Flash";
 import { Card, Icon, PageHeader } from "@/components/ui";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { STATUS_LABEL, canDecide, getRequest, typeOf } from "@/lib/approvals";
+import { campaignStats } from "@/lib/campaigns";
+import { STATUS_LABEL as LEDGER_STATUS } from "@/lib/finance";
 import { egp } from "@/lib/cohort-format";
 import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
@@ -33,6 +35,10 @@ export default async function RequestPage(props: { params: Promise<{ id: string 
   const decider = canDecide(r, user.id);
   const mine = r.requesterId === user.id;
   const open = r.status === "pending" || r.status === "needs_info";
+  const books = can(user.role, "finance:read");
+  // for whoever decides: would this take its campaign past the budget? (the waiting amount already counts this one)
+  const [camp] = r.campaign && open && (decider || books) ? await campaignStats(db, r.campaign.id) : [];
+  const over = camp && camp.remainingEgp != null && camp.remainingEgp < 0 ? -camp.remainingEgp : 0;
 
   return (
     <>
@@ -103,6 +109,38 @@ export default async function RequestPage(props: { params: Promise<{ id: string 
             {r.details && (
               <p className="mt-4 whitespace-pre-line border-t border-line pt-4 text-sm" dir="auto">
                 {r.details}
+              </p>
+            )}
+            {r.files.length > 0 && (
+              <ul className="mt-4 flex flex-col gap-1 border-t border-line pt-4 text-sm">
+                {r.files.map((f) => (
+                  <li key={f.id} className="flex items-center gap-2">
+                    <Icon name="download" size={14} className="text-muted" />
+                    <a href={`/files/${f.id}`} className="link" target="_blank" rel="noopener noreferrer">
+                      {f.fileName}
+                    </a>
+                    <span className="text-xs text-muted">{f.note ?? "File"}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {over > 0 && camp && (
+              <p role="status" className="mt-4 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
+                With this request, {camp.label} is {egp(over)} over its {egp(camp.budgetEgp ?? 0)} budget (paid, owed and waiting requests together).
+              </p>
+            )}
+            {r.ledger && (
+              <p className="mt-4 text-sm text-ok">
+                <Icon name="check" size={14} className="-mt-0.5 mr-1 inline" />
+                In the ledger as {LEDGER_STATUS[r.ledger.status].toLowerCase()} · {r.ledger.category}.
+                {books && (
+                  <>
+                    {" "}
+                    <Link href={`/finance/ledger?q=${encodeURIComponent(`Request #${r.id}`)}`} className="link">
+                      Open in the ledger
+                    </Link>
+                  </>
+                )}
               </p>
             )}
             {r.calendarEventId && (

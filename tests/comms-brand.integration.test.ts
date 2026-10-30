@@ -90,8 +90,9 @@ d("announcements and the brand hub", () => {
     expect(await createAsset(db, nour.id, { name: "Logo", type: "logo" }, null)).toMatchObject({ ok: false, error: expect.stringContaining("file") });
     expect(await createAsset(db, nour.id, { name: "Logo", type: "spaceship", url: "https://x.y" }, null)).toMatchObject({ ok: false });
     expect(await createAsset(db, nour.id, { name: "Promo", type: "video", url: "http://insecure" }, null)).toMatchObject({ ok: false });
-    const logo = await createAsset(db, nour.id, { name: "Main logo", type: "logo", tags: "Camp, core, camp", version: "2025", usageNotes: "Clear space: the height of the O." }, { name: "logo.png", bytes: Buffer.from("png") });
+    // the link-only asset first, so asset ids and file ids differ (a file must be found by its asset, not by its id)
     const reel = await createAsset(db, nour.id, { name: "Launch reel", type: "video", url: "https://drive.google.com/file/d/abc" }, null);
+    const logo = await createAsset(db, nour.id, { name: "Main logo", type: "logo", tags: "Camp, core, camp", version: "2025", usageNotes: "Clear space: the height of the O." }, { name: "logo.png", bytes: Buffer.from("png") });
     if (!logo.ok || !reel.ok) throw new Error("assets");
     expect(await createAsset(db, nour.id, { name: "Bad", type: "logo" }, { name: "run.exe", bytes: Buffer.from("x") })).toMatchObject({ ok: false });
     expect((await listAssets(db, { type: "logo" })).map((a) => [a.name, a.tags, !!a.fileId])).toEqual([["Main logo", ["camp", "core"], true]]);

@@ -92,6 +92,8 @@ export type CampaignStats = {
   revenueEgp: number;
   spendEgp: number; // costs Paid
   owedEgp: number; // costs Owed (committed, not paid yet)
+  pendingEgp: number; // money requests for it still waiting for a decision
+  remainingEgp: number | null; // budget − paid − owed − waiting; null without a budget
   costPerLead: number | null;
   costPerEnrolment: number | null;
   roi: number | null; // (revenue − spend) ÷ spend
@@ -107,12 +109,14 @@ export async function campaignStats(db: Db, id?: number): Promise<CampaignStats[
       (select count(distinct e.lead_id) from enrolments e join l on l.id = e.lead_id where l.campaign_id = g.id)::int as enrolled,
       (select coalesce(sum(${dueFor("e")}), 0) from enrolments e join l on l.id = e.lead_id where l.campaign_id = g.id)::int as revenue,
       (select coalesce(sum(x.amount_egp), 0) from ledger_entries x where x.campaign_id = g.id and x.deleted_at is null and x.status = 'paid')::int as spend,
-      (select coalesce(sum(x.amount_egp), 0) from ledger_entries x where x.campaign_id = g.id and x.deleted_at is null and x.status = 'owed')::int as owed
+      (select coalesce(sum(x.amount_egp), 0) from ledger_entries x where x.campaign_id = g.id and x.deleted_at is null and x.status = 'owed')::int as owed,
+      (select coalesce(sum(r.amount_egp), 0) from approval_requests r where r.campaign_id = g.id and r.status in ('pending', 'needs_info'))::int as pending
     from campaigns g left join sources s on s.id = g.source_id
     ${id ? sql`where g.id = ${id}` : sql``}
     order by (g.status = 'ended'), coalesce(g.event_at, g.started_at) desc nulls last, g.id desc`);
   return [...rows].map((r) => {
-    const leads = Number(r.leads), enrolled = Number(r.enrolled), spend = Number(r.spend), revenue = Number(r.revenue);
+    const leads = Number(r.leads), enrolled = Number(r.enrolled), spend = Number(r.spend), revenue = Number(r.revenue), owed = Number(r.owed), pending = Number(r.pending);
+    const budget = r.budget_egp == null ? null : Number(r.budget_egp);
     const d = (v: unknown) => (v ? new Date(v as string) : null);
     return {
       id: Number(r.id),
@@ -125,7 +129,7 @@ export async function campaignStats(db: Db, id?: number): Promise<CampaignStats[
       startedAt: d(r.started_at),
       endsAt: d(r.ends_at),
       eventAt: d(r.event_at),
-      budgetEgp: r.budget_egp == null ? null : Number(r.budget_egp),
+      budgetEgp: budget,
       ownerId: r.owner_id == null ? null : Number(r.owner_id),
       notes: (r.notes as string | null) ?? null,
       leads,
@@ -133,7 +137,9 @@ export async function campaignStats(db: Db, id?: number): Promise<CampaignStats[
       enrolled,
       revenueEgp: revenue,
       spendEgp: spend,
-      owedEgp: Number(r.owed),
+      owedEgp: owed,
+      pendingEgp: pending,
+      remainingEgp: budget == null ? null : budget - spend - owed - pending,
       costPerLead: spend && leads ? Math.round(spend / leads) : null,
       costPerEnrolment: spend && enrolled ? Math.round(spend / enrolled) : null,
       roi: spend ? (revenue - spend) / spend : null,

@@ -99,9 +99,12 @@ export async function recordAssetDownload(db: Db, assetId: number, userId: numbe
   await db.insert(brandAssetDownloads).values({ assetId, userId });
 }
 
-const fileOf = sql<number | null>`(select a.id from ${attachments} a where a.asset_id = ${brandAssets.id} and a.deleted_at is null order by a.id desc limit 1)`;
-const fileType = sql<string | null>`(select a.content_type from ${attachments} a where a.asset_id = ${brandAssets.id} and a.deleted_at is null order by a.id desc limit 1)`;
-const downloads = sql<number>`(select count(*) from ${brandAssetDownloads} d where d.asset_id = ${brandAssets.id})::int`;
+// the outer column is named in full: in a one-table select drizzle writes ${brandAssets.id} as a bare "id", which
+// inside these subqueries would mean the attachment's (or download's) own id
+const outerId = sql.raw(`"brand_assets"."id"`);
+const fileOf = sql<number | null>`(select a.id from ${attachments} a where a.asset_id = ${outerId} and a.deleted_at is null order by a.id desc limit 1)`;
+const fileType = sql<string | null>`(select a.content_type from ${attachments} a where a.asset_id = ${outerId} and a.deleted_at is null order by a.id desc limit 1)`;
+const downloads = sql<number>`(select count(*) from ${brandAssetDownloads} d where d.asset_id = ${outerId})::int`;
 
 export type AssetRow = typeof brandAssets.$inferSelect & { fileId: number | null; contentType: string | null; downloads: number };
 

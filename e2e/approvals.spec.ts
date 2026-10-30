@@ -6,6 +6,9 @@ import { signIn } from "./helpers";
 // records, asks for an expense; Mo (finance) approves it from the inbox in one click; the marketer sees the answer.
 test.use({ contextOptions: { reducedMotion: "reduce" } });
 
+// a 1×1 transparent PNG
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+
 async function scan(page: Page, label: string) {
   await page.waitForFunction(() => document.title.trim().length > 0);
   for (const t of ["dark", "light"]) {
@@ -52,10 +55,12 @@ test("a marketer works without lead records; an expense is asked, routed, approv
   await expect(nour.locator("main")).toContainText(/Goes to: .*Mo/);
   await nour.getByLabel("What is it?").fill("Boost the masterclass reel");
   await nour.getByLabel("Amount (EGP)").fill("1500");
-  await nour.getByLabel("Category (optional)").fill("Ads");
+  await nour.getByLabel("Category").selectOption("Ads & promotion");
+  await nour.getByLabel(/^Receipt/).setInputFiles({ name: "receipt.png", mimeType: "image/png", buffer: PNG });
   await nour.getByRole("button", { name: "Send for approval" }).click();
   await expect(nour.locator("[role=status]", { hasText: "Sent for approval" })).toBeVisible();
   await expect(nour.getByRole("heading", { name: "Boost the masterclass reel" })).toBeVisible();
+  await expect(nour.getByRole("link", { name: "receipt.png" })).toBeVisible();
   await scan(nour, "request page");
 
   // Mo (finance) approves from the inbox in one click
@@ -68,10 +73,21 @@ test("a marketer works without lead records; an expense is asked, routed, approv
   await expect(mo.locator("main")).toContainText("Nothing waiting for you");
   await scan(mo, "approvals queue");
 
+  // the approved expense is in the books as Owed, to pay back to Nour, and the finance header says so
+  await mo.goto("/finance");
+  await expect(mo.getByRole("link", { name: /1 approved to pay · 1,500/ })).toBeVisible();
+  await scan(mo, "finance with attention");
+  await mo.getByRole("link", { name: /approved to pay/ }).click();
+  const row = mo.locator("tr", { hasText: "Boost the masterclass reel" });
+  await expect(row).toContainText("Owed");
+  await expect(row).toContainText("Ads & promotion");
+  await expect(row).toContainText("Nour");
+
   // Nour sees the answer and the history
   await nour.goto("/approvals?tab=mine");
   await nour.getByRole("link", { name: "Boost the masterclass reel" }).click();
   await expect(nour.locator("main")).toContainText("Approved");
   await expect(nour.locator("main")).toContainText(/Mo\s+approved/);
   await expect(nour.locator("main")).toContainText("This history cannot be edited or deleted.");
+  await expect(nour.locator("main")).toContainText("In the ledger as owed · Ads & promotion");
 });
