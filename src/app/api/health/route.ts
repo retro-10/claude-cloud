@@ -24,13 +24,13 @@ export async function GET(req: NextRequest) {
         (select array_agg(coalesce(r.rolname, '*') || ' ' || array_to_string(s.setconfig, ',')) from pg_db_role_setting s left join pg_roles r on r.oid = s.setrole) as db_role_settings`)
       .catch((e: Error) => e.message);
     const slow = await db
-      .execute(sql`select left(regexp_replace(query, '\s+', ' ', 'g'), 160) as q, calls, round(mean_exec_time) as mean_ms, round(max_exec_time) as max_ms
+      .execute(sql`select left(regexp_replace(query, '[[:space:]]+', ' ', 'g'), 160) as q, calls, round(mean_exec_time) as mean_ms, round(max_exec_time) as max_ms
         from extensions.pg_stat_statements where dbid = (select oid from pg_database where datname = current_database()) order by max_exec_time desc limit 8`)
       .catch((e: Error) => e.message);
     console.log("[timing] slow", JSON.stringify(slow));
     const out = await Promise.all([timed("navCounts", navCounts(db)), timed("listSpaces", listSpaces(db)), timed("getToday", getToday(db))]);
     const activity = await Promise.race([
-      db.execute(sql`select pid, state, wait_event_type, wait_event, now() - query_start as age, left(regexp_replace(query, '\s+', ' ', 'g'), 100) as q,
+      db.execute(sql`select pid, state, wait_event_type, wait_event, now() - query_start as age, left(regexp_replace(query, '[[:space:]]+', ' ', 'g'), 100) as q,
         pg_blocking_pids(pid) as blocked_by from pg_stat_activity where datname = current_database() and pid <> pg_backend_pid() and state <> 'idle'`),
       new Promise((r) => setTimeout(() => r("activity TIMEOUT"), 8_000)),
     ]);

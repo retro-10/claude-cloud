@@ -18,7 +18,10 @@ describe("database connection options", () => {
     const session = connectionOptions("postgresql://postgres.abc:pw@aws-0-eu-central-1.pooler.supabase.com:5432/postgres", 5);
     expect(session).toMatchObject({ max: 5, ssl: "require" });
     expect(session).not.toHaveProperty("prepare");
-    expect(connectionOptions("postgresql://postgres.abc:pw@aws-0-eu-central-1.pooler.supabase.com:6543/postgres")).toMatchObject({ ssl: "require", prepare: false, max_pipeline: 1 });
+    expect(connectionOptions("postgresql://postgres.abc:pw@aws-0-eu-central-1.pooler.supabase.com:6543/postgres")).toMatchObject({ ssl: "require", prepare: false, max_pipeline: 1 })
+    process.env.DATABASE_PREPARE = "true";
+    expect(connectionOptions("postgresql://postgres.abc:pw@aws-0-eu-central-1.pooler.supabase.com:6543/postgres")).not.toHaveProperty("prepare");
+    delete process.env.DATABASE_PREPARE;;
     expect(connectionOptions("postgresql://postgres:pw@db.abc.supabase.co:5432/postgres")).toMatchObject({ ssl: "require" });
     // an explicit sslmode in the URL is left to postgres.js
     expect(connectionOptions("postgresql://postgres:pw@db.abc.supabase.co:5432/postgres?sslmode=verify-full")).not.toHaveProperty("ssl");
