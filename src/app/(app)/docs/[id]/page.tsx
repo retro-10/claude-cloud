@@ -51,7 +51,7 @@ export default async function DocPage(props: { params: Promise<{ id: string }>; 
       </nav>
       <Flash notice={sp.notice} error={sp.error} />
       {editing ? (
-        <DocForm doc={doc} spaces={spaces} parents={all.map((d) => ({ id: d.id, name: d.title }))} back={`/docs/${doc.id}?edit=1`} />
+        <DocForm doc={doc} spaces={spaces} parents={all.map((d) => ({ id: d.id, name: d.title }))} back={`/docs/${doc.id}?edit=1`} canBrand={can(user.role, "brand:manage")} />
       ) : (
         <article>
           <header className="mb-6 flex flex-col gap-3 border-b border-line pb-5 sm:flex-row sm:items-end sm:justify-between">

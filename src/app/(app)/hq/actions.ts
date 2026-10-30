@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { archiveDoc, archiveList, archiveSpace, createStarterSpaces, moveTask, saveDoc, saveList, saveSpace } from "@/lib/hq";
 import { markAllRead, setRead } from "@/lib/notifications";
 import { safePath } from "@/lib/safe-path";
+import { can } from "@/lib/rbac";
 import { requireCan, requireUser } from "@/lib/server-auth";
 import { TASK_PRIORITIES, createTask, updateTask } from "@/lib/tasks";
 import { followUpDue } from "@/lib/time";
@@ -163,7 +164,9 @@ export async function saveDocAction(form: FormData) {
   const p = z
     .object({ title: text(400), body: text(100_000), spaceId: optId, parentId: optId, wiki: z.preprocess((v) => v === "on" || v === "true", z.boolean()) })
     .parse(Object.fromEntries(form));
-  const r = await saveDoc(db, docId, p, user.id);
+  // only people who manage the brand hub decide which pages are brand guidelines
+  const brand = can(user.role, "brand:manage") ? form.get("brand") === "on" : undefined;
+  const r = await saveDoc(db, docId, { ...p, brand }, user.id);
   done(form, r, docId ? "Doc saved" : "Doc created", r.ok ? `/docs/${r.id}` : undefined);
 }
 

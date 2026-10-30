@@ -7,6 +7,7 @@ import type { GoKey } from "@/components/shell/Shortcuts";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { getSetting } from "@/lib/app-settings";
 import { clockState } from "@/lib/calendar";
+import { unreadCounts } from "@/lib/announcements";
 import { waitingCount } from "@/lib/approvals";
 import { unreadTotal } from "@/lib/chat";
 import { listSpaces } from "@/lib/hq";
@@ -25,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // lead records. Only fetch what the person's sidebar shows.
   const sales = can(user.role, "lead:read");
   const hq = can(user.role, "hq:read");
-  const [src, counts, notes, myTasks, spaces, clock, chatUnread, auxCodes, approvalsWaiting] = await Promise.all([
+  const [src, counts, notes, myTasks, spaces, clock, chatUnread, auxCodes, approvalsWaiting, news] = await Promise.all([
     sales ? db.select().from(sources).orderBy(asc(sources.id)) : [],
     sales ? navCounts(db) : null,
     recentNotifications(db, user.id),
@@ -35,6 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     unreadTotal(db, user.id),
     getSetting(db, "auxCodes"),
     waitingCount(db, user.id),
+    unreadCounts(db, user.id),
   ]);
   // people who see the money get a standing reminder until two-factor is on
   const nudge2fa = user.passwordChanged && !user.twoFactor && can(user.role, "finance:read");
@@ -43,15 +45,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const calendar: NavItem = { href: "/calendar", label: "Team calendar", icon: "calendar", section: "HQ", keys: "G Y" };
   const chat: NavItem = { href: "/chat", label: "Chat", icon: "chat", section: "HQ", count: chatUnread, keys: "G J" };
   const approvals: NavItem = { href: "/approvals", label: "Approvals", icon: "check", section: "HQ", count: approvalsWaiting, alert: approvalsWaiting > 0 };
+  const announcementsNav: NavItem = { href: "/announcements", label: "Announcements", icon: "send", section: "HQ", count: news.unread, alert: news.toAck > 0 };
+  const people: NavItem = { href: "/people", label: "People", icon: "user", section: "HQ" };
+  const brand: NavItem = { href: "/brand", label: "Brand hub", icon: "sparkle", section: "HQ" };
   const nav: NavItem[] = !hq || !myTasks
-    ? [studio, { ...chat, section: "Studio" }, { ...calendar, section: "Studio" }, { ...approvals, section: "Studio" }]
+    ? [studio, ...[chat, announcementsNav, calendar, approvals, people, brand].map((n) => ({ ...n, section: "Studio" }))]
     : [
         { href: "/hq", label: "Home", icon: "today", section: "HQ", keys: "G H" },
         { href: "/inbox", label: "Inbox", icon: "inbox", section: "HQ", count: notes.unread, keys: "G I" },
+        announcementsNav,
         chat,
         approvals,
         calendar,
         { href: "/docs", label: "Docs", icon: "note", section: "HQ" },
+        brand,
+        people,
         ...spaces.map((s): NavItem => ({ href: `/spaces/${s.id}`, label: s.name, icon: "layers", color: s.color, section: "Spaces", count: s.open })),
         sales && { href: "/command", label: "Command centre", icon: "gauge", section: "OrlaDent OS", keys: "G O" },
         can(user.role, "ai:use") && { href: "/ask", label: "Ask OrlaDent", icon: "chat", section: "OrlaDent OS", keys: "G A" },

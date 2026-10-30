@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
     chat: can(user.role, "chat:write"),
     approvalsAll: can(user.role, "settings:write"),
     approvalsMoney: can(user.role, "finance:read"),
+    comms: can(user.role, "comms:read"),
+    brand: can(user.role, "brand:read"),
   }, q);
   return NextResponse.json({ hits }, { headers: { "Cache-Control": "no-store" } });
 }

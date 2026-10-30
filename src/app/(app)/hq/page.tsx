@@ -6,6 +6,7 @@ import { Card, EmptyState, Icon, Stat } from "@/components/ui";
 import { WORK_BUCKETS, bucketOf, listDocs, listSpaces, type WorkBucket } from "@/lib/hq";
 import { inbox } from "@/lib/notifications";
 import { can } from "@/lib/rbac";
+import { feed } from "@/lib/announcements";
 import { requirePageCan } from "@/lib/server-auth";
 import { listTasks, type TaskRow } from "@/lib/tasks";
 import { formatCairo, TZ } from "@/lib/time";
@@ -30,13 +31,15 @@ export default async function HqHome(props: { searchParams: Promise<{ notice?: s
   const sp = await props.searchParams;
   const user = await requirePageCan("hq:read");
   const now = new Date();
-  const [mine, done, spaces, docs, unread] = await Promise.all([
+  const [mine, done, spaces, docs, unread, news] = await Promise.all([
     listTasks(db, { assigneeId: user.id, status: "open" }, now, 300),
     listTasks(db, { assigneeId: user.id, status: "done" }, now, 50),
     listSpaces(db),
     listDocs(db, { limit: 6 }),
     inbox(db, user.id, "new", 5),
+    feed(db, user.id, 4),
   ]);
+  const toAck = news.filter((a) => a.mustAck && !a.acknowledgedAt);
   const buckets = new Map<WorkBucket, TaskRow[]>(WORK_BUCKETS.map((b) => [b.key, []]));
   for (const t of mine) buckets.get(bucketOf(t.dueAt, now))!.push(t);
   const weekAgo = new Date(now.getTime() - 7 * 86_400_000);
@@ -56,6 +59,17 @@ export default async function HqHome(props: { searchParams: Promise<{ notice?: s
       </header>
       <Flash notice={sp.notice} error={sp.error} />
 
+      {toAck.length > 0 && (
+        <div role="status" className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-sm">
+          <Icon name="alert" size={16} className="text-warn" />
+          <span className="flex-1">
+            {toAck.length === 1 ? "An announcement needs" : `${toAck.length} announcements need`} your acknowledgement:{" "}
+            <Link href={`/announcements/${toAck[0].id}`} className="font-medium underline underline-offset-2" dir="auto">
+              {toAck[0].title}
+            </Link>
+          </span>
+        </div>
+      )}
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="My open tasks" value={mine.length} icon="check" tone="brand" />
         <Stat label="Overdue" value={buckets.get("overdue")!.length} icon="alert" />
@@ -186,6 +200,21 @@ export default async function HqHome(props: { searchParams: Promise<{ notice?: s
         </div>
 
         <div className="flex flex-col gap-6">
+          {news.length > 0 && (
+            <Card title="Announcements" icon="send" actions={<Link href="/announcements" className="btn btn-ghost btn-sm">All</Link>} bodyClass="p-0">
+              <ul className="divide-y divide-line">
+                {news.map((a) => (
+                  <li key={a.id} className="px-4 py-2.5">
+                    <Link href={`/announcements/${a.id}`} className={`block truncate text-sm hover:text-accent ${a.readAt ? "" : "font-semibold"}`} dir="auto">
+                      {a.pinned && <span className="mr-1 text-xs text-muted">Pinned ·</span>}
+                      {a.title}
+                    </Link>
+                    <span className="text-xs text-muted">{formatCairo(a.publishedAt, false)}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
           <Card title="Inbox" icon="inbox" actions={<Link href="/inbox" className="btn btn-ghost btn-sm">Open</Link>} bodyClass="p-0">
             {!unread.length ? (
               <p className="px-5 py-4 text-sm text-muted">You are all caught up.</p>

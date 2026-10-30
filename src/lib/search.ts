@@ -83,6 +83,8 @@ export type SearchScope = {
   chat: boolean; // chat:write: channels
   approvalsAll: boolean; // owners see every request
   approvalsMoney: boolean; // finance sees every money request
+  comms?: boolean; // comms:read: people and the announcements sent to me
+  brand?: boolean; // brand:read: the asset library
 };
 
 /**
@@ -99,7 +101,7 @@ function fuzzy(col: SQL, q: string) {
 export async function searchEverything(db: Db, scope: SearchScope, q: string, per = 4): Promise<AnyHit[]> {
   const term = q.trim();
   if (term.length < 2) return [];
-  const { approvalRequests, chatChannels, cohorts, campaigns, contentItems, docs, tasks } = await import("@/db/schema");
+  const { announcementReceipts, announcements, approvalRequests, brandAssets, chatChannels, cohorts, campaigns, contentItems, docs, tasks, users } = await import("@/db/schema");
   const jobs: Promise<AnyHit[]>[] = [];
   if (scope.leads) {
     jobs.push(searchLeads(db, term, per).then((h) => h.map((l) => ({ kind: "Leads", id: l.id, label: l.fullName, sub: l.stageLabel, href: `/leads/${l.id}` }))));
@@ -168,6 +170,41 @@ export async function searchEverything(db: Db, scope: SearchScope, q: string, pe
         .orderBy(desc(ch.score))
         .limit(per)
         .then((r) => r.map((x) => ({ kind: "Chat", id: x.id, label: `#${x.label}`, sub: "Channel", href: `/chat/${x.id}` }))),
+    );
+  }
+  if (scope.comms) {
+    const u = fuzzy(sql`${users.name}`, term);
+    jobs.push(
+      db
+        .select({ id: users.id, label: users.name, role: users.role, score: u.score })
+        .from(users)
+        .where(and(eq(users.active, true), u.where))
+        .orderBy(desc(u.score))
+        .limit(per)
+        .then((r) => r.map((x) => ({ kind: "People", id: x.id, label: x.label, sub: x.role, href: `/people?q=${encodeURIComponent(x.label)}` }))),
+    );
+    const n = fuzzy(sql`${announcements.title}`, term);
+    jobs.push(
+      db
+        .select({ id: announcements.id, label: announcements.title, score: n.score })
+        .from(announcementReceipts)
+        .innerJoin(announcements, eq(announcements.id, announcementReceipts.announcementId))
+        .where(and(eq(announcementReceipts.userId, scope.userId), isNull(announcements.archivedAt), n.where))
+        .orderBy(desc(n.score))
+        .limit(per)
+        .then((r) => r.map((x) => ({ kind: "Announcements", id: x.id, label: x.label, sub: "Announcement", href: `/announcements/${x.id}` }))),
+    );
+  }
+  if (scope.brand) {
+    const b = fuzzy(sql`${brandAssets.name} || ' ' || array_to_string(${brandAssets.tags}, ' ')`, term);
+    jobs.push(
+      db
+        .select({ id: brandAssets.id, label: brandAssets.name, type: brandAssets.type, score: b.score })
+        .from(brandAssets)
+        .where(and(eq(brandAssets.status, "active"), b.where))
+        .orderBy(desc(b.score))
+        .limit(per)
+        .then((r) => r.map((x) => ({ kind: "Brand assets", id: x.id, label: x.label, sub: x.type.replace("_", " "), href: `/brand/assets/${x.id}` }))),
     );
   }
   // approval requests this person may see: their own, the ones they approve, all (owners), money ones (finance)

@@ -10,7 +10,19 @@ import { currentTheme, setTheme } from "./theme";
 type Hit = { kind: string; id: number; label: string; sub: string; href: string };
 type Recent = { href: string; label: string; kind: string };
 const RECENT_KEY = "hq:palette-recent";
-const ICON: Record<string, IconName> = { Leads: "user", Batches: "cohorts", Tasks: "list", Docs: "note", Campaigns: "target", Content: "sparkle", Chat: "chat", Approvals: "check" };
+const ICON: Record<string, IconName> = {
+  Leads: "user",
+  Batches: "cohorts",
+  Tasks: "list",
+  Docs: "note",
+  Campaigns: "target",
+  Content: "sparkle",
+  Chat: "chat",
+  Approvals: "check",
+  People: "user",
+  Announcements: "send",
+  "Brand assets": "layers",
+};
 
 // Recent destinations live in this browser only: a convenience, so a failure to read or write is ignored.
 function readRecent(): Recent[] {

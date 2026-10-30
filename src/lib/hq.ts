@@ -428,7 +428,7 @@ export async function getDoc(db: Db, id: number) {
   return { ...d, children };
 }
 
-export type DocInput = { title: string; body?: string; spaceId?: number | null; parentId?: number | null; wiki?: boolean };
+export type DocInput = { title: string; body?: string; spaceId?: number | null; parentId?: number | null; wiki?: boolean; brand?: boolean }; // brand: undefined keeps it as is
 
 export async function saveDoc(db: Db, id: number | null, input: DocInput, userId: number | null): Promise<Result<{ id: number }>> {
   const title = clean(input.title, 140);
@@ -448,7 +448,7 @@ export async function saveDoc(db: Db, id: number | null, input: DocInput, userId
       cur = p.parentId;
     }
   } else parentId = null;
-  const values = { title, body, spaceId: input.spaceId ?? null, parentId, wiki: !!input.wiki, updatedBy: userId, updatedAt: new Date() };
+  const values = { title, body, spaceId: input.spaceId ?? null, parentId, wiki: !!input.wiki, ...(input.brand !== undefined ? { brand: input.brand } : {}), updatedBy: userId, updatedAt: new Date() };
   if (id) {
     const rows = await db.update(docs).set(values).where(and(eq(docs.id, id), isNull(docs.archivedAt))).returning({ id: docs.id });
     if (!rows.length) return { ok: false, error: "Doc not found" };
