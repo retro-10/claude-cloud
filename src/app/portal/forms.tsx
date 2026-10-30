@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { MAX_UPLOAD_MB } from "@/lib/upload-limit";
 import { useFormStatus } from "react-dom";
 import { acceptInviteAction, portalLogin, submitWorkAction, type PortalState } from "./actions";
 
@@ -79,7 +80,7 @@ export function SubmitWork({ assignmentId, accept }: { assignmentId: number; acc
     <form action={action} className="mt-2 grid gap-2 sm:grid-cols-2">
       <input type="hidden" name="assignmentId" value={assignmentId} />
       <label className="field">
-        Your file (up to 8 MB) · ملفك
+        Your file (up to {MAX_UPLOAD_MB} MB) · ملفك
         <input type="file" name="file" accept={accept} className="input input-sm" />
       </label>
       <label className="field">

@@ -17,26 +17,11 @@ export async function register() {
         await runMigrations();
         await seedReference();
       }
+      // Vercel runs code only for requests: there /api/cron/tick does this work when the scheduler calls it
+      if (process.env.VERCEL) return;
       const { db } = await import("./db");
-      const { runScheduledRules } = await import("./lib/workflows");
-      // the same tick stops clocks left running from an earlier day (at the midnight after they started)
-      const { stopForgottenClocks } = await import("./lib/calendar");
-      const { moveFilesToDrive } = await import("./lib/attachments");
-      const { backupIfDue } = await import("./lib/backup");
-      const { sendNotificationEmails } = await import("./lib/email");
-      const { remindUnacknowledged } = await import("./lib/announcements");
-      const tick = () => {
-        void runScheduledRules(db).catch(() => 0);
-        void stopForgottenClocks(db).catch(() => 0);
-        // and, with Google Drive connected, moves files still stored in the database there (a few per tick)
-        void moveFilesToDrive(db).catch(() => 0);
-        // and a database backup to Drive once a day
-        void backupIfDue(db).catch(() => 0);
-        // and an email digest of notifications left unread for 10 minutes (when RESEND_API_KEY is set)
-        void sendNotificationEmails(db).catch(() => 0);
-        // and a daily reminder to whoever has not acknowledged a must-read announcement
-        void remindUnacknowledged(db).catch(() => 0);
-      };
+      const { runTick } = await import("./lib/tick");
+      const tick = () => void runTick(db, { backup: true, notion: false }).catch(() => undefined);
       setTimeout(tick, 30_000);
       setInterval(tick, 5 * 60_000).unref?.();
 

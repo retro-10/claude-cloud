@@ -121,7 +121,62 @@ The scripts run inside the `db` container of `docker compose` by default. To run
 database (no Docker), set `BACKUP_MODE=direct DATABASE_URL=postgres://…` and have the PostgreSQL client tools
 installed. Both modes share the same code.
 
-## Deploy on Render + Supabase (the chosen setup)
+## Deploy on Vercel + Supabase (the chosen setup for internal testing)
+
+Vercel runs code only when a request comes in, so the parts of the app that run on their own are moved out:
+the 5-minute background work is called by Supabase's scheduler, and the daily backup runs as a GitHub Action.
+
+1. **Supabase**: the project (ORLADENT HQ, Ireland). From **Connect**, copy two URLs, with a database password of
+   letters and digits only (or URL-encode it):
+   - **Transaction pooler** (port 6543): the app's `DATABASE_URL`.
+   - **Session pooler** (port 5432): `MIGRATE_DATABASE_URL` (database updates during the build) and the backup.
+2. **Vercel**: Add New > Project > import this repository. `vercel.json` sets the build (database updates on
+   production deploys only, then `next build`) and the region (Dublin, next to Supabase). Environment variables:
+
+   | Variable | Value |
+   |---|---|
+   | `DATABASE_URL` | the transaction pooler URL (6543) |
+   | `MIGRATE_DATABASE_URL` | the session pooler URL (5432) |
+   | `DATABASE_POOL_MAX` | `1` |
+   | `AUTH_SECRET` | `openssl rand -base64 48` |
+   | `SEED_PASSWORD` | the first password of the seeded accounts |
+   | `COOKIE_SECURE` | `true` |
+   | `APP_URL` | `https://<project>.vercel.app` (or your domain) |
+   | `CRON_SECRET` | `openssl rand -hex 32` |
+   | `BACKUP_IN_APP` | `false` (Vercel has no `pg_dump`; the GitHub Action takes the backup) |
+   | `NEXT_PUBLIC_MAX_UPLOAD_MB` | `4` (Vercel refuses uploads above about 4.5 MB) |
+   | optional | `NOTION_TOKEN`, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `ANTHROPIC_API_KEY` |
+
+3. **The 5-minute work** (workflow rules, forgotten clocks, files to Drive, email digests, reminders, the Notion
+   sync): in Supabase, **SQL Editor**, run once, with your app's address and `CRON_SECRET`:
+
+   ```sql
+   create extension if not exists pg_cron;
+   create extension if not exists pg_net;
+   select vault.create_secret('<CRON_SECRET>', 'hq_cron_secret');
+   select cron.schedule('hq-tick', '*/5 * * * *', $$
+     select net.http_post(
+       url := 'https://<project>.vercel.app/api/cron/tick',
+       headers := jsonb_build_object('Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'hq_cron_secret')),
+       timeout_milliseconds := 60000);
+   $$);
+   ```
+
+   `select * from cron.job_run_details order by start_time desc limit 5;` shows the last runs. Vercel's own cron
+   (free plan: once a day) calls the same address at 03:07 UTC as a fallback.
+4. **Backups**: connect Google Drive in the app (Settings > Integrations). In GitHub, Settings > Secrets and
+   variables > Actions, add `BACKUP_DATABASE_URL` (the session pooler URL), `AUTH_SECRET` (the same as Vercel's),
+   and the Google variables set on Vercel. The **Backup** workflow then saves a `pg_dump` to the Drive Backups
+   folder every night and keeps the newest 14; run it by hand from the Actions tab.
+5. **Domain** (optional): Vercel project > Settings > Domains > `hq.orladent.com`; at Hostinger add the CNAME
+   Vercel shows.
+
+Limits on Vercel: files up to 4 MB; login attempt limits are counted per running copy of the app, so they are
+looser than on one server (two-factor sign-in is unaffected); a background round that takes longer than 60
+seconds is cut off and finishes on the next one (the Notion sync works in batches). The free plan is for
+non-commercial use: fine for testing with the team, move to Pro or a server for the business.
+
+## Deploy on Render + Supabase (always on, no changes needed)
 
 1. **Supabase**: create the project (done: ORLADENT HQ, Ireland). Copy **Connect > Session pooler** (port 5432);
    use a database password with letters and digits only, or URL-encode it.

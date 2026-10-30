@@ -29,7 +29,7 @@ const PUBLIC_ACTIONS = new Set([
 // student portal actions check the student's own session, not a staff permission
 const isPortal = (f: string) => rel(f).startsWith("app/portal/");
 // the inbound webhook has no session: its check is the bearer token (asserted below)
-const PUBLIC_ROUTES = new Set(["app/api/health/route.ts", "app/api/inbound/leads/route.ts"]);
+const PUBLIC_ROUTES = new Set(["app/api/health/route.ts", "app/api/inbound/leads/route.ts", "app/api/cron/tick/route.ts"]);
 
 function exportedAsyncFunctions(src: string): { name: string; body: string }[] {
   const parts = src.split(/^export async function /m).slice(1);
@@ -100,6 +100,16 @@ describe("the inbound lead webhook", () => {
     expect(src).toContain("process.env.INBOUND_LEADS_TOKEN");
     expect(check).toBeGreaterThan(0);
     expect(check).toBeLessThan(src.indexOf("req.json()"));
+  });
+});
+
+describe("the cron tick", () => {
+  it("is off without CRON_SECRET and compares the token in constant time before running anything", () => {
+    const src = readFileSync(files.find((f) => /api[\\/]cron[\\/]tick[\\/]route\.ts$/.test(f))!, "utf8");
+    const check = src.indexOf("timingSafeEqual(");
+    expect(src).toContain("process.env.CRON_SECRET");
+    expect(check).toBeGreaterThan(0);
+    expect(check).toBeLessThan(src.indexOf("runTick(db"));
   });
 });
 

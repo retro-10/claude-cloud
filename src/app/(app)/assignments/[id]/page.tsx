@@ -11,6 +11,7 @@ import { listCohorts } from "@/lib/cohorts";
 import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
+import { MAX_UPLOAD_MB } from "@/lib/upload-limit";
 import { deleteAssignmentAction, recordSubmissionAction, reviewSubmissionAction } from "../actions";
 
 export const metadata = { title: "Assignment" };
@@ -111,7 +112,7 @@ export default async function AssignmentPage(props: { params: Promise<{ id: stri
                       <input type="hidden" name="assignmentId" value={a.id} />
                       <input type="hidden" name="enrolmentId" value={enrolmentId} />
                       <label className="field">
-                        File (up to 8 MB)
+                        File (up to {MAX_UPLOAD_MB} MB)
                         <input type="file" name="file" accept={ACCEPT} className="input input-sm" />
                       </label>
                       <label className="field">

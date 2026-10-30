@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/ui";
-import { ALLOWED_EXT, MAX_FILE_BYTES } from "@/lib/attachments";
+import { ALLOWED_EXT } from "@/lib/attachments";
+import { MAX_UPLOAD_MB } from "@/lib/upload-limit";
 import { ASSET_TYPES } from "@/lib/brand";
 
 const ACCEPT = Object.keys(ALLOWED_EXT).map((e) => `.${e}`).join(",");
@@ -40,7 +41,7 @@ export function AssetFields({ action, a }: { action: (f: FormData) => Promise<vo
       </label>
       {!a && (
         <label className="field">
-          File (up to {MAX_FILE_BYTES / 1024 / 1024} MB)
+          File (up to {MAX_UPLOAD_MB} MB)
           <input type="file" name="file" accept={ACCEPT} className="input py-2" />
         </label>
       )}

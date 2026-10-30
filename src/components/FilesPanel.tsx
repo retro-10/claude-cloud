@@ -1,6 +1,7 @@
 import { deleteFileAction, uploadFileAction } from "@/app/(app)/files/actions";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { EmptyState, Icon } from "@/components/ui";
+import { MAX_UPLOAD_MB } from "@/lib/upload-limit";
 import { ALLOWED_EXT, formatBytes, type AttachmentRow } from "@/lib/attachments";
 import { formatCairo } from "@/lib/time";
 
@@ -46,7 +47,7 @@ export function FilesPanel({ rows, back, leadId, cohortId, caseId, canWrite, me,
           {cohortId && <input type="hidden" name="cohortId" value={cohortId} />}
           {caseId && <input type="hidden" name="caseId" value={caseId} />}
           <label className="field min-w-0 flex-1">
-            Add a file (up to 8 MB)
+            Add a file (up to {MAX_UPLOAD_MB} MB)
             <input type="file" name="file" required accept={ACCEPT} className="input input-sm" />
           </label>
           <label className="field">
