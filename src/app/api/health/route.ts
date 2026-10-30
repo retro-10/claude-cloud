@@ -11,7 +11,9 @@ export async function GET(req: NextRequest) {
   const parallel = req.nextUrl.searchParams.get("parallel") === "1";
   const started = Date.now();
   try {
-    const run = Promise.all(Array.from({ length: parallel ? 8 : 1 }, () => db.execute(sql`select 1`)));
+    // with parameters, as real queries have (they take the extended protocol), and nested batches, as a page does
+    const batch = () => Promise.all(Array.from({ length: 4 }, (_, i) => db.execute(sql`select ${i}::int as n`)));
+    const run = parallel ? Promise.all(Array.from({ length: 8 }, batch)) : db.execute(sql`select 1`);
     await Promise.race([run, new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 10_000))]);
     return NextResponse.json({ status: "ok", ...(parallel ? { ms: Date.now() - started } : {}) });
   } catch {

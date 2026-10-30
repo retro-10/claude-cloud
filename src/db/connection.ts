@@ -30,4 +30,26 @@ export function connectionOptions(url: string, max = Number(process.env.DATABASE
   };
 }
 
-export const connect = (url: string, max?: number) => postgres(url, connectionOptions(url, max));
+/**
+ * SUPABASE_POOL_MODE=session moves a Supabase transaction-pooler URL (port 6543) to the session pooler on the same host
+ * (port 5432, same credentials). The transaction pooler stalls queries that postgres.js pipelines on a busy connection,
+ * which a page with nested parallel queries does; the session pooler is a real session and handles them.
+ */
+export function sessionPoolerUrl(url: string) {
+  if (process.env.SUPABASE_POOL_MODE !== "session") return url;
+  try {
+    const u = new URL(url);
+    if (u.port === "6543" && /\.pooler\.supabase\.com$/.test(u.hostname)) {
+      u.port = "5432";
+      return u.toString();
+    }
+  } catch {
+    // postgres.js reports a malformed URL itself
+  }
+  return url;
+}
+
+export const connect = (url: string, max?: number) => {
+  const target = sessionPoolerUrl(url);
+  return postgres(target, connectionOptions(target, max));
+};
