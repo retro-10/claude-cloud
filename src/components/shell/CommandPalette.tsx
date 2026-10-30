@@ -7,7 +7,26 @@ import { Icon, type IconName } from "../ui/Icon";
 import { OPEN_PALETTE, OPEN_QUICK_ADD, OPEN_SHORTCUTS, emit } from "./events";
 import { currentTheme, setTheme } from "./theme";
 
-type Hit = { id: number; fullName: string; phone: string | null; stageLabel: string; stageKind: string };
+type Hit = { kind: string; id: number; label: string; sub: string; href: string };
+type Recent = { href: string; label: string; kind: string };
+const RECENT_KEY = "hq:palette-recent";
+const ICON: Record<string, IconName> = { Leads: "user", Batches: "cohorts", Tasks: "list", Docs: "note", Campaigns: "target", Content: "sparkle", Chat: "chat", Approvals: "check" };
+
+// Recent destinations live in this browser only: a convenience, so a failure to read or write is ignored.
+function readRecent(): Recent[] {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") as Recent[];
+  } catch {
+    return [];
+  }
+}
+function remember(r: Recent) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify([r, ...readRecent().filter((x) => x.href !== r.href)].slice(0, 6)));
+  } catch {
+    /* private window or storage blocked */
+  }
+}
 type Command = { id: string; group: string; label: string; icon: IconName; hint?: string; keywords?: string; run: () => void };
 export type PaletteLink = { href: string; label: string; icon: IconName; keys?: string; group?: string; keywords?: string };
 
@@ -21,13 +40,14 @@ const matches = (q: string, text: string) => {
     .every((w) => t.includes(w));
 };
 
-export function CommandPalette({ links, canWrite }: { links: PaletteLink[]; canWrite: boolean }) {
+export function CommandPalette({ links, actions = [], canWrite }: { links: PaletteLink[]; actions?: PaletteLink[]; canWrite: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(0);
+  const [recent, setRecent] = useState<Recent[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const restoreFocus = useRef<HTMLElement | null>(null);
@@ -61,7 +81,9 @@ export function CommandPalette({ links, canWrite }: { links: PaletteLink[]; canW
   }, [open, close]);
 
   useEffect(() => {
-    if (open) requestAnimationFrame(() => inputRef.current?.focus());
+    if (!open) return;
+    setRecent(readRecent());
+    requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
   // Lead search: debounced, and a newer query cancels the older request.
@@ -99,7 +121,7 @@ export function CommandPalette({ links, canWrite }: { links: PaletteLink[]; canW
   );
 
   const commands = useMemo<Command[]>(() => {
-    const list: Command[] = links.map((l) => ({
+    const list: Command[] = [...actions.map((a) => ({ ...a, group: a.group ?? "Actions" })), ...links].map((l) => ({
       id: `go:${l.href}`,
       group: l.group ?? "Go to",
       label: l.label,
@@ -148,23 +170,28 @@ export function CommandPalette({ links, canWrite }: { links: PaletteLink[]; canW
       { id: "logout", group: "Actions", label: "Sign out", icon: "logout", keywords: "log out exit", run: () => void logout() },
     );
     return list;
-  }, [links, canWrite, go, close]);
+  }, [links, actions, canWrite, go, close]);
 
   const shown = useMemo(() => {
     const term = q.trim();
     const cmds = term ? commands.filter((c) => matches(term, `${c.label} ${c.keywords ?? ""} ${c.group}`)) : commands;
-    const leadItems: Command[] = hits.map((h) => ({
-      id: `lead:${h.id}`,
-      group: "Leads",
-      label: h.fullName,
-      icon: "user",
-      hint: h.stageLabel,
-      keywords: h.phone ?? "",
-      run: () => go(`/leads/${h.id}`),
+    const open = (h: { href: string; label: string; kind: string }) => {
+      remember({ href: h.href, label: h.label, kind: h.kind });
+      go(h.href);
+    };
+    const records: Command[] = hits.map((h) => ({
+      id: `${h.kind}:${h.id}`,
+      group: h.kind,
+      label: h.label,
+      icon: ICON[h.kind] ?? "search",
+      hint: h.sub,
+      run: () => open(h),
     }));
-    // leads first when the query looks like a person (someone typed a name or number)
-    return term ? [...leadItems, ...cmds] : cmds;
-  }, [q, commands, hits, go]);
+    // records first when something is typed; with nothing typed, where you went last, then commands
+    if (term) return [...records, ...cmds];
+    const recents: Command[] = recent.map((r) => ({ id: `recent:${r.href}`, group: "Recent", label: r.label, icon: ICON[r.kind] ?? "history", hint: r.kind, run: () => open(r) }));
+    return [...recents, ...cmds];
+  }, [q, commands, hits, go, recent]);
 
   useEffect(() => setActive(0), [q, hits.length]);
   useEffect(() => {
@@ -213,13 +240,13 @@ export function CommandPalette({ links, canWrite }: { links: PaletteLink[]; canW
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search leads by name or phone, or type a command…"
+            placeholder="Search people, tasks, docs, campaigns… or type a command"
             dir="auto"
             role="combobox"
             aria-expanded="true"
             aria-controls={listId}
             aria-activedescendant={shown[active] ? `${listId}-${active}` : undefined}
-            aria-label="Search leads or commands"
+            aria-label="Search records or commands"
             autoComplete="off"
             spellCheck={false}
             className="h-14 min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted focus-visible:outline-none"

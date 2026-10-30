@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { sources } from "@/db/schema";
 import { AppFrame, type NavItem } from "@/components/shell/AppFrame";
 import type { GoKey } from "@/components/shell/Shortcuts";
-import { Icon } from "@/components/ui/Icon";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { getSetting } from "@/lib/app-settings";
 import { clockState } from "@/lib/calendar";
 import { waitingCount } from "@/lib/approvals";
@@ -92,6 +92,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         can(user.role, "settings:write") && { href: "/settings", label: "Settings", icon: "settings", section: "Admin", keys: "G S" },
       ].filter((n): n is NavItem => !!n);
 
+  // things to do from ⌘K, by permission
+  const actions = [
+    { href: "/approvals/new?type=expense", label: "New expense", icon: "trend", keywords: "spend money receipt reimburse approval" },
+    { href: "/approvals/new?type=leave", label: "Ask for leave", icon: "calendar", keywords: "day off holiday vacation approval" },
+    { href: "/approvals/new?type=purchase", label: "Ask to buy something", icon: "plus", keywords: "purchase order approval" },
+    { href: "/approvals/new?type=brand", label: "Brand or design request", icon: "sparkle", keywords: "design asset post approval" },
+    can(user.role, "chat:write") && { href: "/chat/new", label: "New message", icon: "chat", keywords: "chat dm direct" },
+    hq && can(user.role, "task:write") && { href: "/docs/new", label: "New doc", icon: "note", keywords: "page wiki write" },
+  ].filter((a): a is { href: string; label: string; icon: IconName; keywords: string } => !!a);
+
   const goKeys: GoKey[] = nav.filter((n) => n.keys).map((n) => ({ key: n.keys!.slice(-1).toLowerCase(), href: n.href, label: n.label }));
 
   return (
@@ -101,6 +111,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </a>
       <AppFrame user={{ name: user.name, role: user.role }} nav={nav} canWrite={can(user.role, "lead:write")} sources={src}
         goKeys={goKeys}
+        actions={actions}
         clock={{
           running: clock.running,
           since: clock.since?.toISOString() ?? null,

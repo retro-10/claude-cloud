@@ -34,6 +34,7 @@ type Props = {
   goKeys: GoKey[];
   bell: { items: BellItem[]; unread: number };
   clock: ClockProps;
+  actions?: PaletteLink[]; // "New expense", "Ask for leave" … in the command palette, per permission
   children: React.ReactNode;
 };
 
@@ -202,7 +203,7 @@ function SidebarBody({ user, children }: { user: Props["user"]; children: React.
   );
 }
 
-export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, clock, children }: Props) {
+export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, clock, actions, children }: Props) {
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
   const collapse = useCollapsed();
@@ -329,7 +330,7 @@ export function AppFrame({ user, nav, canWrite, sources, goKeys, bell, clock, ch
         </div>
       </nav>
 
-      <CommandPalette links={links} canWrite={canWrite} />
+      <CommandPalette links={links} actions={actions} canWrite={canWrite} />
       <Composer />
       <Shortcuts goKeys={goKeys} canWrite={canWrite} />
     </div>

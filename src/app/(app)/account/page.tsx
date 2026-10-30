@@ -7,7 +7,10 @@ import { requireUser } from "@/lib/server-auth";
 import { formatCairo } from "@/lib/time";
 import { pendingSetup, twoFactorStatus } from "@/lib/two-factor";
 import { changePasswordAction } from "../settings/actions";
-import { startTwoFactorAction } from "./actions";
+import { eq } from "drizzle-orm";
+import { users } from "@/db/schema";
+import { EMAIL_CHOICES, emailOn } from "@/lib/email";
+import { saveEmailPrefsAction, startTwoFactorAction } from "./actions";
 
 export const metadata = { title: "My account" };
 const box = "input";
@@ -16,6 +19,7 @@ export default async function AccountPage(props: { searchParams: Promise<{ notic
   const searchParams = await props.searchParams;
   const user = await requireUser();
   const tf = await twoFactorStatus(db, user.id);
+  const [{ pref }] = await db.select({ pref: users.emailNotifications }).from(users).where(eq(users.id, user.id));
   const setup = tf.pending ? await pendingSetup(db, user.id) : null;
   // the QR code is drawn here as SVG from our own data: nothing is sent to a third party
   const qr = setup ? await QRCode.toString(setup.uri, { type: "svg", margin: 1, errorCorrectionLevel: "M" }) : null;
@@ -26,6 +30,25 @@ export default async function AccountPage(props: { searchParams: Promise<{ notic
         {user.name} · <span dir="ltr">{user.email}</span> · {user.role}
       </p>
       <Flash {...searchParams} />
+      <form action={saveEmailPrefsAction} className="mb-4 flex max-w-xl flex-col gap-3 card p-5">
+        <h2 className="font-display text-lg font-semibold">Email notifications</h2>
+        <p className="text-sm text-muted">
+          When something in your inbox is still unread after 10 minutes, it can also come by email to <span dir="ltr">{user.email}</span>, a few items at a time.
+          {!emailOn() && " Email is not switched on for HQ yet; this choice applies once it is."}
+        </p>
+        <fieldset className="flex flex-col gap-2 text-sm">
+          <legend className="sr-only">Which notifications come by email</legend>
+          {EMAIL_CHOICES.map((c) => (
+            <label key={c.key} className="flex items-start gap-2">
+              <input type="radio" name="emailNotifications" value={c.key} defaultChecked={pref === c.key} className="check mt-0.5" />
+              <span>
+                {c.label} <span className="text-muted">({c.hint})</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        <button className="btn btn-secondary btn-sm self-start">Save</button>
+      </form>
       <form action={changePasswordAction} className="flex max-w-sm flex-col gap-3 card p-5">
         <h2 className="font-display text-lg font-semibold">Change password</h2>
         <label className="flex flex-col gap-1 text-xs text-muted">

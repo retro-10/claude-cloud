@@ -68,6 +68,8 @@ describe("every server action checks the caller on the server", () => {
       "confirmTwoFactorAction",
       "newRecoveryCodesAction",
       "disableTwoFactorAction",
+      // your own email notification setting
+      "saveEmailPrefsAction",
     ]);
     for (const f of actionFiles) {
       for (const fn of exportedAsyncFunctions(readFileSync(f, "utf8"))) {

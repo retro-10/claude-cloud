@@ -253,6 +253,20 @@
       "when": 1793321847765,
       "tag": "0035_approvals",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793323708335,
+      "tag": "0036_search_trgm",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793323797472,
+      "tag": "0037_email_notifications",
+      "breakpoints": true
     }
   ]
 }
