@@ -53,6 +53,13 @@ function StateChip({ p }: { p: Presence }) {
         {kindOf(p.current.kind).label} until {p.current.allDay ? "end of day" : hhmm(p.current.endsAt)}
       </span>
     );
+  if (p.state === "aux" && p.aux)
+    return (
+      <span className={`chip ${p.aux.over ? "chip-danger" : "chip-warn"}`}>
+        {p.aux.label} · <LiveDuration since={p.aux.since.toISOString()} />
+        {p.aux.over && " (over the limit)"}
+      </span>
+    );
   if (p.state === "working" && p.since)
     return (
       <span className="chip chip-ok">
@@ -232,7 +239,7 @@ export default async function CalendarPage(props: { searchParams: Promise<Search
                     {initials(p.name)}
                     <span
                       className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface ${
-                        p.state === "working" ? "bg-ok" : p.state === "busy" ? "bg-warn" : p.state === "away" ? "bg-danger" : "bg-faint"
+                        p.state === "working" ? "bg-ok" : p.state === "busy" || p.state === "aux" ? "bg-warn" : p.state === "away" ? "bg-danger" : "bg-faint"
                       }`}
                     />
                   </span>

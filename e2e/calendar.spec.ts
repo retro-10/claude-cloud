@@ -40,6 +40,18 @@ test("team calendar: clock in and out, plan events, everyone sees them, fix hour
   const right = page.getByRole("region", { name: "Right now" });
   await expect(right.locator(".card", { hasText: "Mo" })).toContainText("Working");
 
+  // step away for prayer from the clock: the top bar and Right now show it; Back returns to work
+  const bar = page.getByRole("banner");
+  await bar.getByText("Away", { exact: true }).click();
+  await bar.getByRole("button", { name: "Prayer" }).click();
+  await expect(page.locator("[role=status]", { hasText: "Prayer: the clock shows you as away" })).toBeVisible();
+  await expect(bar.getByRole("status").filter({ hasText: "Prayer" })).toBeVisible();
+  await expect(right.locator(".card", { hasText: "Mo" })).toContainText("Prayer");
+  await scan(page, "team calendar while away");
+  await bar.getByRole("button", { name: "Back to work" }).click();
+  await expect(page.locator("[role=status]", { hasText: /Back to work after prayer/ })).toBeVisible();
+  await expect(right.locator(".card", { hasText: "Mo" })).toContainText("Working");
+
   // a meeting today and a day off later this week: both in the week grid and in Coming up
   await page.getByLabel("What").fill("Supplier call");
   await page.getByLabel("Starts").fill(`${today}T23:00`);

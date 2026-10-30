@@ -128,7 +128,7 @@ d("team calendar: clock in and out, hours, events, who is free", () => {
     // Mona (since 28 Oct 09:00) and Omar (since 28 Oct 08:30) never clocked out
     const later = at("2026-10-30T09:00");
     // before the sweep, reads already treat it as stopped: not working, and the day ends at midnight
-    expect(await clockState(db, mona.id, later)).toEqual({ running: false, since: null });
+    expect(await clockState(db, mona.id, later)).toEqual({ running: false, since: null, aux: null });
     expect((await workedByDay(db, "2026-10-28", 2, later)).get(omar.id)!.get("2026-10-29")).toBeUndefined();
     expect(await stopForgottenClocks(db, later)).toBe(2);
     expect(await stopForgottenClocks(db, later)).toBe(0);

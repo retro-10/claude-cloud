@@ -21,16 +21,20 @@ export async function GET(req: NextRequest) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return new NextResponse("Pick a month (YYYY-MM)", { status: 400 });
   const kind = req.nextUrl.searchParams.get("kind") === "detail" ? "detail" : "summary";
   const { detail, summary } = await monthHours(db, month);
+  // one column per away status that appears this month, in minutes
+  const awayCols = [...new Set([...summary, ...detail].flatMap((r) => Object.keys(r.away)))].sort();
+  const awayHead = awayCols.map((k) => `away_${k.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_minutes`);
+  const awayVals = (r: { away: Record<string, number> }) => awayCols.map((k) => Math.round(r.away[k] ?? 0));
 
   const csv =
     kind === "summary"
       ? toCsv([
-          ["person", "email", "role", "month", "hours", "minutes", "days_worked", "stretches", "stopped_at_midnight"],
-          ...summary.map((t) => [t.person, t.email, t.role, month, decimal(t.minutes), Math.round(t.minutes), t.days, t.stretches, t.autoStopped]),
+          ["person", "email", "role", "month", "hours", "minutes", "clocked_minutes", ...awayHead, "days_worked", "stretches", "stopped_at_midnight"],
+          ...summary.map((t) => [t.person, t.email, t.role, month, decimal(t.minutes), Math.round(t.minutes), Math.round(t.clockMinutes), ...awayVals(t), t.days, t.stretches, t.autoStopped]),
         ])
       : toCsv([
-          ["person", "email", "date", "start", "end", "hours", "minutes", "note", "stopped_at_midnight", "still_running"],
-          ...detail.map((r) => [r.person, r.email, r.date, clock(r.start), clock(r.end), decimal(r.minutes), Math.round(r.minutes), r.note ?? "", r.autoStopped ? "yes" : "", r.running ? "yes" : ""]),
+          ["person", "email", "date", "start", "end", "hours", "minutes", "clocked_minutes", ...awayHead, "note", "stopped_at_midnight", "still_running"],
+          ...detail.map((r) => [r.person, r.email, r.date, clock(r.start), clock(r.end), decimal(r.minutes), Math.round(r.minutes), Math.round(r.clockMinutes), ...awayVals(r), r.note ?? "", r.autoStopped ? "yes" : "", r.running ? "yes" : ""]),
         ]);
   await audit(db, { userId: user.id, entity: "time_entry", action: "export", diff: { month, kind, rows: kind === "summary" ? summary.length : detail.length } });
   return new NextResponse(csv, {

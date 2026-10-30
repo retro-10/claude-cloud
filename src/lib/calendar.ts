@@ -1,6 +1,7 @@
-import { and, asc, desc, eq, gt, isNull, lt, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, ne, or } from "drizzle-orm";
 import type { Db } from "@/db";
-import { calendarEvents, notifications, timeEntries, users } from "@/db/schema";
+import { calendarEvents, notifications, timeAux, timeEntries, users } from "@/db/schema";
+import { getSetting } from "./app-settings";
 import { audit } from "./audit";
 import { isUniqueViolation } from "./db-errors";
 import { can, type Role } from "./rbac";
@@ -74,6 +75,7 @@ export async function stopForgottenClocks(db: Db, now = new Date()): Promise<num
       .where(and(eq(timeEntries.id, e.id), isNull(timeEntries.endedAt)))
       .returning({ id: timeEntries.id });
     if (!done.length) continue; // clocked out meanwhile
+    await db.update(timeAux).set({ endedAt }).where(and(eq(timeAux.entryId, e.id), isNull(timeAux.endedAt)));
     n++;
     const day = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "Africa/Cairo" }).format(e.startedAt);
     await db.insert(notifications).values({
@@ -113,8 +115,75 @@ export async function clockOut(db: Db, userId: number, note?: string | null, now
     .update(timeEntries)
     .set({ endedAt, note: n ?? open.note, updatedAt: now })
     .where(eq(timeEntries.id, open.id));
+  await db.update(timeAux).set({ endedAt }).where(and(eq(timeAux.entryId, open.id), isNull(timeAux.endedAt)));
   await audit(db, { userId, entity: "time_entry", entityId: open.id, action: "clock_out" });
-  return { ok: true, minutes: (endedAt.getTime() - open.startedAt.getTime()) / 60_000 };
+  const away = await unpaidAuxMinutes(db, [{ ...open, endedAt }], open.startedAt, endedAt, now);
+  return { ok: true, minutes: (endedAt.getTime() - open.startedAt.getTime()) / 60_000 - away };
+}
+
+// ---------------- away statuses (AUX) ----------------
+
+type AuxRow = typeof timeAux.$inferSelect;
+type EntryLike = { id: number; startedAt: Date; endedAt: Date | null };
+
+/** When an away status ends: when it was ended, else now, and never after its clock stopped. */
+const auxEnd = (a: AuxRow, entry: EntryLike, now: Date) => {
+  const clockEnd = effectiveEnd(entry, now);
+  return a.endedAt && a.endedAt < clockEnd ? a.endedAt : clockEnd;
+};
+
+export async function openAux(db: Db, userId: number) {
+  const [a] = await db.select().from(timeAux).where(and(eq(timeAux.userId, userId), isNull(timeAux.endedAt)));
+  return a ?? null;
+}
+
+/** Step away (break, prayer, lunch …) while clocked in. Switching from one status to another ends the first. */
+export async function startAux(db: Db, userId: number, code: string, now = new Date()): Promise<Result<{ id: number; label: string }>> {
+  const open = await openEntry(db, userId);
+  if (!open || effectiveEnd(open, now) < now) return { ok: false, error: "Clock in first" };
+  const def = (await getSetting(db, "auxCodes")).find((c) => c.key === code);
+  if (!def) return { ok: false, error: "That status is not in the list any more" };
+  const current = await openAux(db, userId);
+  if (current?.code === code) return { ok: true, id: current.id, label: current.label };
+  if (current) await db.update(timeAux).set({ endedAt: now }).where(eq(timeAux.id, current.id));
+  try {
+    const [row] = await db.insert(timeAux).values({ entryId: open.id, userId, code, label: def.label, paid: def.paid, startedAt: now }).returning({ id: timeAux.id });
+    await audit(db, { userId, entity: "time_aux", entityId: row.id, action: "start", diff: { code } });
+    return { ok: true, id: row.id, label: def.label };
+  } catch (e) {
+    if (isUniqueViolation(e)) return { ok: false, error: "You already have a status running" }; // two clicks at once
+    throw e;
+  }
+}
+
+/** Back to work: ends the running away status. */
+export async function endAux(db: Db, userId: number, now = new Date()): Promise<Result<{ minutes: number; label: string }>> {
+  const a = await openAux(db, userId);
+  if (!a) return { ok: false, error: "You are not away" };
+  const [entry] = await db.select().from(timeEntries).where(eq(timeEntries.id, a.entryId));
+  const raw = entry ? auxEnd({ ...a, endedAt: now }, entry, now) : now;
+  const end = raw < a.startedAt ? a.startedAt : raw;
+  await db.update(timeAux).set({ endedAt: end }).where(eq(timeAux.id, a.id));
+  await audit(db, { userId, entity: "time_aux", entityId: a.id, action: "end" });
+  return { ok: true, minutes: (end.getTime() - a.startedAt.getTime()) / 60_000, label: a.label };
+}
+
+/** Away stretches of these clock entries, each clipped to its entry and to [from, to). */
+async function auxWithin(db: Db, entries: EntryLike[], from: Date, to: Date, now: Date) {
+  if (!entries.length) return [];
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const rows = await db.select().from(timeAux).where(inArray(timeAux.entryId, [...byId.keys()]));
+  return rows
+    .map((a) => ({
+      ...a,
+      start: new Date(Math.max(a.startedAt.getTime(), from.getTime())),
+      end: new Date(Math.min(auxEnd(a, byId.get(a.entryId)!, now).getTime(), to.getTime())),
+    }))
+    .filter((a) => a.end > a.start);
+}
+
+async function unpaidAuxMinutes(db: Db, entries: EntryLike[], from: Date, to: Date, now: Date) {
+  return (await auxWithin(db, entries, from, to, now)).filter((a) => !a.paid).reduce((n, a) => n + (a.end.getTime() - a.start.getTime()) / 60_000, 0);
 }
 
 export type EntryInput = { userId: number; start: Date | null; end: Date | null; note?: string | null };
@@ -165,6 +234,7 @@ export async function deleteEntry(db: Db, actor: Actor, id: number): Promise<Res
   const [e] = await db.select().from(timeEntries).where(eq(timeEntries.id, id));
   if (!e) return { ok: false, error: "Entry not found" };
   if (!mayActFor(actor, e.userId)) return { ok: false, error: "You can only change your own hours" };
+  await db.delete(timeAux).where(eq(timeAux.entryId, id));
   await db.delete(timeEntries).where(eq(timeEntries.id, id));
   await audit(db, { userId: actor.id, entity: "time_entry", entityId: id, action: "delete", diff: { for: e.userId, startedAt: e.startedAt, endedAt: e.endedAt } });
   return { ok: true };
@@ -185,24 +255,27 @@ export async function listEntries(db: Db, userId: number, from: Date, to: Date) 
 export async function workedByDay(db: Db, firstYmd: string, days: number, now = new Date()): Promise<Map<number, Map<string, number>>> {
   const { from, to } = daysRange(firstYmd, days);
   const rows = await db
-    .select({ userId: timeEntries.userId, startedAt: timeEntries.startedAt, endedAt: timeEntries.endedAt })
+    .select({ id: timeEntries.id, userId: timeEntries.userId, startedAt: timeEntries.startedAt, endedAt: timeEntries.endedAt })
     .from(timeEntries)
     .where(and(lt(timeEntries.startedAt, to), or(isNull(timeEntries.endedAt), gt(timeEntries.endedAt, from))));
+  // unpaid away time comes off the hours, on the day it happened
+  const away = (await auxWithin(db, rows, from, to, now)).filter((a) => !a.paid);
   const bounds = Array.from({ length: days }, (_, i) => {
     const ymd = addDaysYmd(firstYmd, i);
     return { ymd, ...daysRange(ymd, 1) };
   });
   const out = new Map<number, Map<string, number>>();
-  for (const r of rows) {
-    const end = effectiveEnd(r, now);
+  const add = (userId: number, start: Date, end: Date, sign: 1 | -1) => {
     for (const b of bounds) {
-      const ms = Math.min(end.getTime(), b.to.getTime()) - Math.max(r.startedAt.getTime(), b.from.getTime());
+      const ms = Math.min(end.getTime(), b.to.getTime()) - Math.max(start.getTime(), b.from.getTime());
       if (ms <= 0) continue;
-      const m = out.get(r.userId) ?? new Map<string, number>();
-      m.set(b.ymd, (m.get(b.ymd) ?? 0) + ms / 60_000);
-      out.set(r.userId, m);
+      const m = out.get(userId) ?? new Map<string, number>();
+      m.set(b.ymd, (m.get(b.ymd) ?? 0) + (sign * ms) / 60_000);
+      out.set(userId, m);
     }
-  }
+  };
+  for (const r of rows) add(r.userId, r.startedAt, effectiveEnd(r, now), 1);
+  for (const a of away) add(a.userId, a.start, a.end, -1);
   return out;
 }
 
@@ -280,8 +353,9 @@ export type Presence = {
   id: number;
   name: string;
   role: Role;
-  state: "working" | "away" | "busy" | "off";
+  state: "working" | "aux" | "away" | "busy" | "off";
   since: Date | null; // clocked in at
+  aux: { label: string; since: Date; over: boolean } | null; // on a break, at prayer, at lunch …
   current: CalEvent | null; // what they are in right now
   next: CalEvent | null; // the next thing today
   todayMinutes: number;
@@ -291,11 +365,13 @@ export type Presence = {
 export async function presence(db: Db, now = new Date()): Promise<Presence[]> {
   const today = cairoYmd(now);
   const { from, to } = daysRange(today, 1);
-  const [people, open, events, worked] = await Promise.all([
+  const [people, open, events, worked, auxOpen, codes] = await Promise.all([
     db.select({ id: users.id, name: users.name, role: users.role }).from(users).where(eq(users.active, true)).orderBy(asc(users.name)),
     db.select().from(timeEntries).where(isNull(timeEntries.endedAt)),
     listEvents(db, from, to),
     workedByDay(db, today, 1, now),
+    db.select().from(timeAux).where(isNull(timeAux.endedAt)),
+    getSetting(db, "auxCodes"),
   ]);
   return people.map((p) => {
     const mine = events.filter((e) => e.userId === p.id);
@@ -303,20 +379,38 @@ export async function presence(db: Db, now = new Date()): Promise<Presence[]> {
     const next = mine.find((e) => e.startsAt > now) ?? null;
     const clock = open.find((o) => o.userId === p.id && effectiveEnd(o, now) >= now);
     const away = current && kindOf(current.kind).away;
-    const state: Presence["state"] = away ? "away" : clock ? (current ? "busy" : "working") : current ? "busy" : "off";
-    return { ...p, state, since: clock?.startedAt ?? null, current, next, todayMinutes: worked.get(p.id)?.get(today) ?? 0 };
+    const a = clock ? auxOpen.find((x) => x.entryId === clock.id) : undefined;
+    const max = a ? codes.find((c) => c.key === a.code)?.maxMinutes : null;
+    const aux = a ? { label: a.label, since: a.startedAt, over: !!max && now.getTime() - a.startedAt.getTime() > max * 60_000 } : null;
+    const state: Presence["state"] = away ? "away" : clock ? (aux ? "aux" : current ? "busy" : "working") : current ? "busy" : "off";
+    return { ...p, state, since: clock?.startedAt ?? null, aux, current, next, todayMinutes: worked.get(p.id)?.get(today) ?? 0 };
   });
 }
 
 /** For the top bar: is this person's clock running, and since when. */
 export async function clockState(db: Db, userId: number, now = new Date()) {
   const e = await openEntry(db, userId);
-  return e && effectiveEnd(e, now) >= now ? { running: true as const, since: e.startedAt } : { running: false as const, since: null };
+  if (!e || effectiveEnd(e, now) < now) return { running: false as const, since: null, aux: null };
+  const a = await openAux(db, userId);
+  return { running: true as const, since: e.startedAt, aux: a && a.entryId === e.id ? { code: a.code, label: a.label, since: a.startedAt } : null };
 }
 
 // ---------------- payroll export ----------------
 
-export type HoursRow = { person: string; email: string; role: string; date: string; start: Date; end: Date; minutes: number; note: string | null; autoStopped: boolean; running: boolean };
+export type HoursRow = {
+  person: string;
+  email: string;
+  role: string;
+  date: string;
+  start: Date;
+  end: Date;
+  minutes: number; // worked: the stretch less its unpaid away time
+  clockMinutes: number; // the whole stretch, clock in to clock out
+  away: Record<string, number>; // minutes per away status, paid or not
+  note: string | null;
+  autoStopped: boolean;
+  running: boolean;
+};
 
 /**
  * Every stretch of work in a month (Cairo calendar), clipped to the month, with each person's total. For payroll:
@@ -333,16 +427,28 @@ export async function monthHours(db: Db, month: string, now = new Date()) {
     .innerJoin(users, eq(users.id, timeEntries.userId))
     .where(and(lt(timeEntries.startedAt, to), or(isNull(timeEntries.endedAt), gt(timeEntries.endedAt, from))))
     .orderBy(asc(users.name), asc(timeEntries.startedAt));
+  const aux = await auxWithin(db, rows.map((r) => r.e), from, to, now);
   const detail: HoursRow[] = rows.map(({ e, person, email, role }) => {
     const start = e.startedAt < from ? from : e.startedAt;
     const rawEnd = effectiveEnd(e, now);
     const end = rawEnd > to ? to : rawEnd;
-    return { person, email, role, date: cairoYmd(start), start, end, minutes: Math.max(0, (end.getTime() - start.getTime()) / 60_000), note: e.note, autoStopped: e.autoStopped, running: !e.endedAt && rawEnd >= now };
+    const clockMinutes = Math.max(0, (end.getTime() - start.getTime()) / 60_000);
+    const away: Record<string, number> = {};
+    let unpaid = 0;
+    for (const a of aux.filter((x) => x.entryId === e.id)) {
+      const m = (a.end.getTime() - a.start.getTime()) / 60_000;
+      away[a.label] = (away[a.label] ?? 0) + m;
+      if (!a.paid) unpaid += m;
+    }
+    return { person, email, role, date: cairoYmd(start), start, end, minutes: Math.max(0, clockMinutes - unpaid), clockMinutes, away, note: e.note, autoStopped: e.autoStopped, running: !e.endedAt && rawEnd >= now };
   });
-  const totals = new Map<string, { person: string; email: string; role: string; minutes: number; days: Set<string>; stretches: number; autoStopped: number }>();
+  type Total = { person: string; email: string; role: string; minutes: number; clockMinutes: number; away: Record<string, number>; days: Set<string>; stretches: number; autoStopped: number };
+  const totals = new Map<string, Total>();
   for (const r of detail) {
-    const t = totals.get(r.email) ?? { person: r.person, email: r.email, role: r.role, minutes: 0, days: new Set<string>(), stretches: 0, autoStopped: 0 };
+    const t = totals.get(r.email) ?? { person: r.person, email: r.email, role: r.role, minutes: 0, clockMinutes: 0, away: {}, days: new Set<string>(), stretches: 0, autoStopped: 0 };
     t.minutes += r.minutes;
+    t.clockMinutes += r.clockMinutes;
+    for (const [k, m] of Object.entries(r.away)) t.away[k] = (t.away[k] ?? 0) + m;
     t.days.add(r.date);
     t.stretches++;
     if (r.autoStopped) t.autoStopped++;

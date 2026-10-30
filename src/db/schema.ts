@@ -686,6 +686,32 @@ export const timeEntries = pgTable(
 export const calendarEventKindEnum = pgEnum("calendar_event_kind", ["meeting", "busy", "focus", "out_of_office", "leave", "other"]);
 
 // What a person has planned, so everyone can see when they are free: meetings, focus time, days off.
+// Away statuses while clocked in (call-centre "AUX"): a break, prayer, lunch … One open at a time per person. The
+// label and whether it counts as paid work are copied from the setting when it starts, so later edits to the list do
+// not rewrite history.
+export const timeAux = pgTable(
+  "time_aux",
+  {
+    id: serial("id").primaryKey(),
+    entryId: integer("entry_id")
+      .notNull()
+      .references(() => timeEntries.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    code: text("code").notNull(),
+    label: text("label").notNull(),
+    paid: boolean("paid").notNull().default(false),
+    startedAt: ts("started_at").notNull(),
+    endedAt: ts("ended_at"),
+  },
+  (t) => [
+    index("time_aux_entry_idx").on(t.entryId),
+    index("time_aux_user_idx").on(t.userId, t.startedAt),
+    uniqueIndex("time_aux_one_open_uq").on(t.userId).where(sql`${t.endedAt} is null`),
+  ],
+);
+
 export const calendarEvents = pgTable(
   "calendar_events",
   {

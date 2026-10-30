@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import { allDayRange, cancelEvent, clockIn, clockOut, deleteEntry, hours, saveEntry, saveEvent } from "@/lib/calendar";
+import { allDayRange, cancelEvent, clockIn, clockOut, deleteEntry, endAux, hours, saveEntry, saveEvent, startAux } from "@/lib/calendar";
 import { safePath } from "@/lib/safe-path";
 import { requireCan } from "@/lib/server-auth";
 import { cairoLocalToDate } from "@/lib/time";
@@ -31,6 +31,19 @@ export async function clockOutAction(form: FormData) {
   const user = await requireCan("calendar:write");
   const r = await clockOut(db, user.id, text(300).parse(form.get("note")));
   done(form, r, r.ok ? `Clocked out: ${hours(r.minutes)} logged` : "");
+}
+
+/** Step away (break, prayer, lunch …) while clocked in. */
+export async function startAuxAction(form: FormData) {
+  const user = await requireCan("calendar:write");
+  const r = await startAux(db, user.id, text(30).parse(form.get("code")));
+  done(form, r, r.ok ? `${r.label}: the clock shows you as away` : "");
+}
+
+export async function endAuxAction(form: FormData) {
+  const user = await requireCan("calendar:write");
+  const r = await endAux(db, user.id);
+  done(form, r, r.ok ? `Back to work after ${r.label.toLowerCase()} (${hours(r.minutes)})` : "");
 }
 
 /** Add or fix hours by hand. Times are Cairo wall time from datetime-local inputs. */

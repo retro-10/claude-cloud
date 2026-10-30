@@ -38,7 +38,11 @@ export type Settings = {
   financeModel: FinanceModel; // the rebuild's money rules: cycle close, new shares, reserve, pay tiers, partner roles
   prices: TierPrice[]; // Camp tier prices and whether each is still offered
   decisionRights: DecisionRight[]; // who decides what
+  auxCodes: AuxCode[]; // away statuses while clocked in (break, prayer, lunch …)
 };
+/** An away status. `paid`: the time still counts as worked; otherwise it is taken off the hours. `maxMinutes`: after
+ * that long the status shows as overdue to everyone (null: no limit). */
+export type AuxCode = { key: string; label: string; paid: boolean; maxMinutes: number | null };
 export type AiSettings = {
   enabled: boolean;
   // what Ask OrlaDent may look up (phone numbers and emails are never sent, whatever is ticked)
@@ -90,6 +94,12 @@ export const DEFAULTS: Settings = {
   financeModel: DEFAULT_FINANCE_MODEL,
   prices: DEFAULT_PRICES,
   decisionRights: DEFAULT_DECISION_RIGHTS,
+  // the three the owners asked for; whether each is paid, and any time limit, are theirs to set (QUESTIONS.md)
+  auxCodes: [
+    { key: "break", label: "Break", paid: false, maxMinutes: null },
+    { key: "prayer", label: "Prayer", paid: false, maxMinutes: null },
+    { key: "lunch", label: "Lunch", paid: false, maxMinutes: null },
+  ],
 };
 
 type Key = keyof Settings;
@@ -146,6 +156,18 @@ const VALIDATE: { [K in Key]: (v: unknown) => Settings[K] | undefined } = {
   financeModel: validateFinanceModel as never,
   prices: validatePrices as never,
   decisionRights: validateDecisionRights as never,
+  auxCodes: ((v: unknown) => {
+    if (!Array.isArray(v) || v.length > 20) return undefined;
+    const out: AuxCode[] = [];
+    for (const a of v as AuxCode[]) {
+      const label = typeof a?.label === "string" ? a.label.trim().slice(0, 40) : "";
+      const key = typeof a?.key === "string" ? a.key.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").slice(0, 30) : "";
+      if (!label || !key || typeof a.paid !== "boolean") return undefined;
+      if (a.maxMinutes !== null && !(Number.isInteger(a.maxMinutes) && a.maxMinutes >= 1 && a.maxMinutes <= 600)) return undefined;
+      out.push({ key, label, paid: a.paid, maxMinutes: a.maxMinutes });
+    }
+    return new Set(out.map((a) => a.key)).size === out.length ? out : undefined;
+  }) as never,
   routes: ((v: unknown) =>
     Array.isArray(v) &&
     v.every((r) => r && (r.field === "source" || r.field === "segment") && typeof r.value === "string" && Number.isInteger(r.userId))

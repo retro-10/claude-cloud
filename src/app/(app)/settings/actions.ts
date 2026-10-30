@@ -297,3 +297,25 @@ export async function archiveMessageTemplateAction(form: FormData) {
   await setTemplateActive(db, id.parse(form.get("id")), form.get("active") === "1", me.id);
   done("/settings/templates", { ok: true });
 }
+
+// Away statuses on the clock (break, prayer, lunch …): rows label_<i>, paid_<i>, max_<i>, key_<i>, remove_<i>, plus
+// one blank row to add. A status keeps its key when renamed, so past breaks stay grouped under it.
+export async function saveAuxCodesAction(form: FormData) {
+  const me = await requireCan("settings:write");
+  const rows = Number(form.get("rows")) || 0;
+  const codes = [];
+  for (let i = 0; i <= Math.min(rows, 20); i++) {
+    const label = String(form.get(`label_${i}`) ?? "").trim();
+    if (!label || form.get(`remove_${i}`) === "on") continue;
+    const max = String(form.get(`max_${i}`) ?? "").trim();
+    codes.push({
+      key: String(form.get(`key_${i}`) ?? "") || label,
+      label,
+      paid: form.get(`paid_${i}`) === "on",
+      maxMinutes: max ? Number(max) : null,
+    });
+  }
+  const r = await saveSettings(db, { auxCodes: codes.map((c) => ({ ...c, key: c.key.toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_|_$/g, "") || "status" })) }, me.id);
+  revalidatePath("/", "layout");
+  done("/settings/time", r.ok ? r : { ok: false, error: "Each status needs a name, names must differ, and limits are 1 to 600 minutes" });
+}
