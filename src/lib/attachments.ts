@@ -5,7 +5,8 @@ import { approvalRequests, attachments, brandAssets, cohorts, employeeDocuments,
 import { audit } from "./audit";
 import { DriveError, downloadFromDrive, driveOn, driveStatus, trashInDrive, uploadToDrive } from "./drive";
 
-export const MAX_FILE_BYTES = 8 * 1024 * 1024;
+import { MAX_FILE_BYTES, MAX_UPLOAD_MB } from "./upload-limit";
+export { MAX_FILE_BYTES };
 
 // What people attach at Camp: documents, images, spreadsheets, archives, and dental case files.
 // Anything else (programs, scripts, web pages) is refused.
@@ -49,7 +50,7 @@ type Fail = { ok: false; error: string };
 export function fileProblem(file: { name: string; bytes: Buffer }): string | null {
   if (!ALLOWED_EXT[ext(cleanName(file.name))]) return `That kind of file is not accepted. Allowed: ${Object.keys(ALLOWED_EXT).join(", ")}`;
   if (!file.bytes.length) return "The file is empty";
-  if (file.bytes.length > MAX_FILE_BYTES) return "Files can be up to 8 MB. Share larger ones (videos) by link in a note.";
+  if (file.bytes.length > MAX_FILE_BYTES) return `Files can be up to ${MAX_UPLOAD_MB} MB. Share larger ones (videos) by link in a note.`;
   return null;
 }
 

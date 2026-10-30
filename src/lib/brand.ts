@@ -40,7 +40,7 @@ function check(input: AssetInput): { ok: true; values: Omit<typeof brandAssets.$
   };
 }
 
-/** A new asset: a file (up to 8 MB, the usual file rules) or a link. */
+/** A new asset: a file (the usual file rules and size limit) or a link. */
 export async function createAsset(db: Db, userId: number, input: AssetInput, file: FileIn): Promise<{ ok: true; id: number } | Fail> {
   const c = check(input);
   if (!c.ok) return c;

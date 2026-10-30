@@ -6,6 +6,7 @@ import { getSetting } from "@/lib/app-settings";
 import { APPROVAL_TYPES, previewApprovers } from "@/lib/approvals";
 import { ALLOWED_EXT } from "@/lib/attachments";
 import { campaignStats } from "@/lib/campaigns";
+import { MAX_UPLOAD_MB } from "@/lib/upload-limit";
 import { egp } from "@/lib/cohort-format";
 import { SECTIONS } from "@/lib/finance";
 import { can } from "@/lib/rbac";
@@ -79,7 +80,7 @@ export default async function NewRequest(props: { searchParams: Promise<{ type?:
               <label className="field sm:col-span-2">
                 {t.key === "expense" ? "Receipt (optional)" : "Quote or invoice (optional)"}
                 <input type="file" name="receipt" accept={ACCEPT} className="input py-1.5" />
-                <span className="text-xs text-muted">A photo or PDF, up to 8 MB. Finance sees it with the request.</span>
+                <span className="text-xs text-muted">A photo or PDF, up to {MAX_UPLOAD_MB} MB. Finance sees it with the request.</span>
               </label>
             </div>
           )}

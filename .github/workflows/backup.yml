@@ -1,0 +1,47 @@
+# The daily database backup to Google Drive, for when the app runs on Vercel (which has no pg_dump).
+# Off until the repository has the BACKUP_DATABASE_URL secret. Secrets (Settings > Secrets and variables > Actions):
+#   BACKUP_DATABASE_URL   the Supabase session pooler URL (port 5432)
+#   AUTH_SECRET           the app's AUTH_SECRET (opens the Drive sign-in the app stored)
+#   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET (or GOOGLE_SERVICE_ACCOUNT_JSON), GOOGLE_DRIVE_FOLDER_ID if set on the app
+name: Backup
+on:
+  schedule:
+    - cron: "17 1 * * *" # 01:17 UTC, 03:17 or 04:17 in Cairo
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+    steps:
+      - name: Skip when not set up
+        id: gate
+        run: if [ -n "$DATABASE_URL" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; else echo "No BACKUP_DATABASE_URL secret: nothing to back up"; fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install pg_dump 17 (matches Supabase)
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - run: npm ci
+        if: steps.gate.outputs.run == 'true'
+      - name: Back up to Drive
+        if: steps.gate.outputs.run == 'true'
+        run: npx tsx scripts/backup-to-drive.ts
