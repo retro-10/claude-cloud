@@ -878,11 +878,12 @@ export const attachments = pgTable(
     cohortId: integer("cohort_id").references(() => cohorts.id),
     caseId: integer("case_id").references(() => productionCases.id), // a production case's design files
     assetId: integer("asset_id").references((): AnyPgColumn => brandAssets.id), // a brand asset's file
+    approvalId: integer("approval_id").references((): AnyPgColumn => approvalRequests.id), // a request's receipt or quote
     uploadedBy: integer("uploaded_by").references(() => users.id),
     createdAt: createdAt(),
     deletedAt: ts("deleted_at"),
   },
-  (t) => [index("attachments_lead_idx").on(t.leadId), index("attachments_cohort_idx").on(t.cohortId), index("attachments_case_idx").on(t.caseId), index("attachments_asset_idx").on(t.assetId)],
+  (t) => [index("attachments_lead_idx").on(t.leadId), index("attachments_cohort_idx").on(t.cohortId), index("attachments_case_idx").on(t.caseId), index("attachments_asset_idx").on(t.assetId), index("attachments_approval_idx").on(t.approvalId)],
 );
 
 // Public sign-up forms (/f/<slug>): a masterclass registration, an "apply" page, a link in bio. Each submission
@@ -1483,6 +1484,7 @@ export const approvalRequests = pgTable(
     decidedBy: integer("decided_by").references(() => users.id),
     decidedAt: ts("decided_at"),
     calendarEventId: integer("calendar_event_id").references(() => calendarEvents.id), // approved leave
+    ledgerEntryId: integer("ledger_entry_id").references(() => ledgerEntries.id), // an approved expense or purchase, as an Owed cost
     createdAt: createdAt(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },

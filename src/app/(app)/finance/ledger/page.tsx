@@ -21,7 +21,7 @@ export const metadata = { title: "Ledger" };
 const STATUS_CHIP: Record<Status, string> = { received: "chip-ok", paid: "chip-ok", expected: "chip-brand", owed: "chip-warn", cancelled: "" };
 
 export default async function LedgerPage(props: {
-  searchParams: Promise<{ month?: string; section?: string; status?: string; q?: string; candidate?: string; error?: string; notice?: string }>;
+  searchParams: Promise<{ month?: string; section?: string; status?: string; q?: string; candidate?: string; uncategorised?: string; error?: string; notice?: string }>;
 }) {
   const sp = await props.searchParams;
   const user = await requirePageCan("finance:read");
@@ -29,8 +29,9 @@ export default async function LedgerPage(props: {
   const section = sp.section && sp.section in SECTIONS ? (sp.section as Section) : undefined;
   const status = sp.status && sp.status in STATUS_LABEL ? (sp.status as Status) : undefined;
   const enrolmentId = Number(sp.candidate) || undefined;
+  const uncategorised = sp.uncategorised === "1";
   const [rows, candidates, settings, team, batches] = await Promise.all([
-    listEntries(db, { month, section, status, q: sp.q, enrolmentId }, 500),
+    listEntries(db, { month, section, status, q: sp.q, enrolmentId, uncategorised }, 500),
     listCandidates(db),
     getSettings(db),
     listTeam(db),
@@ -38,7 +39,7 @@ export default async function LedgerPage(props: {
   ]);
   const write = can(user.role, "payment:write");
   const qs = new URLSearchParams(
-    Object.entries({ month, section, status, q: sp.q, candidate: sp.candidate }).filter(([, v]) => v) as [string, string][],
+    Object.entries({ month, section, status, q: sp.q, candidate: sp.candidate, uncategorised: uncategorised ? "1" : undefined }).filter(([, v]) => v) as [string, string][],
   ).toString();
   const here = `/finance/ledger${qs ? `?${qs}` : ""}`;
   const opts = candidates.map((c) => ({ id: c.enrolmentId, name: `${c.fullName} · ${c.cohort}` }));
@@ -63,6 +64,7 @@ export default async function LedgerPage(props: {
 
       <form action="/finance/ledger" className="mb-4 flex flex-wrap items-end gap-2" role="search" aria-label="Filter the ledger">
         {sp.candidate && <input type="hidden" name="candidate" value={sp.candidate} />}
+        {uncategorised && <input type="hidden" name="uncategorised" value="1" />}
         <label className="field">
           Search
           <input name="q" defaultValue={sp.q} placeholder="Entry, from / to, notes" className="input input-sm w-56" dir="auto" />
@@ -102,6 +104,9 @@ export default async function LedgerPage(props: {
           </Link>
         )}
       </form>
+      {uncategorised && (
+        <p className="mb-3 text-sm text-muted">Showing costs whose category is not on the list (approved requests sent without one, for example). Edit each to pick its category.</p>
+      )}
       {who && (
         <p className="mb-3 text-sm text-muted">
           Showing entries for{" "}

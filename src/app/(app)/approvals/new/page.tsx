@@ -1,16 +1,20 @@
 import Link from "next/link";
-import { asc } from "drizzle-orm";
 import { db } from "@/db";
-import { campaigns } from "@/db/schema";
 import { Flash } from "@/components/Flash";
 import { Card, Icon, PageHeader, Tabs } from "@/components/ui";
 import { getSetting } from "@/lib/app-settings";
 import { APPROVAL_TYPES, previewApprovers } from "@/lib/approvals";
+import { ALLOWED_EXT } from "@/lib/attachments";
+import { campaignStats } from "@/lib/campaigns";
+import { egp } from "@/lib/cohort-format";
+import { SECTIONS } from "@/lib/finance";
+import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
 import { cairoYmd } from "@/lib/time";
 import { submitApprovalAction } from "../actions";
 
 export const metadata = { title: "New request · Approvals" };
+const ACCEPT = Object.keys(ALLOWED_EXT).map((e) => `.${e}`).join(",");
 
 export default async function NewRequest(props: { searchParams: Promise<{ type?: string; error?: string }> }) {
   const sp = await props.searchParams;
@@ -19,11 +23,12 @@ export default async function NewRequest(props: { searchParams: Promise<{ type?:
   const [approvers, rules, camps] = await Promise.all([
     previewApprovers(db, t.key, null, user.id),
     getSetting(db, "approvalRules"),
-    t.money ? db.select({ id: campaigns.id, label: campaigns.label }).from(campaigns).orderBy(asc(campaigns.label)) : Promise.resolve([]),
+    t.money ? campaignStats(db).then((all) => all.filter((c) => c.status !== "ended")) : Promise.resolve([]),
   ]);
   // a rule for this type that starts at an amount means bigger requests may go to other people
   const byAmount = rules.filter((r) => (r.type === t.key || r.type === "*") && r.minAmountEgp !== null);
   const today = cairoYmd(new Date());
+  const seeBudgets = can(user.role, "growth:read") || can(user.role, "finance:read");
 
   return (
     <>
@@ -45,8 +50,17 @@ export default async function NewRequest(props: { searchParams: Promise<{ type?:
                 <input name="amountEgp" type="number" min={1} step={1} required className="input num" />
               </label>
               <label className="field">
-                Category (optional)
-                <input name="category" maxLength={60} className="input" placeholder="e.g. Marketing, Equipment" />
+                Category
+                <select name="category" defaultValue="" className="input">
+                  <option value="">Not sure: finance sorts it</option>
+                  {(["variable_costs", "fixed_costs"] as const).map((k) => (
+                    <optgroup key={k} label={SECTIONS[k].label}>
+                      {SECTIONS[k].categories.map((c) => (
+                        <option key={c}>{c}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
               </label>
               {camps.length > 0 && (
                 <label className="field sm:col-span-2">
@@ -56,11 +70,17 @@ export default async function NewRequest(props: { searchParams: Promise<{ type?:
                     {camps.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.label}
+                        {seeBudgets && c.remainingEgp != null && ` (${c.remainingEgp < 0 ? `${egp(-c.remainingEgp)} over budget` : `${egp(c.remainingEgp)} left`})`}
                       </option>
                     ))}
                   </select>
                 </label>
               )}
+              <label className="field sm:col-span-2">
+                {t.key === "expense" ? "Receipt (optional)" : "Quote or invoice (optional)"}
+                <input type="file" name="receipt" accept={ACCEPT} className="input py-1.5" />
+                <span className="text-xs text-muted">A photo or PDF, up to 8 MB. Finance sees it with the request.</span>
+              </label>
             </div>
           )}
           {t.key === "leave" && (

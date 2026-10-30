@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { and, asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { attachments, brandAssets, cohorts, leads, productionCases, users } from "@/db/schema";
+import { approvalRequests, attachments, brandAssets, cohorts, leads, productionCases, users } from "@/db/schema";
 import { audit } from "./audit";
 import { DriveError, downloadFromDrive, driveOn, driveStatus, trashInDrive, uploadToDrive } from "./drive";
 
@@ -39,19 +39,26 @@ const ext = (name: string) => name.toLowerCase().match(/\.([a-z0-9]{1,5})$/)?.[1
 export const cleanName = (name: string) =>
   name.split(/[\\/]/).pop()!.replace(/[\u0000-\u001f\u007f"]/g, "").trim().slice(-120) || "file";
 
-type Link = { leadId?: number | null; cohortId?: number | null; caseId?: number | null; assetId?: number | null };
+type Link = { leadId?: number | null; cohortId?: number | null; caseId?: number | null; assetId?: number | null; approvalId?: number | null };
 /** What a file in Drive belongs to, in its description, so the folder makes sense on its own. */
 const describe = (l: Link) =>
-  l.leadId ? `OrlaDent lead ${l.leadId}` : l.cohortId ? `OrlaDent batch ${l.cohortId}` : l.assetId ? `OrlaDent brand asset ${l.assetId}` : `OrlaDent production case ${l.caseId}`;
+  l.leadId ? `OrlaDent lead ${l.leadId}` : l.cohortId ? `OrlaDent batch ${l.cohortId}` : l.assetId ? `OrlaDent brand asset ${l.assetId}` : l.approvalId ? `OrlaDent request ${l.approvalId}` : `OrlaDent production case ${l.caseId}`;
 type Fail = { ok: false; error: string };
 
+/** Why a file would be refused (kind, empty, size), or null: lets a form check before it saves anything else. */
+export function fileProblem(file: { name: string; bytes: Buffer }): string | null {
+  if (!ALLOWED_EXT[ext(cleanName(file.name))]) return `That kind of file is not accepted. Allowed: ${Object.keys(ALLOWED_EXT).join(", ")}`;
+  if (!file.bytes.length) return "The file is empty";
+  if (file.bytes.length > MAX_FILE_BYTES) return "Files can be up to 8 MB. Share larger ones (videos) by link in a note.";
+  return null;
+}
+
 export async function addAttachment(db: Db, file: { name: string; bytes: Buffer }, link: Link & { note?: string | null }, userId: number | null): Promise<{ ok: true; id: number } | Fail> {
-  if ([link.leadId, link.cohortId, link.caseId, link.assetId].filter(Boolean).length !== 1) return { ok: false, error: "Attach the file to a lead, a batch or a case" };
+  if ([link.leadId, link.cohortId, link.caseId, link.assetId, link.approvalId].filter(Boolean).length !== 1) return { ok: false, error: "Attach the file to a lead, a batch or a case" };
+  const bad = fileProblem(file);
+  if (bad) return { ok: false, error: bad };
   const name = cleanName(file.name);
   const type = ALLOWED_EXT[ext(name)];
-  if (!type) return { ok: false, error: `That kind of file is not accepted. Allowed: ${Object.keys(ALLOWED_EXT).join(", ")}` };
-  if (!file.bytes.length) return { ok: false, error: "The file is empty" };
-  if (file.bytes.length > MAX_FILE_BYTES) return { ok: false, error: "Files can be up to 8 MB. Share larger ones (videos) by link in a note." };
   if (link.leadId) {
     const [l] = await db.select({ deletedAt: leads.deletedAt }).from(leads).where(eq(leads.id, link.leadId));
     if (!l || l.deletedAt) return { ok: false, error: "That lead no longer exists" };
@@ -61,6 +68,9 @@ export async function addAttachment(db: Db, file: { name: string; bytes: Buffer 
   } else if (link.assetId) {
     const [a] = await db.select({ id: brandAssets.id }).from(brandAssets).where(eq(brandAssets.id, link.assetId));
     if (!a) return { ok: false, error: "That asset no longer exists" };
+  } else if (link.approvalId) {
+    const [a] = await db.select({ id: approvalRequests.id }).from(approvalRequests).where(eq(approvalRequests.id, link.approvalId));
+    if (!a) return { ok: false, error: "That request no longer exists" };
   } else {
     const [c] = await db.select({ id: productionCases.id }).from(productionCases).where(eq(productionCases.id, link.caseId!));
     if (!c) return { ok: false, error: "That case no longer exists" };
@@ -90,10 +100,11 @@ export async function addAttachment(db: Db, file: { name: string; bytes: Buffer 
       cohortId: link.cohortId ?? null,
       caseId: link.caseId ?? null,
       assetId: link.assetId ?? null,
+      approvalId: link.approvalId ?? null,
       uploadedBy: userId,
     })
     .returning({ id: attachments.id });
-  await audit(db, { userId, entity: "attachment", entityId: row.id, action: "upload", diff: { leadId: link.leadId ?? null, cohortId: link.cohortId ?? null, caseId: link.caseId ?? null, assetId: link.assetId ?? null, size: file.bytes.length, store: driveFileId ? "drive" : "database", driveError } });
+  await audit(db, { userId, entity: "attachment", entityId: row.id, action: "upload", diff: { leadId: link.leadId ?? null, cohortId: link.cohortId ?? null, caseId: link.caseId ?? null, assetId: link.assetId ?? null, approvalId: link.approvalId ?? null, size: file.bytes.length, store: driveFileId ? "drive" : "database", driveError } });
   return { ok: true, id: row.id };
 }
 
@@ -108,7 +119,9 @@ export async function listAttachments(db: Db, link: Link): Promise<AttachmentRow
         ? eq(attachments.caseId, link.caseId)
         : link.assetId
           ? eq(attachments.assetId, link.assetId)
-          : sql`false`;
+          : link.approvalId
+            ? eq(attachments.approvalId, link.approvalId)
+            : sql`false`;
   return db
     .select({
       id: attachments.id,
@@ -137,7 +150,7 @@ export async function getAttachment(db: Db, id: number) {
 
 /** What a file is attached to (no bytes): the download route and delete check permissions with it. */
 export async function getAttachmentLink(db: Db, id: number) {
-  const [row] = await db.select({ leadId: attachments.leadId, cohortId: attachments.cohortId, caseId: attachments.caseId, assetId: attachments.assetId }).from(attachments).where(eq(attachments.id, id));
+  const [row] = await db.select({ leadId: attachments.leadId, cohortId: attachments.cohortId, caseId: attachments.caseId, assetId: attachments.assetId, approvalId: attachments.approvalId }).from(attachments).where(eq(attachments.id, id));
   return row ?? null;
 }
 

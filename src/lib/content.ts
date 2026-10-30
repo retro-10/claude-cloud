@@ -128,3 +128,22 @@ export async function getContent(db: Db, id: number) {
   const [r] = await db.select().from(contentItems).where(and(eq(contentItems.id, id), isNull(contentItems.deletedAt)));
   return r ?? null;
 }
+
+/** A campaign's pieces, by publish date (undated ideas last), with the leads each piece's tag brought in. */
+export async function campaignContent(db: Db, campaignId: number) {
+  const rows = await db
+    .select({
+      id: contentItems.id,
+      title: contentItems.title,
+      platform: contentItems.platform,
+      format: contentItems.format,
+      status: contentItems.status,
+      publishAt: contentItems.publishAt,
+      // named in full: a one-table select writes ${contentItems.tag} as a bare "tag"
+      leads: sql<number>`(select count(*) from leads l where l.deleted_at is null and l.attribution->>'utm_content' = ${sql.raw(`"content_items"."tag"`)})::int`,
+    })
+    .from(contentItems)
+    .where(and(eq(contentItems.campaignId, campaignId), isNull(contentItems.deletedAt)))
+    .orderBy(sql`${contentItems.publishAt} asc nulls last`, asc(contentItems.id));
+  return rows.map((r) => ({ ...r, leads: Number(r.leads) }));
+}

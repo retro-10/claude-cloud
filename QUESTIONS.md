@@ -179,3 +179,12 @@ Each has a safe default already applied. Answer any and it will be changed.
     should count as paid work? (Settings > Time & away, one tick per status.)
 80. **Time limits.** Should any status have a limit (for example 15 minutes for prayer), after which it shows red to
     everyone? None is set until the owners choose.
+
+## Expenses and budgets
+
+81. **When an approved expense is paid back.** An approved expense or purchase goes into the ledger as *Owed* and
+    finance marks it *Paid* when the money goes out. Is there a fixed day for paying staff back (with the monthly pay,
+    say), or as soon as it is approved?
+82. **Budget hard stop.** Going over a campaign budget only warns (the approver sees it; the finance header flags
+    it). Should a request that would take a campaign over its budget need an owner's approval instead?
+

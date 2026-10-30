@@ -2,8 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db";
 import { INLINE_TYPES, getAttachment, getAttachmentLink } from "@/lib/attachments";
 import { audit } from "@/lib/audit";
+import { mayView } from "@/lib/approvals";
 import { recordAssetDownload } from "@/lib/brand";
 import { DriveError } from "@/lib/drive";
+import { approvalRequests } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { getCase } from "@/lib/production";
 import { can } from "@/lib/rbac";
 import { getCurrentUser } from "@/lib/server-auth";
@@ -16,16 +19,19 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
-  if (!can(user.role, "lead:read") && !can(user.role, "production:read") && !can(user.role, "brand:read")) return new NextResponse("Forbidden", { status: 403 });
+  if (!can(user.role, "lead:read") && !can(user.role, "production:read") && !can(user.role, "brand:read") && !can(user.role, "approval:submit")) return new NextResponse("Forbidden", { status: 403 });
   const id = Number((await ctx.params).id);
   if (!Number.isInteger(id) || id <= 0) return new NextResponse("Not found", { status: 404 });
   // permission first (no bytes read), then the file, which may come from Google Drive
   const link = await getAttachmentLink(db, id);
   if (!link) return new NextResponse("Not found", { status: 404 });
-  // a brand asset's file: everyone with the brand hub; a case's: who may see the case; the rest: who reads leads
+  // a brand asset's file: everyone with the brand hub; a request's receipt: who may see the request; a case's: who may
+  // see the case; the rest: who reads leads
   const allowed = link.assetId
     ? can(user.role, "brand:read")
-    : link.caseId
+    : link.approvalId
+      ? await mayViewRequest(link.approvalId, user)
+      : link.caseId
       ? can(user.role, "production:read") && !!(await getCase(db, link.caseId, user))
       : can(user.role, "lead:read");
   if (!allowed) return new NextResponse("Not found", { status: 404 });
@@ -56,4 +62,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       "Content-Security-Policy": "sandbox; default-src 'none'; img-src 'self'",
     },
   });
+}
+
+async function mayViewRequest(id: number, user: { id: number; name: string; role: Parameters<typeof can>[0] }) {
+  const [r] = await db.select({ requesterId: approvalRequests.requesterId, approverIds: approvalRequests.approverIds, type: approvalRequests.type }).from(approvalRequests).where(eq(approvalRequests.id, id));
+  return !!r && can(user.role, "approval:submit") && mayView(r, { id: user.id, name: user.name, isOwner: can(user.role, "settings:write"), isFinance: can(user.role, "finance:read") });
 }

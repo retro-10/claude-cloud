@@ -1,8 +1,10 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { approvalEvents, approvalRequests, calendarEvents, campaigns, notifications, users } from "@/db/schema";
+import { approvalEvents, approvalRequests, calendarEvents, campaigns, ledgerEntries, notifications, users } from "@/db/schema";
 import { getSetting, type ApprovalRule } from "./app-settings";
+import { addAttachment, fileProblem, listAttachments } from "./attachments";
 import { audit } from "./audit";
+import { SECTIONS, saveEntry, type Section } from "./finance";
 import type { Fail } from "./result";
 import { allDayRange } from "./calendar";
 
@@ -27,6 +29,11 @@ export const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 const OPEN = ["pending", "needs_info"];
+
+/** Money requests use the ledger's cost categories, so an approved one lands in the books already sorted. */
+export const COST_CATEGORIES = [...SECTIONS.variable_costs.categories, ...SECTIONS.fixed_costs.categories];
+export const UNCATEGORISED = "Uncategorised";
+const sectionOf = (category: string): Section => (SECTIONS.fixed_costs.categories.includes(category) ? "fixed_costs" : "variable_costs");
 
 export type Viewer = { id: number; name: string; isOwner: boolean; isFinance: boolean };
 type Request = typeof approvalRequests.$inferSelect;
@@ -79,7 +86,13 @@ export type RequestInput = {
 };
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
-export async function submitRequest(db: Db, me: { id: number; name: string }, input: RequestInput): Promise<{ ok: true; id: number; approvers: number[] } | Fail> {
+/** Submit a request. A money request may carry a receipt or quote (checked before anything is saved). */
+export async function submitRequest(
+  db: Db,
+  me: { id: number; name: string },
+  input: RequestInput,
+  receipt: { name: string; bytes: Buffer } | null = null,
+): Promise<{ ok: true; id: number; approvers: number[] } | Fail> {
   const t = APPROVAL_TYPES.find((x) => x.key === input.type);
   if (!t) return { ok: false, error: "Pick what kind of request this is" };
   const title = input.title.trim().slice(0, 200);
@@ -88,6 +101,11 @@ export async function submitRequest(db: Db, me: { id: number; name: string }, in
   if (t.money) {
     if (!Number.isInteger(input.amountEgp) || input.amountEgp! <= 0) return { ok: false, error: "Give the amount in EGP" };
     amount = input.amountEgp!;
+    if (input.category?.trim() && !COST_CATEGORIES.includes(input.category.trim())) return { ok: false, error: "Pick a category from the list, or leave it for finance" };
+    if (receipt) {
+      const bad = fileProblem(receipt);
+      if (bad) return { ok: false, error: `Receipt: ${bad}` };
+    }
   }
   let startsOn: string | null = null;
   let endsOn: string | null = null;
@@ -119,6 +137,7 @@ export async function submitRequest(db: Db, me: { id: number; name: string }, in
     })
     .returning({ id: approvalRequests.id });
   await event(db, row.id, me.id, "submit", null);
+  if (t.money && receipt) await addAttachment(db, receipt, { approvalId: row.id, note: "Receipt" }, me.id);
   await notify(db, approvers, "approval_request", `${me.name} asks: ${title}`, row.id);
   await audit(db, { userId: me.id, entity: "approval", entityId: row.id, action: "submit", diff: { type: t.key, amountEgp: amount } });
   return { ok: true, id: row.id, approvers };
@@ -166,10 +185,38 @@ export async function decide(db: Db, me: { id: number; name: string }, id: numbe
       .returning({ id: calendarEvents.id });
     await db.update(approvalRequests).set({ calendarEventId: ev.id }).where(eq(approvalRequests.id, id));
   }
+  if (decision === "approve" && typeOf(r.type).money && r.amountEgp) await toLedger(db, r, me.id);
   await clearNotes(db, id);
   await notify(db, [r.requesterId], decision === "approve" ? "approval_approved" : "approval_rejected", `${me.name} ${decision === "approve" ? "approved" : "rejected"}: ${r.title}`, id);
   await audit(db, { userId: me.id, entity: "approval", entityId: id, action: decision });
   return { ok: true };
+}
+
+/**
+ * An approved expense or purchase becomes an Owed cost in the ledger, tagged to its campaign, so it counts against the
+ * campaign's budget at once and finance marks it Paid when the money goes out (an expense: paid back to the person
+ * who asked). A category outside the ledger's list arrives as Uncategorised for finance to sort.
+ */
+async function toLedger(db: Db, r: Request, approverId: number) {
+  const [who] = await db.select({ name: users.name }).from(users).where(eq(users.id, r.requesterId));
+  const category = r.category && COST_CATEGORIES.includes(r.category) ? r.category : UNCATEGORISED;
+  const saved = await saveEntry(
+    db,
+    null,
+    {
+      entry: r.title,
+      amountEgp: r.amountEgp!,
+      section: sectionOf(category),
+      category,
+      status: "owed",
+      fromTo: r.type === "expense" ? (who?.name ?? null) : null,
+      reference: `Request #${r.id}`,
+      notes: r.type === "expense" ? "Approved expense: pay it back to the person who asked" : "Approved purchase",
+      campaignId: r.campaignId,
+    },
+    approverId,
+  );
+  if (saved.ok) await db.update(approvalRequests).set({ ledgerEntryId: saved.id }).where(eq(approvalRequests.id, r.id));
 }
 
 /** The requester answers a question; the request goes back to the approvers. */
@@ -260,12 +307,16 @@ export async function getRequest(db: Db, id: number, v: Viewer) {
     .where(eq(approvalEvents.requestId, id))
     .orderBy(asc(approvalEvents.id));
   const [campaign] = r.campaignId ? await db.select({ id: campaigns.id, name: campaigns.label }).from(campaigns).where(eq(campaigns.id, r.campaignId)) : [];
+  const [ledger] = r.ledgerEntryId ? await db.select({ id: ledgerEntries.id, status: ledgerEntries.status, category: ledgerEntries.category }).from(ledgerEntries).where(eq(ledgerEntries.id, r.ledgerEntryId)) : [];
+  const files = typeOf(r.type).money ? await listAttachments(db, { approvalId: r.id }) : [];
   return {
     ...r,
     requester: name(r.requesterId),
     approvers: r.approverIds.map((uid) => ({ id: uid, name: name(uid) })),
     decider: r.decidedBy ? name(r.decidedBy) : null,
     campaign: campaign ?? null,
+    ledger: ledger ?? null,
+    files,
     events: events.map((x) => ({ ...x.e, who: x.who ?? "HQ" })),
   };
 }

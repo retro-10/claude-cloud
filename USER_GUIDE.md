@@ -58,6 +58,10 @@ when the buyer moved, and log everything** so the numbers are true.
   request to approve, reject (with a reason) or ask a question. A question sends it back to the person who asked;
   their answer puts it back in your queue.
 * **Approved leave** goes on the team calendar by itself.
+* **Expenses and purchases**: pick the category from the ledger's list (or *Not sure*, and finance sorts it), tag
+  a campaign if the money is for one, and attach the receipt or quote (photo or PDF, up to 8 MB). Once approved it
+  goes into the ledger as an **Owed** cost, tagged to its campaign; an expense names you as the person to pay back.
+  Finance marks it **Paid** when the money goes out. The request shows where it sits in the ledger.
 * **The record**: every step (asked, questioned, answered, approved, rejected, withdrawn) is kept with who and when,
   and cannot be edited or deleted, not even directly in the database. Owners see every request; finance sees every
   money request; everyone else sees their own and the ones they approve.
@@ -241,6 +245,13 @@ status, dates, a budget and a **link name** (like `masterclass-oct-2026`). The l
 leads, how many held a consult, how many enrolled. Owners and finance also see the money: spend (the ledger
 costs tagged to the campaign, recorded straight from the campaign page with **Record cost**), cost per lead, cost
 per enrolment, revenue from its students and the return on spend.
+
+**Budget vs actual**: every campaign with a budget shows a bar of what is **paid**, **owed** and **waiting for
+approval**, and what is left (or how far over). Owed costs and waiting requests count as soon as they exist, so a
+campaign shows as over budget before the money moves; whoever approves a request sees a warning when it would take
+the campaign over. Marketing sees these totals; the cost lines stay with owners and finance. The campaign page also
+lists its **content** (the pieces whose campaign is set to it in the content calendar), with each piece's status
+and the leads its tag brought in.
 
 **Lead forms** (Growth > Lead forms): public sign-up pages at `/f/<address>`, in English and Arabic, for a
 masterclass, an ad or your link in bio. Choose the campaign, the source and the questions. A sign-up arrives as
@@ -609,6 +620,10 @@ belongs to, **Camp** or **Core (design house)**.
 
 Three tabs:
 
+* **Needs attention** (top of the overview): money requests waiting for a decision, approved requests still to
+  pay, costs to put in a category (an approved request sent without one arrives as *Uncategorised*), and live
+  campaigns past their budget. Each opens the list behind it. Below the books, **Campaign budgets** shows each live
+  campaign's budget used.
 * **Overview**: pick a month; received, costs, net, Capital left; the partner cards; 12 months of received vs
   costs (with a table view); where the money went; **Coming up** (expected installments and unpaid bills, with
   one click to mark them done); how much of what candidates owe has been collected.

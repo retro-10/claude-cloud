@@ -4,9 +4,11 @@ import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { leads, sources, stages, users } from "@/db/schema";
 import { Flash } from "@/components/Flash";
+import { BudgetBar } from "@/components/finance/BudgetBar";
 import { CampaignForm } from "@/components/growth/CampaignForm";
 import { Card, EmptyState, Icon, PageHeader, Stat, StageChip } from "@/components/ui";
 import { CAMPAIGN_KINDS, CAMPAIGN_STATUS, campaignCosts, campaignStats } from "@/lib/campaigns";
+import { FORMATS, PLATFORMS, STATUSES, campaignContent } from "@/lib/content";
 import { STATUS_LABEL } from "@/lib/finance";
 import { can } from "@/lib/rbac";
 import { requirePageCan } from "@/lib/server-auth";
@@ -26,7 +28,7 @@ export default async function CampaignPage(props: { params: Promise<{ id: string
   if (!Number.isInteger(id) || id <= 0) notFound();
   const money = can(user.role, "finance:read");
   const leadsOk = can(user.role, "lead:read"); // marketing sees the numbers, not the people
-  const [[c], costs, campaignLeads, src, people, stageList] = await Promise.all([
+  const [[c], costs, campaignLeads, src, people, stageList, pieces] = await Promise.all([
     campaignStats(db, id),
     money ? campaignCosts(db, id) : Promise.resolve([]),
     db
@@ -38,6 +40,7 @@ export default async function CampaignPage(props: { params: Promise<{ id: string
     db.select().from(sources).orderBy(asc(sources.label)),
     db.select({ id: users.id, name: users.name }).from(users).where(eq(users.active, true)).orderBy(asc(users.name)),
     db.select().from(stages),
+    campaignContent(db, id),
   ]);
   if (!c) notFound();
   const stage = (k: string) => stageList.find((s) => s.key === k);
@@ -96,6 +99,39 @@ export default async function CampaignPage(props: { params: Promise<{ id: string
         </Card>
 
         <div className="flex flex-col gap-6">
+          <Card title="Budget" icon="target">
+            <BudgetBar c={c} />
+            {c.budgetEgp != null && <p className="mt-3 text-xs text-muted">Owed costs and approval requests waiting for a decision count against the budget as soon as they are made.</p>}
+          </Card>
+          <Card
+            title={`Content (${pieces.length})`}
+            icon="note"
+            bodyClass="p-0"
+            actions={
+              <Link href="/growth/content" className="text-xs text-muted hover:text-fg">
+                Content calendar
+              </Link>
+            }
+          >
+            {pieces.length === 0 ? (
+              <p className="p-4 text-sm text-muted">No content belongs to this campaign yet. Pick the campaign on a piece in the content calendar.</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {pieces.map((p) => (
+                  <li key={p.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                    <Link href={`/growth/content/${p.id}`} className="link min-w-0 flex-1 truncate" dir="auto">
+                      {p.title}
+                    </Link>
+                    <span className="text-xs text-muted">
+                      {PLATFORMS[p.platform]} {FORMATS[p.format].toLowerCase()} · {p.publishAt ? formatCairo(p.publishAt, false) : "no date"}
+                      {p.leads > 0 && ` · ${p.leads} lead${p.leads === 1 ? "" : "s"}`}
+                    </span>
+                    <span className={`chip ${p.status === "posted" ? "chip-ok" : ""}`}>{STATUSES[p.status]}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
           {money && (
             <Card title="Costs" icon="trend">
               {costs.length === 0 ? (
