@@ -17,7 +17,7 @@ export const metadata = { title: "Meeting · Team" };
 
 export default async function MeetingPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const [{ id }, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   const m = await getMeeting(db, Number(id));
   if (!m) notFound();
   const manage = can(user.role, "ops:manage");

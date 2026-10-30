@@ -36,7 +36,7 @@ function Piece({ c, compact }: { c: ContentRow; compact?: boolean }) {
 // The content calendar: plan by month, run production on the board, and see which posts brought leads.
 export default async function ContentPage(props: { searchParams: Promise<{ month?: string; view?: string; notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("growth:read");
   const write = can(user.role, "growth:write");
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(sp.month ?? "") ? sp.month! : thisMonth();
   const view = sp.view === "board" ? "board" : "calendar";

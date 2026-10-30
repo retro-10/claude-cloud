@@ -78,7 +78,7 @@ function FunctionForm({ f, partners }: { f?: FunctionRow; partners: string[] }) 
 // accountable load sets each partner's share of the salary pool (Finance > Partner pay).
 export default async function FunctionsPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   const [fns, s] = await Promise.all([listFunctions(db), getSettings(db)]);
   const m = s.financeModel;
   const partners = m.newShares.map((p) => p.name);

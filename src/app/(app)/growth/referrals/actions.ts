@@ -15,7 +15,7 @@ const back = (path: string, r: { ok: true } | { ok: false; error: string }, noti
   redirect(r.ok ? `${path}?notice=${encodeURIComponent(notice)}` : `${path}?error=${encodeURIComponent(r.error)}`);
 
 export async function makeReferralCodeAction(form: FormData) {
-  await requireCan("growth:write");
+  await requireCan("lead:write"); // the code belongs to a lead
   const leadId = id.parse(form.get("leadId"));
   const code = await ensureReferralCode(db, leadId);
   revalidatePath(`/leads/${leadId}`);

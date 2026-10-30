@@ -15,8 +15,9 @@ const CHIP = { pending: "chip chip-warn", approved: "chip chip-brand", paid: "ch
 // Who brings people in. A reward is decided by a person when someone they referred enrols.
 export default async function ReferralsPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("growth:read");
   const money = can(user.role, "finance:read");
+  const leadsOk = can(user.role, "lead:read"); // referrers are students: marketing sees the totals only
   const pay = can(user.role, "payment:write");
   await syncRewards(db);
   const [people, rewards] = await Promise.all([listReferrers(db), money ? listRewards(db) : Promise.resolve([])]);
@@ -39,7 +40,9 @@ export default async function ReferralsPage(props: { searchParams: Promise<{ not
       </div>
       <div className="grid gap-6 xl:grid-cols-2">
         <Card title="Who refers" icon="user" bodyClass="p-0 overflow-x-auto">
-          {people.length === 0 ? (
+          {!leadsOk ? (
+            <p className="p-4 text-sm text-muted">The totals are above; who refers is visible to sales and owners.</p>
+          ) : people.length === 0 ? (
             <EmptyState icon="user" title="No referrals yet.">
               Open a student&rsquo;s page and press <em>Make referral link</em> in the Referrals card.
             </EmptyState>
@@ -99,9 +102,16 @@ export default async function ReferralsPage(props: { searchParams: Promise<{ not
                           Note
                           <input name="note" maxLength={200} defaultValue={w.note ?? ""} className="input input-sm" />
                         </label>
-                        <button name="status" value="approved" className="btn btn-secondary btn-sm">Approve</button>
-                        <button name="status" value="paid" className="btn btn-primary btn-sm">Paid</button>
-                        <button name="status" value="declined" className="btn btn-ghost btn-sm">Decline</button>
+                        {/* the decision is a field, not the clicked button's value: a submitter's value is not always sent */}
+                        <label className="field">
+                          Decision
+                          <select name="status" defaultValue="approved" className="input input-sm">
+                            <option value="approved">Approve</option>
+                            <option value="paid">Paid</option>
+                            <option value="declined">Decline</option>
+                          </select>
+                        </label>
+                        <button className="btn btn-primary btn-sm">Save</button>
                       </form>
                     )}
                   </li>

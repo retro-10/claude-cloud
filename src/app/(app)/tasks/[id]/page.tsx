@@ -27,7 +27,7 @@ const ACTION_LABEL: Record<string, string> = {
 
 export default async function TaskPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const [{ id }, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   if (!/^\d+$/.test(id)) notFound();
   const [t, spaces, people] = await Promise.all([
     taskDetail(db, Number(id)),

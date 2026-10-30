@@ -27,7 +27,7 @@ const GROUPS: { key: Group; label: string }[] = [
 
 export default async function SpacePage(props: { params: Promise<{ id: string }>; searchParams: Promise<Search> }) {
   const [{ id }, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   if (!/^\d+$/.test(id)) notFound();
   const space = await getSpace(db, Number(id));
   if (!space) notFound();

@@ -16,6 +16,7 @@ const ROLES = [
   ["finance", "finance (payments, revenue export)"],
   ["instructor", "instructor (classes, attendance, reviews; no money)"],
   ["designer", "designer (only their own production cases; no leads, no money)"],
+  ["marketing", "marketing (campaigns, content, masterclasses and HQ; no lead records, no money)"],
 ] as const;
 
 export default async function UsersPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {

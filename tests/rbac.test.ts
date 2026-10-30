@@ -52,4 +52,19 @@ describe("instructor", () => {
       expect(can("instructor", a)).toBe(false);
     for (const r of ["sales", "viewer", "finance"] as const) expect(can(r, "programme:write")).toBe(false);
   });
+
+  it("marketing plans growth and works in HQ, but reads no lead records and no money", () => {
+    for (const a of ["hq:read", "growth:read", "growth:write", "task:write", "ai:use", "calendar:write", "chat:write"] as const) expect(can("marketing", a)).toBe(true);
+    for (const a of ["lead:read", "lead:write", "lead:export", "finance:read", "payment:write", "file:write", "settings:write", "production:read"] as const)
+      expect(can("marketing", a)).toBe(false);
+  });
+
+  it("everyone but designers reaches HQ; growth pages for everyone who reads leads, and marketing", () => {
+    for (const r of ["owner", "sales", "viewer", "finance", "instructor", "marketing"] as const) {
+      expect(can(r, "hq:read")).toBe(true);
+      expect(can(r, "growth:read")).toBe(true);
+    }
+    expect(can("designer", "hq:read")).toBe(false);
+    expect(can("designer", "growth:read")).toBe(false);
+  });
 });

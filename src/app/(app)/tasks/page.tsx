@@ -24,7 +24,7 @@ const DUE = [
 // The team's to-do list: tasks on leads, students and batches, or on nothing in particular.
 export default async function TasksPage(props: { searchParams: Promise<Search> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   const who = sp.who ?? "mine";
   const due = DUE.some(([k]) => k === sp.due) ? (sp.due as TaskFilter["due"] | "") : "";
   const filter: TaskFilter = {

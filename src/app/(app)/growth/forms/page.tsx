@@ -14,7 +14,7 @@ export const metadata = { title: "Lead forms · Growth" };
 // Public sign-up pages. Each submission becomes a lead (or is linked to the person we already have).
 export default async function FormsPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("growth:read");
   const write = can(user.role, "growth:write");
   const [forms, camps, src, base] = await Promise.all([
     listForms(db),

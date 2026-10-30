@@ -13,7 +13,7 @@ export const metadata = { title: "Meetings · Team" };
 
 export default async function MeetingsPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   const manage = can(user.role, "ops:manage");
   const rows = await listMeetings(db);
   return (

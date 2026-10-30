@@ -23,7 +23,7 @@ const UTM_SOURCE: Record<string, string> = { instagram: "instagram", tiktok: "ti
 
 export default async function ContentItemPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const [params, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("growth:read");
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) notFound();
   const c = await getContent(db, id);
@@ -39,6 +39,7 @@ export default async function ContentItemPage(props: { params: Promise<{ id: str
   const campaignSlug = camps.find((g) => g.id === c.campaignId)?.slug;
   const link = form && c.tag ? `${base}/f/${form.slug}?utm_source=${UTM_SOURCE[c.platform]}&utm_medium=${c.format}${campaignSlug ? `&utm_campaign=${campaignSlug}` : ""}&utm_content=${c.tag}` : null;
   const write = can(user.role, "growth:write");
+  const leadsOk = can(user.role, "lead:read"); // marketing sees how many, not who
   const ai = write && (await aiOffered(db, user.role));
 
   return (
@@ -84,7 +85,7 @@ export default async function ContentItemPage(props: { params: Promise<{ id: str
             <p className="mt-3 text-sm">
               <span className="font-medium">{fromIt.length}</span> lead{fromIt.length === 1 ? "" : "s"} came through it
             </p>
-            {fromIt.length > 0 && (
+            {leadsOk && fromIt.length > 0 && (
               <ul className="mt-2 flex flex-col gap-1 text-sm">
                 {fromIt.map((l) => (
                   <li key={l.id}>

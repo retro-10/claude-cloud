@@ -16,7 +16,7 @@ export const metadata = { title: "Doc" };
 
 export default async function DocPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ edit?: string; notice?: string; error?: string }> }) {
   const [{ id }, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   if (!/^\d+$/.test(id)) notFound();
   const [doc, spaces, all] = await Promise.all([getDoc(db, Number(id)), listSpaces(db), listDocs(db)]);
   if (!doc) notFound();

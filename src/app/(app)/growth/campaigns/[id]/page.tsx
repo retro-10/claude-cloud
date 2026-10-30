@@ -21,10 +21,11 @@ const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "â€
 
 export default async function CampaignPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const [params, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("growth:read");
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) notFound();
   const money = can(user.role, "finance:read");
+  const leadsOk = can(user.role, "lead:read"); // marketing sees the numbers, not the people
   const [[c], costs, campaignLeads, src, people, stageList] = await Promise.all([
     campaignStats(db, id),
     money ? campaignCosts(db, id) : Promise.resolve([]),
@@ -75,7 +76,9 @@ export default async function CampaignPage(props: { params: Promise<{ id: string
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title={`Leads (${c.leads})`} icon="leads" bodyClass="p-0">
-          {campaignLeads.length === 0 ? (
+          {!leadsOk ? (
+            <p className="p-4 text-sm text-muted">The counts are above; names and stages are visible to sales and owners.</p>
+          ) : campaignLeads.length === 0 ? (
             <EmptyState icon="leads" title="No leads tagged to this campaign yet." />
           ) : (
             <ul className="divide-y divide-line">

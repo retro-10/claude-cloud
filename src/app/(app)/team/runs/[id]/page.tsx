@@ -14,7 +14,7 @@ export const metadata = { title: "Checklist · Team" };
 
 export default async function RunPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const [{ id }, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   const r = await getRun(db, Number(id));
   if (!r) notFound();
   const write = can(user.role, "task:write") && !r.cancelledAt;

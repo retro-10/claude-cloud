@@ -11,7 +11,7 @@ const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "â€
 
 // Masterclasses and events: who registered, who was reminded, who came, and who went on to a consult.
 export default async function EventsPage() {
-  await requirePageCan("lead:read");
+  await requirePageCan("growth:read");
   const rows = await listEvents(db);
   return (
     <>

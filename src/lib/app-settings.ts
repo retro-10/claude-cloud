@@ -39,7 +39,11 @@ export type Settings = {
   prices: TierPrice[]; // Camp tier prices and whether each is still offered
   decisionRights: DecisionRight[]; // who decides what
   auxCodes: AuxCode[]; // away statuses while clocked in (break, prayer, lunch …)
+  approvalRules: ApprovalRule[]; // who may approve which requests; the first rule that matches decides
 };
+/** A routing rule. `type` "*" matches every type; `minAmountEgp` (or more) applies the rule only from that amount.
+ * Approvers: "owners", "finance" (everyone with that role) or "user:<id>". */
+export type ApprovalRule = { type: string; minAmountEgp: number | null; approvers: string[] };
 /** An away status. `paid`: the time still counts as worked; otherwise it is taken off the hours. `maxMinutes`: after
  * that long the status shows as overdue to everyone (null: no limit). */
 export type AuxCode = { key: string; label: string; paid: boolean; maxMinutes: number | null };
@@ -99,6 +103,12 @@ export const DEFAULTS: Settings = {
     { key: "break", label: "Break", paid: false, maxMinutes: null },
     { key: "prayer", label: "Prayer", paid: false, maxMinutes: null },
     { key: "lunch", label: "Lunch", paid: false, maxMinutes: null },
+  ],
+  // from the HQ brief's access map: finance approves money, owners approve the rest (and money too)
+  approvalRules: [
+    { type: "expense", minAmountEgp: null, approvers: ["finance", "owners"] },
+    { type: "purchase", minAmountEgp: null, approvers: ["finance", "owners"] },
+    { type: "*", minAmountEgp: null, approvers: ["owners"] },
   ],
 };
 
@@ -167,6 +177,18 @@ const VALIDATE: { [K in Key]: (v: unknown) => Settings[K] | undefined } = {
       out.push({ key, label, paid: a.paid, maxMinutes: a.maxMinutes });
     }
     return new Set(out.map((a) => a.key)).size === out.length ? out : undefined;
+  }) as never,
+  approvalRules: ((v: unknown) => {
+    if (!Array.isArray(v) || !v.length || v.length > 30) return undefined;
+    const out: ApprovalRule[] = [];
+    for (const r of v as ApprovalRule[]) {
+      if (!r || typeof r.type !== "string" || !/^(\*|[a-z_]{2,20})$/.test(r.type)) return undefined;
+      if (r.minAmountEgp !== null && !(Number.isInteger(r.minAmountEgp) && r.minAmountEgp >= 0)) return undefined;
+      if (!Array.isArray(r.approvers) || !r.approvers.length || !r.approvers.every((a) => a === "owners" || a === "finance" || /^user:\d+$/.test(a))) return undefined;
+      out.push({ type: r.type, minAmountEgp: r.minAmountEgp, approvers: [...new Set(r.approvers)] });
+    }
+    // a request of any type must find someone: the last rule has to catch everything
+    return out.at(-1)!.type === "*" && out.at(-1)!.minAmountEgp === null ? out : undefined;
   }) as never,
   routes: ((v: unknown) =>
     Array.isArray(v) &&

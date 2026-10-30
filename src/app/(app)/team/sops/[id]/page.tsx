@@ -17,7 +17,7 @@ export const metadata = { title: "Playbook · Team" };
 
 export default async function SopPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const [{ id }, sp] = await Promise.all([props.params, props.searchParams]);
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("hq:read");
   const s = await getSop(db, Number(id));
   if (!s) notFound();
   const manage = can(user.role, "ops:manage");

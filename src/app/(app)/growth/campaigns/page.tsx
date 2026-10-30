@@ -19,7 +19,7 @@ const STATUS_CHIP = { planned: "chip", live: "chip chip-ok", ended: "chip" } as 
 // Every campaign with what it brought: leads, consults, enrolments, and (owners and finance) what it cost.
 export default async function CampaignsPage(props: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const sp = await props.searchParams;
-  const user = await requirePageCan("lead:read");
+  const user = await requirePageCan("growth:read");
   const money = can(user.role, "finance:read");
   const [rows, src, people] = await Promise.all([
     campaignStats(db),

@@ -239,6 +239,20 @@
       "when": 1793320175473,
       "tag": "0033_time_aux",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793321623057,
+      "tag": "0034_marketing_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793321847765,
+      "tag": "0035_approvals",
+      "breakpoints": true
     }
   ]
 }

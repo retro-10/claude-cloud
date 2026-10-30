@@ -35,7 +35,7 @@ import { createStage, setCriterion } from "@/lib/settings";
 import { deleteRule, parseRuleJson, saveRule, setRuleEnabled, type RuleInput } from "@/lib/workflows";
 
 const id = z.coerce.number().int().positive();
-const role = z.enum(["owner", "sales", "viewer", "finance", "instructor", "designer"]);
+const role = z.enum(["owner", "sales", "viewer", "finance", "instructor", "designer", "marketing"]);
 const list = z.enum(["sources", "lostReasons", "objections"]);
 
 // Every mutation here returns to the page it came from with either a notice or an error.
@@ -318,4 +318,23 @@ export async function saveAuxCodesAction(form: FormData) {
   const r = await saveSettings(db, { auxCodes: codes.map((c) => ({ ...c, key: c.key.toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_|_$/g, "") || "status" })) }, me.id);
   revalidatePath("/", "layout");
   done("/settings/time", r.ok ? r : { ok: false, error: "Each status needs a name, names must differ, and limits are 1 to 600 minutes" });
+}
+
+// Approval routing: rows type_<i>, min_<i>, owners_<i>, finance_<i>, user_<i>, remove_<i>, plus one blank row. The
+// rules are checked top to bottom; the last must catch every request.
+export async function saveApprovalRulesAction(form: FormData) {
+  const me = await requireCan("settings:write");
+  const rows = Math.min(Number(form.get("rows")) || 0, 30);
+  const rules = [];
+  for (let i = 0; i < rows; i++) {
+    const type = String(form.get(`type_${i}`) ?? "");
+    if (!type || form.get(`remove_${i}`) === "on") continue;
+    const approvers = [form.get(`owners_${i}`) === "on" && "owners", form.get(`finance_${i}`) === "on" && "finance", form.get(`user_${i}`) ? `user:${form.get(`user_${i}`)}` : null].filter(
+      (a): a is string => !!a,
+    );
+    const min = String(form.get(`min_${i}`) ?? "").trim();
+    rules.push({ type, minAmountEgp: min ? Number(min) : null, approvers });
+  }
+  const r = await saveSettings(db, { approvalRules: rules }, me.id);
+  done("/settings/approvals", r.ok ? r : { ok: false, error: "Each rule needs at least one approver, amounts are whole EGP, and the last rule must be “Any request” with no minimum" });
 }

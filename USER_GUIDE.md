@@ -18,6 +18,24 @@ when the buyer moved, and log everything** so the numbers are true.
   hours overdue, nobody has answered an unassigned lead.
 * Sun/moon icon: light or dark theme (remembered per browser).
 
+## Approvals (everyone)
+
+**Approvals** in the sidebar is one queue for every yes the company needs.
+
+* **Ask**: *New request*, pick the kind (Expense, Purchase, Leave, Brand or design request, Other), fill it in and
+  send. The form shows who will approve it. You follow it under **My requests**, and the bell tells you the answer.
+* **Who approves**: the routing rules in **Settings > Approvals** (owners edit them). By default expenses and
+  purchases go to finance and the owners, everything else to the owners. A rule can start at an amount, so larger
+  purchases can go to someone else. Any one of the approvers decides. **Nobody approves their own request**: if a
+  rule would name only you, the owners decide.
+* **Decide**: **Waiting for me** lists what needs you, oldest first. Approve in one click from the Inbox, or open the
+  request to approve, reject (with a reason) or ask a question. A question sends it back to the person who asked;
+  their answer puts it back in your queue.
+* **Approved leave** goes on the team calendar by itself.
+* **The record**: every step (asked, questioned, answered, approved, rejected, withdrawn) is kept with who and when,
+  and cannot be edited or deleted, not even directly in the database. Owners see every request; finance sees every
+  money request; everyone else sees their own and the ones they approve.
+
 ## Team chat (everyone)
 
 **Chat** in the sidebar (or `G J`) is where the team talks: every role, designers included. The number beside it
@@ -643,6 +661,7 @@ leads shows the raw count ("2 of 3") instead of a percentage.** Definitions: `ME
 | **finance** (Mo) | read everything including revenue, Finance (record payments, costs, withdrawals), export revenue; cannot edit or export leads, or change settings |
 | **instructor** | read leads; run the programme: classes and attendance, assignments and reviews, graduation, alumni, portal invites; add tasks and files. No revenue, no lead editing, no settings |
 | **designer** | only the production studio, and only the cases assigned to them: start, add the design files, send to QC; their own pay per case. No leads, students, prices or settings |
+| **marketing** | HQ (home, inbox, chat, calendar, docs, spaces, tasks, team & ops) and Growth: campaigns, content, masterclasses, forms. Sees how many leads came in, never who: no lead records, names or phones, no money, no settings |
 
 Ask OrlaDent: everyone except designers, each seeing only what their role sees. Team chat and the team
 calendar: everyone.
