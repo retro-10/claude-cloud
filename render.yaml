@@ -1,0 +1,35 @@
+# Render Blueprint: the HQ web service, built from the Dockerfile. Secrets are marked sync: false, so Render asks for
+# them when the Blueprint is applied and they never live in this file. Database: Supabase (DATABASE_URL, session
+# pooler on port 5432). Migrations and reference data run in docker-entrypoint.sh on every start.
+services:
+  - type: web
+    name: orladent-hq
+    runtime: docker
+    plan: free # "starter" keeps it awake (timed jobs and backups run on time); free sleeps after 15 idle minutes
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_POOL_MAX
+        value: "5"
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: SEED_PASSWORD
+        sync: false
+      - key: SEED_DEMO
+        value: "false"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: APP_URL
+        value: https://hq.orladent.com
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false

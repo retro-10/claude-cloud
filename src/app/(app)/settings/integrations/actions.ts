@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { audit } from "@/lib/audit";
 import { moveFilesToDrive } from "@/lib/attachments";
+import { runBackup } from "@/lib/backup";
 import { removeDemoData } from "@/lib/demo-cleanup";
 import { disconnectDrive } from "@/lib/drive";
 import { archiveNotionPages, syncNow } from "@/lib/notion/sync";
@@ -49,4 +50,11 @@ export async function disconnectDriveAction() {
   await disconnectDrive(db, user.id);
   revalidatePath("/settings/integrations");
   redirect(`/settings/integrations?notice=${encodeURIComponent("Google Drive disconnected. New files are kept in the database.")}`);
+}
+
+export async function backupNowAction() {
+  const user = await requireCan("settings:write");
+  const r = await runBackup(db, user.id);
+  revalidatePath("/settings/integrations");
+  redirect(`/settings/integrations?${r.ok ? "notice" : "error"}=${encodeURIComponent(r.ok ? `Backup saved to Drive: ${r.name}` : r.error)}`);
 }
