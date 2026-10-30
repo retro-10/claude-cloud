@@ -121,6 +121,22 @@ The scripts run inside the `db` container of `docker compose` by default. To run
 database (no Docker), set `BACKUP_MODE=direct DATABASE_URL=postgres://…` and have the PostgreSQL client tools
 installed. Both modes share the same code.
 
+## Deploy on Render + Supabase (the chosen setup)
+
+1. **Supabase**: create the project (done: ORLADENT HQ, Ireland). Copy **Connect > Session pooler** (port 5432);
+   use a database password with letters and digits only, or URL-encode it.
+2. **Render**: New > Blueprint > this repository. `render.yaml` defines the `orladent-hq` web service (Docker,
+   Frankfurt, free plan, health check `/api/health`, auto-deploy from `main`). Render asks for the secrets:
+   `DATABASE_URL`, `SEED_PASSWORD`, and optionally `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`,
+   `ANTHROPIC_API_KEY`. `AUTH_SECRET` is generated. Render needs a payment card on the account even for the free plan.
+3. **Domain**: in the service, Settings > Custom Domains > add `hq.orladent.com`; at Hostinger add a CNAME `hq` →
+   `orladent-hq.onrender.com`. Render issues the certificate.
+4. **Backups**: Supabase's free plan keeps none. Once Google Drive is connected (Settings > Integrations), the app
+   saves a `pg_dump` to a Backups folder in that Drive once a day and keeps the newest 14; **Back up now** runs one
+   on demand. On the free Render plan the app sleeps when idle, so the daily backup runs the next time it wakes.
+   Restore: download a file, then `pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" orladent-hq-….dump`
+   (with PostgreSQL 17 client tools).
+
 ## Deploy without a server: Hostinger + Supabase + Google Drive
 
 No VPS and no Docker: the app runs as a Node.js web app (Hostinger Business or Cloud plans, or any Node host),

@@ -8,7 +8,8 @@ import { ConfirmButton } from "@/components/ConfirmButton";
 import { demoCounts } from "@/lib/demo-cleanup";
 import { fileStoreCounts, formatBytes } from "@/lib/attachments";
 import { driveFolderUrl, driveStatus } from "@/lib/drive";
-import { disconnectDriveAction, moveFilesToDriveAction, removeDemoAction, syncNotionAction } from "./actions";
+import { KEEP, backupState } from "@/lib/backup";
+import { backupNowAction, disconnectDriveAction, moveFilesToDriveAction, removeDemoAction, syncNotionAction } from "./actions";
 import { callbackUrl } from "./drive/shared";
 
 export const metadata = { title: "Integrations · Settings" };
@@ -19,7 +20,7 @@ export default async function Integrations(props: { searchParams: Promise<{ noti
   const sp = await props.searchParams;
   await requirePageCan("settings:write");
   const cfg = notionConfig();
-  const [st, demo, drive, files, redirectUri] = await Promise.all([syncStatus(db), demoCounts(db), driveStatus(db), fileStoreCounts(db), callbackUrl()]);
+  const [st, demo, drive, files, redirectUri, backup] = await Promise.all([syncStatus(db), demoCounts(db), driveStatus(db), fileStoreCounts(db), callbackUrl(), backupState(db)]);
   const last = st.runs[0];
   const leadsDb = cfg?.leadsDb ?? st.leadsDb;
   const dbs = cfg
@@ -162,6 +163,25 @@ export default async function Integrations(props: { searchParams: Promise<{ noti
                 <button className="btn btn-sm">Move them to Drive now</button>
               </form>
             )}
+          </div>
+        )}
+        {(drive.mode === "oauth" || drive.mode === "service") && (
+          <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-line pt-4 text-sm">
+            <div className="flex-1">
+              <div className="font-medium">Database backups</div>
+              <div className="text-muted">
+                Once a day to a Backups folder in this Drive; the newest {KEEP} are kept.{" "}
+                {backup.lastAt ? `Last: ${formatCairo(new Date(backup.lastAt))} (${formatBytes(backup.lastSize)}).` : "None yet."}
+              </div>
+              {backup.lastError && backup.lastErrorAt && (!backup.lastAt || backup.lastErrorAt > backup.lastAt) && (
+                <div className="text-danger">
+                  Last attempt failed {formatCairo(new Date(backup.lastErrorAt))}: {backup.lastError}
+                </div>
+              )}
+            </div>
+            <form action={backupNowAction}>
+              <button className="btn btn-secondary btn-sm">Back up now</button>
+            </form>
           </div>
         )}
       </Card>

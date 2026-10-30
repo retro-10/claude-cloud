@@ -22,11 +22,14 @@ export async function register() {
       // the same tick stops clocks left running from an earlier day (at the midnight after they started)
       const { stopForgottenClocks } = await import("./lib/calendar");
       const { moveFilesToDrive } = await import("./lib/attachments");
+      const { backupIfDue } = await import("./lib/backup");
       const tick = () => {
         void runScheduledRules(db).catch(() => 0);
         void stopForgottenClocks(db).catch(() => 0);
         // and, with Google Drive connected, moves files still stored in the database there (a few per tick)
         void moveFilesToDrive(db).catch(() => 0);
+        // and a database backup to Drive once a day
+        void backupIfDue(db).catch(() => 0);
       };
       setTimeout(tick, 30_000);
       setInterval(tick, 5 * 60_000).unref?.();

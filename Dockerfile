@@ -22,6 +22,8 @@ COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/src ./src
 COPY --from=build --chown=node:node /app/drizzle ./drizzle
 COPY --from=build --chown=node:node /app/next.config.mjs ./next.config.mjs
+# pg_dump for the in-app nightly backup to Drive; version 17 so it can dump a Postgres 17 server (Supabase)
+RUN apk add --no-cache postgresql17-client
 COPY --chown=node:node docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh
 USER node

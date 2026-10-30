@@ -141,10 +141,45 @@ async function folder(db: Db): Promise<string> {
 
 // ---------------- files ----------------
 
-export async function uploadToDrive(db: Db, file: { name: string; contentType: string; bytes: Buffer; description?: string }): Promise<string> {
+/** A folder inside the app's folder (backups), created once and remembered. */
+export async function driveSubfolder(db: Db, name: string): Promise<string> {
+  const key = `driveFolder:${name}`;
+  const [row] = await db.select({ value: appSettings.value }).from(appSettings).where(eq(appSettings.key, key));
+  const known = row?.value as { id: string; parent: string } | undefined;
   const parent = await folder(db);
+  if (known && known.parent === parent) return known.id;
+  const res = await call(db, `${API}/files?fields=id&supportsAllDrives=true`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, parents: [parent], mimeType: "application/vnd.google-apps.folder" }),
+  });
+  const { id } = (await res.json()) as { id: string };
+  const value = { id, parent };
+  await db.insert(appSettings).values({ key, value }).onConflictDoUpdate({ target: appSettings.key, set: { value, updatedAt: new Date() } });
+  return id;
+}
+
+// Google takes a file and its details in one request up to 5 MB; larger ones go in a resumable upload session.
+const SIMPLE_MAX = 4 * 1024 * 1024;
+
+export async function uploadToDrive(
+  db: Db,
+  file: { name: string; contentType: string; bytes: Buffer; description?: string; kind?: "attachment" | "backup"; parent?: string },
+): Promise<string> {
+  const parent = file.parent ?? (await folder(db));
+  const meta = { name: file.name, parents: [parent], description: file.description, appProperties: { orladent: file.kind ?? "attachment" } };
+  if (file.bytes.length > SIMPLE_MAX) {
+    const start = await call(db, UPLOAD.replace("uploadType=multipart", "uploadType=resumable"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": file.contentType, "X-Upload-Content-Length": String(file.bytes.length) },
+      body: JSON.stringify(meta),
+    });
+    const session = start.headers.get("location");
+    if (!session) throw new DriveError("Google Drive did not open an upload");
+    const res = await call(db, session, { method: "PUT", headers: { "Content-Type": file.contentType }, body: new Uint8Array(file.bytes) });
+    return ((await res.json()) as { id: string }).id;
+  }
   const boundary = `orladent${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-  const meta = { name: file.name, parents: [parent], description: file.description, appProperties: { orladent: "attachment" } };
   const body = Buffer.concat([
     Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: ${file.contentType}\r\n\r\n`),
     file.bytes,
@@ -152,6 +187,17 @@ export async function uploadToDrive(db: Db, file: { name: string; contentType: s
   ]);
   const res = await call(db, UPLOAD, { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${boundary}` }, body });
   return ((await res.json()) as { id: string }).id;
+}
+
+/** The app's files of one kind in a folder, newest first. */
+export async function listDriveFiles(db: Db, parent: string, kind: "attachment" | "backup"): Promise<{ id: string; name: string; size: number; createdTime: string }[]> {
+  const q = `'${parent.replace(/'/g, "")}' in parents and trashed = false and appProperties has { key='orladent' and value='${kind}' }`;
+  const res = await call(
+    db,
+    `${API}/files?${new URLSearchParams({ q, orderBy: "createdTime desc", fields: "files(id,name,size,createdTime)", pageSize: "100", supportsAllDrives: "true", includeItemsFromAllDrives: "true" })}`,
+  );
+  const { files } = (await res.json()) as { files: { id: string; name: string; size?: string; createdTime: string }[] };
+  return files.map((f) => ({ ...f, size: Number(f.size ?? 0) }));
 }
 
 export async function downloadFromDrive(db: Pick<Db, "select">, id: string): Promise<Buffer> {
